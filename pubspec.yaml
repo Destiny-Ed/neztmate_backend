@@ -26,6 +26,7 @@ dependencies:
   flutter_dotenv: ^6.0.0
   logging: ^1.2.0
   dart_firebase_admin: ^0.4.1
+  get_it: ^9.2.1
 
 dev_dependencies:
   http: ^1.2.2
