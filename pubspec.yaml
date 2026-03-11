@@ -8,9 +8,30 @@ environment:
 
 dependencies:
   shelf: ^1.4.2
-  shelf_router: ^1.1.2
+  shelf_router: ^1.1.4
+
+  shelf_cors_headers: ^0.1.5
+  shelf_limiter: ^2.0.1
+
+  uuid: ^4.5.3
+  bcrypt: ^1.2.0
+  dart_jsonwebtoken: ^3.1.1
+
+  freezed_annotation: ^3.1.0
+  json_annotation: ^4.11.0
+
+  # firebase_admin: ^0.3.1+1
+  postgres: ^3.5.9
+
+  flutter_dotenv: ^6.0.0
+  logging: ^1.2.0
+  dart_firebase_admin: ^0.4.1
 
 dev_dependencies:
   http: ^1.2.2
   lints: ^6.0.0
   test: ^1.25.6
+
+  build_runner: ^2.12.2
+  freezed: ^3.2.5
+  json_serializable: ^6.13.0
