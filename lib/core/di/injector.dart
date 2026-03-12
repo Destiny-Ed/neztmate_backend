@@ -1,32 +1,61 @@
+import 'package:dart_firebase_admin/auth.dart';
+import 'package:dart_firebase_admin/firestore.dart';
 import 'package:get_it/get_it.dart';
-import 'package:neztmate_backend/features/auth/domain/repositories/auth_repository.dart';
-import 'package:neztmate_backend/features/auth/domain/repositories/user_repository.dart';
-import 'package:neztmate_backend/features/auth/domain/usecases/register_user.dart';
-import 'package:neztmate_backend/infrastructure/auth/password_service.dart';
-import 'package:neztmate_backend/infrastructure/database/firestore/firestore.dart';
-
-import '../../features/auth/data/repository_impl/firestore/auth_repository_impl.dart';
-import '../../features/auth/data/repository_impl/firestore/user_repository_imp.dart';
+import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
+import 'package:neztmate_backend/core/services/auth/password_service.dart';
+import 'package:neztmate_backend/core/services/database/firebase/firebase.dart';
+import 'package:neztmate_backend/features/auth/datasources/firestore/firestore_user_datasource.dart';
+import 'package:neztmate_backend/features/auth/datasources/user_remote_datasource.dart';
+import 'package:neztmate_backend/features/auth/handler/auth_handler.dart';
+import 'package:neztmate_backend/features/auth/repositories/auth_repository.dart';
+import 'package:neztmate_backend/features/auth/repositories/user_repository.dart';
+import 'package:neztmate_backend/features/auth/repository_impl/firestore/auth_repository_impl.dart';
+import 'package:neztmate_backend/features/auth/repository_impl/firestore/user_repository_impl.dart';
 
 final injector = GetIt.instance;
 
-void setupDependencies() async {
-  // final db = PostgresService();
-  // await db.connect();
+Future<void> setupDependencies({bool usePostgres = false, required String jwtSecret}) async {
+  // 1. Database / Firebase setup
+  if (usePostgres) {
+    // final db = PostgresService();
+    // await db.connect();
+    // injector.registerLazySingleton<PostgresService>(() => db);
+    // injector.registerLazySingleton<UserRemoteDataSource>(
+    //   () => PostgresUserDataSource(db),
+    // );
+    throw UnimplementedError("Postgres support not fully implemented yet");
+  } else {
+    final firebaseService = FirebaseService();
+    await firebaseService.init();
 
-  // final authRepository = AuthRepositoryImpl(db);
-  // final userRepository = UserRepositoryImpl(db);
+    injector.registerLazySingleton<FirebaseService>(() => firebaseService);
+    injector.registerLazySingleton<Firestore>(() => firebaseService.firestore);
+    injector.registerLazySingleton<Auth>(() => firebaseService.auth);
+  }
 
-  final firestoreService = FirestoreService();
-  await firestoreService.init();
+  // 2. Core services
+  injector.registerLazySingleton<PasswordService>(() => PasswordService());
+  injector.registerLazySingleton<JwtService>(() => JwtService(jwtSecret));
 
-  final authRepository = AuthRepositoryImpl(firestoreService);
-  final userRepository = UserRepositoryImpl(firestoreService);
+  // 3. Data sources & repositories
+  injector.registerLazySingleton<UserRemoteDataSource>(() => FirestoreUserDataSource(injector<Firestore>()));
+  injector.registerLazySingleton<UserRepository>(() => UserRepositoryImpl(injector<UserRemoteDataSource>()));
 
-  injector.registerLazySingleton<AuthRepository>(() => authRepository);
-  injector.registerLazySingleton<UserRepository>(() => userRepository);
+  injector.registerLazySingleton<AuthRepository>(
+    () => AuthRepositoryImpl(
+      userRepository: injector<UserRepository>(),
+      firebaseAuth: injector<Auth>(),
+      passwordService: injector<PasswordService>(),
+      firestore: injector<Firestore>(),
+    ),
+  );
 
-  injector.registerLazySingleton(() => PasswordService());
-
-  injector.registerFactory(() => RegisterUser(injector(), injector()));
+  injector.registerLazySingleton<AuthHandler>(
+    () => AuthHandler(
+      injector<AuthRepository>(),
+      injector<PasswordService>(),
+      injector<JwtService>(),
+      injector<UserRepository>(),
+    ),
+  );
 }

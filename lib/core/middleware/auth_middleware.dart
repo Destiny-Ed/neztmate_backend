@@ -1,4 +1,4 @@
-import 'package:neztmate_backend/infrastructure/auth/jwt_service.dart';
+import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
 import 'package:shelf/shelf.dart';
 
 Middleware authMiddleware(JwtService jwtService) {

@@ -1,3 +1,5 @@
 # https://dart.dev/guides/libraries/private-files
 # Created by `dart pub`
 .dart_tool/
+.env
+next-mate-firebase-adminsdk-fbsvc-8d85688ef2.json

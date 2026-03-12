@@ -23,10 +23,12 @@ dependencies:
   # firebase_admin: ^0.3.1+1
   postgres: ^3.5.9
 
-  flutter_dotenv: ^6.0.0
+  dotenv: ^4.2.0
   logging: ^1.2.0
   dart_firebase_admin: ^0.4.1
   get_it: ^9.2.1
+  dartz: ^0.10.1
+  equatable: ^2.0.8
 
 dev_dependencies:
   http: ^1.2.2
