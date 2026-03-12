@@ -1,6 +1,6 @@
-import 'package:neztmate_backend/features/auth/datasources/user_remote_datasource.dart';
-import 'package:neztmate_backend/features/auth/models/user_model.dart';
-import 'package:neztmate_backend/features/auth/repositories/user_repository.dart';
+import 'package:neztmate_backend/features/auth_user/datasources/user_remote_datasource.dart';
+import 'package:neztmate_backend/features/auth_user/models/user_model.dart';
+import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
 
 class UserRepositoryImpl implements UserRepository {
   final UserRemoteDataSource dataSource;
@@ -8,7 +8,7 @@ class UserRepositoryImpl implements UserRepository {
   UserRepositoryImpl(this.dataSource);
 
   @override
-  Future<User?> getUserById(String uid) => dataSource.getUserById(uid);
+  Future<User?> getUserById(String id) => dataSource.getUserById(id);
 
   @override
   Future<User?> getUserByEmail(String email) => dataSource.getUserByEmail(email);
@@ -20,5 +20,5 @@ class UserRepositoryImpl implements UserRepository {
   Future<void> updateUser(User user) => dataSource.updateUser(user);
 
   @override
-  Future<void> deleteUser(String uid) => dataSource.deleteUser(uid);
+  Future<void> deleteUser(String id) => dataSource.deleteUser(id);
 }

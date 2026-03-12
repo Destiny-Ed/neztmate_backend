@@ -1,12 +1,12 @@
 import 'dart:convert';
 import 'dart:developer';
-import 'package:neztmate_backend/features/auth/repositories/user_repository.dart';
+import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
 import 'package:shelf/shelf.dart';
 import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
 import 'package:neztmate_backend/core/services/auth/password_service.dart';
-import 'package:neztmate_backend/features/auth/models/login_request_model.dart';
-import 'package:neztmate_backend/features/auth/models/register_request_model.dart';
-import 'package:neztmate_backend/features/auth/repositories/auth_repository.dart';
+import 'package:neztmate_backend/features/auth_user/models/login_request_model.dart';
+import 'package:neztmate_backend/features/auth_user/models/register_request_model.dart';
+import 'package:neztmate_backend/features/auth_user/repositories/auth_repository.dart';
 
 class AuthHandler {
   final AuthRepository authRepository;
@@ -54,7 +54,7 @@ class AuthHandler {
           'user': {
             'id': created.id,
             'email': created.email,
-            'fullName': created.fullName,
+            'full_name': created.fullName,
             'role': created.role,
           },
           'message': "Account created successfully",
@@ -90,7 +90,7 @@ class AuthHandler {
           'access_token': accessToken,
           'refresh_token': refreshToken,
           'message': "Login successfully",
-          'user': {'id': user.id, 'email': user.email, 'fullName': user.fullName, 'role': user.role},
+          'user': {'id': user.id, 'email': user.email, 'full_name': user.fullName, 'role': user.role},
         }),
         headers: {'Content-Type': 'application/json'},
       );
@@ -130,7 +130,7 @@ class AuthHandler {
           'access_token': accessToken,
           'refresh_token': refreshToken,
           'message': "Login successfully",
-          'user': {'id': user.id, 'email': user.email, 'fullName': user.fullName, 'role': user.role},
+          'user': {'id': user.id, 'email': user.email, 'full_name': user.fullName, 'role': user.role},
         }),
         headers: {'Content-Type': 'application/json'},
       );

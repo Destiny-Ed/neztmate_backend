@@ -4,13 +4,14 @@ import 'package:get_it/get_it.dart';
 import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
 import 'package:neztmate_backend/core/services/auth/password_service.dart';
 import 'package:neztmate_backend/core/services/database/firebase/firebase.dart';
-import 'package:neztmate_backend/features/auth/datasources/firestore/firestore_user_datasource.dart';
-import 'package:neztmate_backend/features/auth/datasources/user_remote_datasource.dart';
-import 'package:neztmate_backend/features/auth/handler/auth_handler.dart';
-import 'package:neztmate_backend/features/auth/repositories/auth_repository.dart';
-import 'package:neztmate_backend/features/auth/repositories/user_repository.dart';
-import 'package:neztmate_backend/features/auth/repository_impl/firestore/auth_repository_impl.dart';
-import 'package:neztmate_backend/features/auth/repository_impl/firestore/user_repository_impl.dart';
+import 'package:neztmate_backend/features/auth_user/datasources/firestore/firestore_user_datasource.dart';
+import 'package:neztmate_backend/features/auth_user/datasources/user_remote_datasource.dart';
+import 'package:neztmate_backend/features/auth_user/handler/auth_handler.dart';
+import 'package:neztmate_backend/features/auth_user/handler/user_handler.dart';
+import 'package:neztmate_backend/features/auth_user/repositories/auth_repository.dart';
+import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
+import 'package:neztmate_backend/features/auth_user/repository_impl/firestore/auth_repository_impl.dart';
+import 'package:neztmate_backend/features/auth_user/repository_impl/firestore/user_repository_impl.dart';
 
 final injector = GetIt.instance;
 
@@ -58,4 +59,6 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
       injector<UserRepository>(),
     ),
   );
+
+  injector.registerLazySingleton<UserHandler>(() => UserHandler(injector<UserRepository>()));
 }

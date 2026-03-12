@@ -1,11 +1,11 @@
 import 'package:dart_firebase_admin/auth.dart';
 import 'package:dart_firebase_admin/firestore.dart';
 import 'package:neztmate_backend/core/services/auth/password_service.dart';
-import 'package:neztmate_backend/features/auth/models/login_request_model.dart';
-import 'package:neztmate_backend/features/auth/models/register_request_model.dart';
-import 'package:neztmate_backend/features/auth/models/user_model.dart';
-import 'package:neztmate_backend/features/auth/repositories/auth_repository.dart';
-import 'package:neztmate_backend/features/auth/repositories/user_repository.dart';
+import 'package:neztmate_backend/features/auth_user/models/login_request_model.dart';
+import 'package:neztmate_backend/features/auth_user/models/register_request_model.dart';
+import 'package:neztmate_backend/features/auth_user/models/user_model.dart';
+import 'package:neztmate_backend/features/auth_user/repositories/auth_repository.dart';
+import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
 import 'package:uuid/v4.dart';
 
 class AuthRepositoryImpl implements AuthRepository {

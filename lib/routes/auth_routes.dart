@@ -1,4 +1,4 @@
-import 'package:neztmate_backend/features/auth/handler/auth_handler.dart';
+import 'package:neztmate_backend/features/auth_user/handler/auth_handler.dart';
 import 'package:shelf_router/shelf_router.dart';
 
 Router authRoutes(AuthHandler handler) {

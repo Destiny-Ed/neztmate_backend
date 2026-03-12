@@ -1,6 +1,6 @@
 import 'package:dart_firebase_admin/firestore.dart';
-import 'package:neztmate_backend/features/auth/datasources/user_remote_datasource.dart';
-import 'package:neztmate_backend/features/auth/models/user_model.dart';
+import 'package:neztmate_backend/features/auth_user/datasources/user_remote_datasource.dart';
+import 'package:neztmate_backend/features/auth_user/models/user_model.dart';
 
 class FirestoreUserDataSource implements UserRemoteDataSource {
   final Firestore firestore;

@@ -1,4 +1,4 @@
-import 'package:neztmate_backend/features/auth/models/user_model.dart';
+import 'package:neztmate_backend/features/auth_user/models/user_model.dart';
 
 abstract class UserRepository {
   Future<User?> getUserById(String id);
