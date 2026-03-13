@@ -1,5 +1,6 @@
 import 'package:neztmate_backend/features/auth_user/models/login_request_model.dart';
 import 'package:neztmate_backend/features/auth_user/models/register_request_model.dart';
+import 'package:neztmate_backend/features/auth_user/models/social_request_model.dart';
 import 'package:neztmate_backend/features/auth_user/models/user_model.dart';
 
 abstract class AuthRepository {
@@ -10,11 +11,7 @@ abstract class AuthRepository {
   Future<User?> loginUser(LoginRequest req);
 
   /// Social login (Google, Apple, etc.) via Firebase ID token
-  Future<User?> socialLogin({
-    required String idToken,
-    required String role, // usually sent on first sign-up
-    String? fullName, // optional fallback if not in Firebase profile
-  });
+  Future<User?> socialLogin({required SocialRequestModel req});
 
   Future<bool?> logoutUser(String refreshToken);
 

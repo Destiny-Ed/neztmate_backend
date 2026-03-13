@@ -3,6 +3,7 @@ class User {
   final String email;
   final String fullName;
   final String role;
+  final String fcmToken;
   final String? phone;
   final String? profilePhotoUrl;
   final bool verifiedIdentity;
@@ -14,6 +15,8 @@ class User {
   final DateTime lastLogin;
   final String? passwordHash;
   final String? authProvider;
+  final String platform;
+  final String country;
 
   User({
     required this.id,
@@ -31,44 +34,53 @@ class User {
     required this.lastLogin,
     this.passwordHash = '',
     this.authProvider = 'email',
+    required this.fcmToken,
+    required this.platform,
+    required this.country,
   });
 
   factory User.fromMap(Map<String, dynamic> map) {
     return User(
       id: map["id"] as String,
       email: map['email'] as String? ?? '',
-      fullName: map['full_name'] as String? ?? '',
+      fullName: map['fullName'] as String? ?? '',
       role: map['role'] as String? ?? 'Tenant',
       phone: map['phone'] as String?,
-      profilePhotoUrl: map['profile_photo_url'] as String?,
-      verifiedIdentity: map['verified_identity'] as bool? ?? false,
-      verifiedEmployment: map['verified_employment'] as bool? ?? false,
-      yearsExperience: map['years_experience'] as int?,
-      primarySkill: map['primary_skill'] as String?,
+      profilePhotoUrl: map['profilePhotoUrl'] as String?,
+      verifiedIdentity: map['verifiedIdentity'] as bool? ?? false,
+      verifiedEmployment: map['verifiedEmployment'] as bool? ?? false,
+      yearsExperience: map['yearsExperience'] as int?,
+      primarySkill: map['primarySkill'] as String?,
       rating: (map['rating'] as num?)?.toDouble() ?? 0.0,
-      createdAt: DateTime.parse(map['created_at'] as String),
-      lastLogin: DateTime.parse(map['last_login'] as String),
-      passwordHash: map["password_hash"] as String?,
-      authProvider: map['auth_provider'] as String? ?? 'email',
+      createdAt: DateTime.parse(map['createdAt'] as String),
+      lastLogin: DateTime.parse(map['lastLogin'] as String),
+      passwordHash: map["passwordHash"] as String?,
+      authProvider: map['authProvider'] as String? ?? 'email',
+      fcmToken: map["fcmToken"],
+      platform: map['platform'],
+      country: map['country'],
     );
   }
 
   Map<String, dynamic> toMap() => {
     'id': id,
     'email': email,
-    'full_name': fullName,
+    'fullName': fullName,
     'role': role,
     'phone': phone,
-    'profile_photo_url': profilePhotoUrl,
-    'verified_identity': verifiedIdentity,
-    'verified_employment': verifiedEmployment,
-    'years_experience': yearsExperience,
-    'primary_skill': primarySkill,
+    'profilePhotoUrl': profilePhotoUrl,
+    'verifiedIdentity': verifiedIdentity,
+    'verifiedEmployment': verifiedEmployment,
+    'yearsExperience': yearsExperience,
+    'primarySkill': primarySkill,
     'rating': rating,
-    'created_at': createdAt.toIso8601String(),
-    'last_login': lastLogin.toIso8601String(),
-    'password_hash': passwordHash,
-    'auth_provider': authProvider,
+    'createdAt': createdAt.toIso8601String(),
+    'lastLogin': lastLogin.toIso8601String(),
+    'passwordHash': passwordHash,
+    'authProvider': authProvider,
+    'fcmToken': fcmToken,
+    'platform': platform,
+    'country': country,
   };
 
   /// Creates a copy of this User with the specified fields replaced with new values.
@@ -88,6 +100,9 @@ class User {
     DateTime? lastLogin,
     String? passwordHash,
     String? authProvider,
+    String? platform,
+    String? country,
+    String? fcmToken,
   }) {
     return User(
       id: id ?? this.id,
@@ -105,6 +120,9 @@ class User {
       lastLogin: lastLogin ?? this.lastLogin,
       passwordHash: passwordHash ?? this.passwordHash,
       authProvider: authProvider ?? this.authProvider,
+      fcmToken: fcmToken ?? this.fcmToken,
+      platform: platform ?? this.platform,
+      country: country ?? this.country,
     );
   }
 }

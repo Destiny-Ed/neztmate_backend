@@ -1,5 +1,5 @@
-class RegisterRequest {
-  final String email;
+class SocialRequestModel {
+  final String idToken;
   final String password;
   final String fcmToken;
   final String fullName;
@@ -7,8 +7,8 @@ class RegisterRequest {
   final String country;
   final String role; // "Tenant" | "Landowner" | "Manager" | "Artisan"
 
-  RegisterRequest({
-    required this.email,
+  SocialRequestModel({
+    required this.idToken,
     required this.password,
     required this.fullName,
     required this.role,
@@ -17,9 +17,9 @@ class RegisterRequest {
     required this.platform,
   });
 
-  factory RegisterRequest.fromJson(Map<String, dynamic> json) {
-    return RegisterRequest(
-      email: json['email'] as String,
+  factory SocialRequestModel.fromJson(Map<String, dynamic> json) {
+    return SocialRequestModel(
+      idToken: json['idToken'] as String,
       password: json['password'] as String,
       fullName: json['fullName'] as String,
       role: json['role'] as String,

@@ -37,6 +37,8 @@ class UserHandler {
         'createdAt': user.createdAt.toIso8601String(),
         'lastLogin': user.lastLogin.toIso8601String(),
         'authProvider': user.authProvider,
+        'country': user.country,
+        'platform': user.platform,
       };
 
       return Response.ok(jsonEncode({'user': safeUser}), headers: {'Content-Type': 'application/json'});
@@ -104,6 +106,8 @@ class UserHandler {
         'createdAt': user.createdAt.toIso8601String(),
         'lastLogin': user.lastLogin.toIso8601String(),
         'authProvider': user.authProvider,
+        'country': user.country,
+        'platform': user.platform,
       };
 
       // Optional: hide email/phone for non-self users
@@ -139,20 +143,20 @@ class UserHandler {
       // Allowed fields to update (never allow password/role change here)
       final updatedFields = <String, dynamic>{};
 
-      if (body.containsKey('full_name')) {
-        updatedFields['full_name'] = body['full_name'] as String;
+      if (body.containsKey('fullName')) {
+        updatedFields['fullName'] = body['fullName'] as String;
       }
       if (body.containsKey('phone')) {
         updatedFields['phone'] = body['phone'] as String?;
       }
-      if (body.containsKey('profile_photo_url')) {
-        updatedFields['profile_photo_url'] = body['profile_photo_url'] as String?;
+      if (body.containsKey('profilePhotoUrl')) {
+        updatedFields['profilePhotoUrl'] = body['profilePhotoUrl'] as String?;
       }
-      if (body.containsKey('years_experience')) {
-        updatedFields['years_experience'] = body['years_experience'] as int?;
+      if (body.containsKey('yearsExperience')) {
+        updatedFields['yearsExperience'] = body['yearsExperience'] as int?;
       }
-      if (body.containsKey('primary_skill')) {
-        updatedFields['primary_skill'] = body['primary_skill'] as String?;
+      if (body.containsKey('primarySkill')) {
+        updatedFields['primarySkill'] = body['primarySkill'] as String?;
       }
 
       if (updatedFields.isEmpty) {
@@ -161,11 +165,11 @@ class UserHandler {
 
       // Create updated user object using copyWith
       final updatedUser = user.copyWith(
-        fullName: body['full_name'] as String?,
+        fullName: body['fullName'] as String?,
         phone: body['phone'] as String?,
-        profilePhotoUrl: body['profile_photo_url'] as String?,
-        yearsExperience: body['years_experience'] as int?,
-        primarySkill: body['primary_skill'] as String?,
+        profilePhotoUrl: body['profilePhotoUrl'] as String?,
+        yearsExperience: body['yearsExperience'] as int?,
+        primarySkill: body['primarySkill'] as String?,
       );
 
       await userRepository.updateUser(updatedUser);
@@ -173,7 +177,7 @@ class UserHandler {
       return Response.ok(
         jsonEncode({
           'message': 'Profile updated successfully',
-          'user': {'id': updatedUser.id, 'full_name': updatedUser.fullName, 'phone': updatedUser.phone},
+          'user': {'id': updatedUser.id, 'fullName': updatedUser.fullName, 'phone': updatedUser.phone},
         }),
         headers: {'Content-Type': 'application/json'},
       );

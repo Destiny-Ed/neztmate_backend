@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:developer';
+import 'package:neztmate_backend/features/auth_user/models/social_request_model.dart';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
 import 'package:shelf/shelf.dart';
 import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
@@ -49,12 +50,12 @@ class AuthHandler {
 
       return Response.ok(
         jsonEncode({
-          'access_token': accessToken,
-          'refresh_token': refreshToken,
+          'accessToken': accessToken,
+          'refreshToken': refreshToken,
           'user': {
             'id': created.id,
             'email': created.email,
-            'full_name': created.fullName,
+            'fullName': created.fullName,
             'role': created.role,
           },
           'message': "Account created successfully",
@@ -87,10 +88,10 @@ class AuthHandler {
 
       return Response.ok(
         jsonEncode({
-          'access_token': accessToken,
-          'refresh_token': refreshToken,
+          'accessToken': accessToken,
+          'refreshToken': refreshToken,
           'message': "Login successfully",
-          'user': {'id': user.id, 'email': user.email, 'full_name': user.fullName, 'role': user.role},
+          'user': {'id': user.id, 'email': user.email, 'fullName': user.fullName, 'role': user.role},
         }),
         headers: {'Content-Type': 'application/json'},
       );
@@ -104,17 +105,21 @@ class AuthHandler {
     try {
       final body = jsonDecode(await req.readAsString());
 
-      final idToken = body['id_token'] as String?;
-      final role = body['role'] as String?;
-      final fullNameFallback = body['full_name'] as String?;
+      final request = SocialRequestModel.fromJson(body);
 
-      log(idToken.toString());
-
-      if (idToken == null || role == null) {
+      // Basic validation
+      if (request.idToken.isEmpty || request.role.isEmpty) {
         return Response(400, body: jsonEncode({'message': 'idToken and role are required'}));
       }
 
-      final user = await authRepository.socialLogin(idToken: idToken, role: role, fullName: fullNameFallback);
+      if (!['Tenant', 'Landowner', 'Manager', 'Artisan'].contains(request.role)) {
+        return Response(400, body: jsonEncode({'message': 'Invalid role'}));
+      }
+
+      if (request.fullName.isEmpty) {
+        return Response(400, body: jsonEncode({'message': 'fullName is required'}));
+      }
+      final user = await authRepository.socialLogin(req: request);
 
       if (user == null) {
         return Response(500, body: jsonEncode({'message': 'Social login failed'}));
@@ -127,10 +132,10 @@ class AuthHandler {
 
       return Response.ok(
         jsonEncode({
-          'access_token': accessToken,
-          'refresh_token': refreshToken,
+          'accessToken': accessToken,
+          'refreshToken': refreshToken,
           'message': "Login successfully",
-          'user': {'id': user.id, 'email': user.email, 'full_name': user.fullName, 'role': user.role},
+          'user': {'id': user.id, 'email': user.email, 'fullName': user.fullName, 'role': user.role},
         }),
         headers: {'Content-Type': 'application/json'},
       );

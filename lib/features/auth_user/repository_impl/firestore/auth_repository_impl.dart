@@ -3,6 +3,7 @@ import 'package:dart_firebase_admin/firestore.dart';
 import 'package:neztmate_backend/core/services/auth/password_service.dart';
 import 'package:neztmate_backend/features/auth_user/models/login_request_model.dart';
 import 'package:neztmate_backend/features/auth_user/models/register_request_model.dart';
+import 'package:neztmate_backend/features/auth_user/models/social_request_model.dart';
 import 'package:neztmate_backend/features/auth_user/models/user_model.dart';
 import 'package:neztmate_backend/features/auth_user/repositories/auth_repository.dart';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
@@ -36,6 +37,9 @@ class AuthRepositoryImpl implements AuthRepository {
       rating: 0.0,
       createdAt: DateTime.now(),
       lastLogin: DateTime.now(),
+      fcmToken: req.fcmToken,
+      platform: req.platform,
+      country: req.country,
     );
     final createdUser = await userRepository.createUser(user);
     return createdUser;
@@ -54,8 +58,8 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<User?> socialLogin({required String idToken, required String role, String? fullName}) async {
-    final decodedToken = await firebaseAuth.verifyIdToken(idToken);
+  Future<User?> socialLogin({required SocialRequestModel req}) async {
+    final decodedToken = await firebaseAuth.verifyIdToken(req.idToken);
     final email = decodedToken.email ?? '';
 
     var user = await userRepository.getUserByEmail(email);
@@ -65,7 +69,7 @@ class AuthRepositoryImpl implements AuthRepository {
       return user;
     }
 
-    final displayName = fullName ?? '';
+    final displayName = req.fullName;
     final photoUrl = decodedToken.picture;
 
     final id = UuidV4().generate();
@@ -74,7 +78,7 @@ class AuthRepositoryImpl implements AuthRepository {
       id: id,
       email: email,
       fullName: displayName,
-      role: role,
+      role: req.role,
       profilePhotoUrl: photoUrl,
       phone: decodedToken.phoneNumber,
       verifiedIdentity: false,
@@ -83,6 +87,9 @@ class AuthRepositoryImpl implements AuthRepository {
       createdAt: DateTime.now(),
       lastLogin: DateTime.now(),
       authProvider: decodedToken.firebase.signInProvider,
+      fcmToken: req.fcmToken,
+      platform: req.platform,
+      country: req.country,
     );
 
     await userRepository.createUser(newUser);
@@ -100,10 +107,10 @@ class AuthRepositoryImpl implements AuthRepository {
   @override
   Future<void> saveRefreshToken(String userId, String token) async {
     await firestore.collection('refresh_tokens').add({
-      'user_id': userId,
+      'userId': userId,
       'token': token,
-      'created_at': DateTime.now().toIso8601String(),
-      'expires_at': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
+      'createdAt': DateTime.now().toIso8601String(),
+      'expiresAt': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
     });
   }
 }
