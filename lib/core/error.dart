@@ -1,129 +1,76 @@
-import 'package:equatable/equatable.dart';
+import 'dart:convert';
+import 'dart:developer';
 
-// Base abstract class for all failures
-abstract class Failure extends Equatable {
+import 'package:shelf/shelf.dart';
+
+sealed class AppException implements Exception {
   final String message;
-  final Object? error; // optional: underlying exception
-  final StackTrace? stackTrace;
+  final Object? cause;
 
-  const Failure({required this.message, this.error, this.stackTrace});
-
-  @override
-  List<Object?> get props => [message, error, stackTrace];
-
-  // Helper to create user-friendly message for API responses
-  String get userMessage => message;
-
-  // Optional: HTTP status code suggestion
-  int get statusCode => 500;
-}
-
-// Generic / unexpected errors
-class UnexpectedFailure extends Failure {
-  UnexpectedFailure([String message = 'An unexpected error occurred', Object? error, StackTrace? stackTrace])
-    : super(message: message, error: error, stackTrace: stackTrace);
+  const AppException(this.message, {this.cause});
 
   @override
-  int get statusCode => 500;
+  String toString() => '$runtimeType: $message${cause != null ? ' ($cause)' : ''}';
 }
 
-// Authentication / Authorization failures
-class AuthFailure extends Failure {
-  AuthFailure(String message, {super.error, super.stackTrace}) : super(message: message);
-
-  @override
-  int get statusCode => 401;
+class NotFoundException extends AppException {
+  NotFoundException(String resource, [String? id])
+    : super(id != null ? '$resource not found (ID: $id)' : '$resource not found');
 }
 
-class InvalidCredentialsFailure extends AuthFailure {
-  InvalidCredentialsFailure([super.message = 'Invalid email or password']);
-
-  @override
-  int get statusCode => 401;
+class InvalidCredentialsException extends AppException {
+  InvalidCredentialsException() : super('Invalid email or password');
 }
 
-class TokenExpiredFailure extends AuthFailure {
-  TokenExpiredFailure([super.message = 'Session expired. Please sign in again.']);
-
-  @override
-  int get statusCode => 401;
+class EmailAlreadyExistsException extends AppException {
+  EmailAlreadyExistsException(String email) : super('Email $email is already registered');
 }
 
-class InvalidTokenFailure extends AuthFailure {
-  InvalidTokenFailure([super.message = 'Invalid authentication token']);
-
-  @override
-  int get statusCode => 401;
+class InvalidRoleException extends AppException {
+  InvalidRoleException(String role)
+    : super('Invalid role: $role. Allowed: Tenant, Landowner, Manager, Artisan');
 }
 
-class ForbiddenFailure extends AuthFailure {
-  ForbiddenFailure([super.message = 'You do not have permission to perform this action']);
-
-  @override
-  int get statusCode => 403;
+class InvalidTokenException extends AppException {
+  InvalidTokenException() : super('Invalid or expired token');
 }
 
-// Not found / resource errors
-class NotFoundFailure extends Failure {
-  NotFoundFailure(String resource, {String? id})
-    : super(message: id != null ? '$resource with ID $id not found' : '$resource not found');
-
-  @override
-  int get statusCode => 404;
-}
-
-// Validation / bad request failures
-class ValidationFailure extends Failure {
+class ValidationException extends AppException {
   final Map<String, String>? fieldErrors;
 
-  ValidationFailure({super.message = 'Validation failed', this.fieldErrors});
-
-  @override
-  List<Object?> get props => [message, fieldErrors];
-
-  @override
-  int get statusCode => 400;
+  ValidationException(super.message, {this.fieldErrors});
 }
 
-// Database / infrastructure failures
-class ServerFailure extends Failure {
-  ServerFailure([
-    String message = 'Server error. Please try again later.',
-    Object? error,
-    StackTrace? stackTrace,
-  ]) : super(message: message, error: error, stackTrace: stackTrace);
-
-  @override
-  int get statusCode => 500;
+class ServerException extends AppException {
+  ServerException(super.message, [Object? cause]) : super(cause: cause);
 }
 
-class DatabaseFailure extends ServerFailure {
-  DatabaseFailure([super.message = 'Database operation failed', super.error, super.stackTrace]);
+///Handle error accross project
+Response handleAppException(Object e, StackTrace stack) {
+  log('Error: $e\n$stack');
+
+  if (e is NotFoundException) {
+    return Response(404, body: jsonEncode({'message': e.message}));
+  }
+  if (e is InvalidCredentialsException || e is InvalidTokenException) {
+    return Response(401, body: jsonEncode({'message': e}));
+  }
+  if (e is EmailAlreadyExistsException || e is InvalidRoleException) {
+    return Response(400, body: jsonEncode({'message': e}));
+  }
+  if (e is ValidationException) {
+    return Response(
+      400,
+      body: jsonEncode({'message': e.message, if (e.fieldErrors != null) 'fields': e.fieldErrors}),
+    );
+  }
+  return Response.internalServerError(body: jsonEncode({'message': 'An unexpected error occurred'}));
 }
 
-class NetworkFailure extends ServerFailure {
-  NetworkFailure([super.message = 'Network error. Please check your connection.']);
-
-  @override
-  int get statusCode => 503;
+// Helper for consistent bad request responses
+Response badRequest(String message) {
+  return Response(400, body: jsonEncode({'message': message}), headers: {'Content-Type': 'application/json'});
 }
 
-// Domain-specific failures (add as needed)
-class PropertyNotFoundFailure extends NotFoundFailure {
-  PropertyNotFoundFailure({String? id}) : super('Property', id: id);
-}
-
-class UnitAlreadyOccupiedFailure extends Failure {
-  UnitAlreadyOccupiedFailure([String message = 'This unit is already occupied']) : super(message: message);
-
-  @override
-  int get statusCode => 409; // Conflict
-}
-
-class LeaseConflictFailure extends Failure {
-  LeaseConflictFailure([String message = 'Lease dates conflict with existing lease'])
-    : super(message: message);
-
-  @override
-  int get statusCode => 409;
-}
+Response unauthorized(String message) =>
+    Response(401, body: jsonEncode({'message': message}), headers: {'Content-Type': 'application/json'});

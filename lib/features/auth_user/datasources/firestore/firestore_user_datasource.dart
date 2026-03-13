@@ -1,4 +1,5 @@
 import 'package:dart_firebase_admin/firestore.dart';
+import 'package:neztmate_backend/core/error.dart';
 import 'package:neztmate_backend/features/auth_user/datasources/user_remote_datasource.dart';
 import 'package:neztmate_backend/features/auth_user/models/user_model.dart';
 
@@ -10,23 +11,22 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
   CollectionReference get _users => firestore.collection('users');
 
   @override
-  Future<User?> getUserById(String id) async {
+  Future<User> getUserById(String id) async {
     final doc = await _users.doc(id).get();
     if (!doc.exists) {
-      return null;
+      throw NotFoundException('User', id);
     }
     final data = doc.data() as Map<String, dynamic>;
     return User.fromMap(data);
   }
 
   @override
-  Future<User?> getUserByEmail(String email) async {
+  Future<User> getUserByEmail(String email) async {
     final snapshot = await _users.where('email', WhereFilter.equal, email).limit(1).get();
 
     if (snapshot.docs.isEmpty) {
-      return null;
+      throw NotFoundException('User with email $email');
     }
-
     final doc = snapshot.docs.first;
     final data = doc.data() as Map<String, dynamic>;
     return User.fromMap(data);
@@ -34,6 +34,10 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
 
   @override
   Future<User> createUser(User user) async {
+    final snapshot = await _users.where('email', WhereFilter.equal, user.email).limit(1).get();
+    if (snapshot.docs.isNotEmpty) {
+      throw EmailAlreadyExistsException(user.email);
+    }
     await _users.doc(user.id).set(user.toMap());
     return user;
   }

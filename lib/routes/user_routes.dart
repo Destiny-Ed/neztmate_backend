@@ -9,6 +9,7 @@ Router userRoutes(UserHandler handler) {
   router.patch('/me', handler.updateCurrentUser);
   router.delete('/me', handler.deleteCurrentUser);
   router.get('/<id>', handler.getUserById);
+  router.get('/<email>', handler.getUserByEmail);
 
   return router;
 }

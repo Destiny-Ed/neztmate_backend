@@ -1,6 +1,5 @@
 class SocialRequestModel {
   final String idToken;
-  final String password;
   final String fcmToken;
   final String fullName;
   final String platform;
@@ -9,7 +8,6 @@ class SocialRequestModel {
 
   SocialRequestModel({
     required this.idToken,
-    required this.password,
     required this.fullName,
     required this.role,
     required this.fcmToken,
@@ -20,7 +18,6 @@ class SocialRequestModel {
   factory SocialRequestModel.fromJson(Map<String, dynamic> json) {
     return SocialRequestModel(
       idToken: json['idToken'] as String,
-      password: json['password'] as String,
       fullName: json['fullName'] as String,
       role: json['role'] as String,
       fcmToken: json['fcmToken'],

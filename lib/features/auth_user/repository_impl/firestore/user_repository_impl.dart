@@ -8,17 +8,27 @@ class UserRepositoryImpl implements UserRepository {
   UserRepositoryImpl(this.dataSource);
 
   @override
-  Future<User?> getUserById(String id) => dataSource.getUserById(id);
+  Future<User> getUserById(String id) async {
+    return await dataSource.getUserById(id);
+  }
 
   @override
-  Future<User?> getUserByEmail(String email) => dataSource.getUserByEmail(email);
+  Future<User> getUserByEmail(String email) async {
+    return await dataSource.getUserByEmail(email);
+  }
 
   @override
-  Future<User> createUser(User user) => dataSource.createUser(user);
+  Future<User> createUser(User user) async {
+    return await dataSource.createUser(user);
+  }
 
   @override
-  Future<void> updateUser(User user) => dataSource.updateUser(user);
+  Future<void> updateUser(User user) async {
+    await dataSource.updateUser(user);
+  }
 
   @override
-  Future<void> deleteUser(String id) => dataSource.deleteUser(id);
+  Future<void> deleteUser(String id) async {
+    await dataSource.deleteUser(id);
+  }
 }

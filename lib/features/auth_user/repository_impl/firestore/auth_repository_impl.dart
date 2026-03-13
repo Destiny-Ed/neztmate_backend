@@ -1,5 +1,6 @@
 import 'package:dart_firebase_admin/auth.dart';
 import 'package:dart_firebase_admin/firestore.dart';
+import 'package:neztmate_backend/core/error.dart';
 import 'package:neztmate_backend/core/services/auth/password_service.dart';
 import 'package:neztmate_backend/features/auth_user/models/login_request_model.dart';
 import 'package:neztmate_backend/features/auth_user/models/register_request_model.dart';
@@ -23,9 +24,17 @@ class AuthRepositoryImpl implements AuthRepository {
   });
 
   @override
-  Future<User?> registerNewUser(RegisterRequest req) async {
+  Future<User> registerNewUser(RegisterRequest req) async {
+    try {
+      await userRepository.getUserByEmail(req.email);
+      throw EmailAlreadyExistsException(req.email);
+    } on NotFoundException {
+      // good — user does NOT exist → proceed to create
+    }
+
     final hash = passwordService.hash(req.password);
     final id = UuidV4().generate();
+
     final user = User(
       id: id,
       email: req.email,
@@ -41,36 +50,58 @@ class AuthRepositoryImpl implements AuthRepository {
       platform: req.platform,
       country: req.country,
     );
-    final createdUser = await userRepository.createUser(user);
-    return createdUser;
+
+    final created = await userRepository.createUser(user);
+    return created;
   }
 
   @override
-  Future<User?> loginUser(LoginRequest req) async {
+  Future<User> loginUser(LoginRequest req) async {
     final user = await userRepository.getUserByEmail(req.email);
-    if (user == null) return null;
 
     final isValid = passwordService.verify(req.password, user.passwordHash ?? '');
-    if (!isValid) return null;
-    // Optional: update last login
+    if (!isValid) {
+      throw InvalidCredentialsException();
+    }
+
     await userRepository.updateUser(user.copyWith(lastLogin: DateTime.now()));
     return user;
   }
 
   @override
-  Future<User?> socialLogin({required SocialRequestModel req}) async {
+  Future<User> socialLogin({required SocialRequestModel req}) async {
     final decodedToken = await firebaseAuth.verifyIdToken(req.idToken);
     final email = decodedToken.email ?? '';
 
-    var user = await userRepository.getUserByEmail(email);
-    if (user != null) {
-      await userRepository.updateUser(user.copyWith(lastLogin: DateTime.now()));
+    try {
+      final existing = await userRepository.getUserByEmail(email);
+      // exists → update last login & return
+      await userRepository.updateUser(existing.copyWith(lastLogin: DateTime.now()));
+      return existing;
+    } on NotFoundException {
+      // does NOT exist → create new
+    }
 
-      return user;
+    if (req.role.isEmpty || !['Tenant', 'Landowner', 'Manager', 'Artisan'].contains(req.role)) {
+      throw InvalidRoleException(req.role);
     }
 
     final displayName = req.fullName;
-    final photoUrl = decodedToken.picture;
+    if (displayName.isEmpty) {
+      throw ValidationException('fullName is required for first-time social registration');
+    }
+
+    if (req.country.isEmpty) {
+      throw ValidationException('User country is required ');
+    }
+
+    if (req.platform.isEmpty) {
+      throw ValidationException('Platform type of device is required ');
+    }
+
+    if (req.fcmToken.isEmpty) {
+      throw ValidationException('Fcm Token is required ');
+    }
 
     final id = UuidV4().generate();
 
@@ -79,7 +110,7 @@ class AuthRepositoryImpl implements AuthRepository {
       email: email,
       fullName: displayName,
       role: req.role,
-      profilePhotoUrl: photoUrl,
+      profilePhotoUrl: decodedToken.picture,
       phone: decodedToken.phoneNumber,
       verifiedIdentity: false,
       verifiedEmployment: false,
@@ -93,12 +124,11 @@ class AuthRepositoryImpl implements AuthRepository {
     );
 
     await userRepository.createUser(newUser);
-
     return newUser;
   }
 
   @override
-  Future<bool?> logoutUser(String refreshToken) async {
+  Future<bool> logoutUser(String refreshToken) async {
     // For custom refresh tokens → you could delete or mark invalid
     // Here we just return success (real invalidation needs more logic)
     return true;

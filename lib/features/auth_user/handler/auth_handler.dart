@@ -1,13 +1,13 @@
 import 'dart:convert';
-import 'dart:developer';
-import 'package:neztmate_backend/features/auth_user/models/social_request_model.dart';
-import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
+import 'package:neztmate_backend/core/error.dart';
 import 'package:shelf/shelf.dart';
 import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
 import 'package:neztmate_backend/core/services/auth/password_service.dart';
 import 'package:neztmate_backend/features/auth_user/models/login_request_model.dart';
 import 'package:neztmate_backend/features/auth_user/models/register_request_model.dart';
+import 'package:neztmate_backend/features/auth_user/models/social_request_model.dart';
 import 'package:neztmate_backend/features/auth_user/repositories/auth_repository.dart';
+import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
 
 class AuthHandler {
   final AuthRepository authRepository;
@@ -23,25 +23,29 @@ class AuthHandler {
       final request = RegisterRequest.fromJson(body);
 
       // Basic validation
-      if (request.email.isEmpty || !request.email.contains('@') || request.password.length < 6) {
-        return Response(400, body: jsonEncode({'message': 'Invalid email or password (min 6 chars)'}));
+      if (request.email.isEmpty || !request.email.contains('@')) {
+        return badRequest('Invalid email format');
       }
-
+      if (request.password.length < 6) {
+        return badRequest('Password must be at least 6 characters');
+      }
       if (!['Tenant', 'Landowner', 'Manager', 'Artisan'].contains(request.role)) {
-        return Response(400, body: jsonEncode({'message': 'Invalid role'}));
+        return badRequest('Invalid role. Allowed: Tenant, Landowner, Manager, Artisan');
       }
 
-      // Check if email already exists
-      final existing = await userRepository.getUserByEmail(request.email);
-      if (existing != null) {
-        return Response(409, body: jsonEncode({'message': 'Email already in use'}));
+      if (request.country.isEmpty) {
+        throw ValidationException('User country is required ');
+      }
+
+      if (request.platform.isEmpty) {
+        throw ValidationException('Platform type of device is required ');
+      }
+
+      if (request.fcmToken.isEmpty) {
+        throw ValidationException('Fcm Token is required ');
       }
 
       final created = await authRepository.registerNewUser(request);
-
-      if (created == null) {
-        return Response(500, body: jsonEncode({'message': 'Failed to create user'}));
-      }
 
       final accessToken = jwtService.generateAccessToken(created.id, created.role);
       final refreshToken = jwtService.generateRefreshToken(created.id);
@@ -58,13 +62,14 @@ class AuthHandler {
             'fullName': created.fullName,
             'role': created.role,
           },
-          'message': "Account created successfully",
+          'message': 'Account created successfully',
         }),
         headers: {'Content-Type': 'application/json'},
       );
+    } on AppException catch (e, stack) {
+      return handleAppException(e, stack);
     } catch (e, stack) {
-      print('Register error: $e\n$stack');
-      return Response.internalServerError(body: jsonEncode({'message': 'Server error'}));
+      return handleAppException(e, stack);
     }
   }
 
@@ -73,13 +78,7 @@ class AuthHandler {
       final body = jsonDecode(await req.readAsString());
       final request = LoginRequest.fromJson(body);
 
-      log(request.email);
-      log(request.password);
-
       final user = await authRepository.loginUser(request);
-      if (user == null) {
-        return Response(401, body: jsonEncode({'message': 'Invalid credentials'}));
-      }
 
       final accessToken = jwtService.generateAccessToken(user.id, user.role);
       final refreshToken = jwtService.generateRefreshToken(user.id);
@@ -90,40 +89,29 @@ class AuthHandler {
         jsonEncode({
           'accessToken': accessToken,
           'refreshToken': refreshToken,
-          'message': "Login successfully",
           'user': {'id': user.id, 'email': user.email, 'fullName': user.fullName, 'role': user.role},
+          'message': 'Login successful',
         }),
         headers: {'Content-Type': 'application/json'},
       );
+    } on AppException catch (e, stack) {
+      return handleAppException(e, stack);
     } catch (e, stack) {
-      print('Login error: $e\n$stack');
-      return Response(401, body: jsonEncode({'message': 'Authentication failed'}));
+      return handleAppException(e, stack);
     }
   }
 
   Future<Response> social(Request req) async {
     try {
       final body = jsonDecode(await req.readAsString());
-
       final request = SocialRequestModel.fromJson(body);
 
       // Basic validation
-      if (request.idToken.isEmpty || request.role.isEmpty) {
-        return Response(400, body: jsonEncode({'message': 'idToken and role are required'}));
+      if (request.idToken.isEmpty) {
+        return badRequest('idToken is required');
       }
 
-      if (!['Tenant', 'Landowner', 'Manager', 'Artisan'].contains(request.role)) {
-        return Response(400, body: jsonEncode({'message': 'Invalid role'}));
-      }
-
-      if (request.fullName.isEmpty) {
-        return Response(400, body: jsonEncode({'message': 'fullName is required'}));
-      }
       final user = await authRepository.socialLogin(req: request);
-
-      if (user == null) {
-        return Response(500, body: jsonEncode({'message': 'Social login failed'}));
-      }
 
       final accessToken = jwtService.generateAccessToken(user.id, user.role);
       final refreshToken = jwtService.generateRefreshToken(user.id);
@@ -134,14 +122,21 @@ class AuthHandler {
         jsonEncode({
           'accessToken': accessToken,
           'refreshToken': refreshToken,
-          'message': "Login successfully",
-          'user': {'id': user.id, 'email': user.email, 'fullName': user.fullName, 'role': user.role},
+          'user': {
+            'id': user.id,
+            'email': user.email,
+            'fullName': user.fullName,
+            'role': user.role,
+            'profilePhotoUrl': user.profilePhotoUrl ?? '',
+          },
+          'message': 'Social login successful',
         }),
         headers: {'Content-Type': 'application/json'},
       );
+    } on AppException catch (e, stack) {
+      return handleAppException(e, stack);
     } catch (e, stack) {
-      print('Social login error: $e\n$stack');
-      return Response(401, body: jsonEncode({'message': 'Invalid or expired token'}));
+      return handleAppException(e, stack);
     }
   }
 }
