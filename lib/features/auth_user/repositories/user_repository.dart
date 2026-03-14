@@ -1,4 +1,5 @@
 import 'package:neztmate_backend/features/auth_user/models/user_model.dart';
+import 'package:neztmate_backend/features/auth_user/models/user_stats_model.dart';
 
 abstract class UserRepository {
   /// Throws NotFoundException if not found
@@ -12,4 +13,6 @@ abstract class UserRepository {
   Future<void> updateUser(User user);
 
   Future<void> deleteUser(String id);
+
+  Future<UserStats> getUserStats(String userId, String role);
 }

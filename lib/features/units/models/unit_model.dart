@@ -1,0 +1,108 @@
+class UnitModel {
+  final String id;
+  final String propertyId;
+  final String unitNumber;
+  final int? floorLevel;
+  final double monthlyRent;
+  final int? bedrooms;
+  final double? bathrooms;
+  final int likes;
+  final int commentsCount;
+  final int? squareFeet;
+  final List<String>? features; // amenities specific to this unit
+  final List<String>? photoUrls;
+  final String? videoUrl;
+  final String status; // 'Occupied', 'Vacant', 'Repair'
+  final DateTime createdAt;
+
+  UnitModel({
+    required this.id,
+    required this.propertyId,
+    required this.unitNumber,
+    this.floorLevel,
+    required this.monthlyRent,
+    this.bedrooms,
+    this.bathrooms,
+    this.likes = 0,
+    this.commentsCount = 0,
+    this.squareFeet,
+    this.features,
+    this.photoUrls,
+    this.videoUrl,
+    this.status = 'Vacant',
+    required this.createdAt,
+  });
+
+  factory UnitModel.fromMap(Map<String, dynamic> map, String id) {
+    return UnitModel(
+      id: id,
+      propertyId: map['propertyId'] as String,
+      unitNumber: map['unitNumber'] as String,
+      floorLevel: map['floorLevel'] as int?,
+      monthlyRent: (map['monthlyRent'] as num).toDouble(),
+      bedrooms: map['bedrooms'] as int?,
+      bathrooms: (map['bathrooms'] as num?)?.toDouble(),
+      likes: map['likes'] as int? ?? 0,
+      commentsCount: map['commentsCount'] as int? ?? 0,
+      squareFeet: map['squareFeet'] as int?,
+      features: (map['features'] as List<dynamic>?)?.cast<String>(),
+      photoUrls: (map['photoUrls'] as List<dynamic>?)?.cast<String>(),
+      videoUrl: map['videoUrl'] as String?,
+      status: map['status'] as String? ?? 'Vacant',
+      createdAt: DateTime.parse(map['createdAt'] as String),
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+    'propertyId': propertyId,
+    'unitNumber': unitNumber,
+    'floorLevel': floorLevel,
+    'monthlyRent': monthlyRent,
+    'bedrooms': bedrooms,
+    'bathrooms': bathrooms,
+    'likes': likes,
+    'commentsCount': commentsCount,
+    'squareFeet': squareFeet,
+    'features': features,
+    'photoUrls': photoUrls,
+    'videoUrl': videoUrl,
+    'status': status,
+    'createdAt': createdAt.toIso8601String(),
+  };
+
+  UnitModel copyWith({
+    String? id,
+    String? propertyId,
+    String? unitNumber,
+    int? floorLevel,
+    double? monthlyRent,
+    int? bedrooms,
+    double? bathrooms,
+    int? likes,
+    int? commentsCount,
+    int? squareFeet,
+    List<String>? features,
+    List<String>? photoUrls,
+    String? videoUrl,
+    String? status,
+    DateTime? createdAt,
+  }) {
+    return UnitModel(
+      id: id ?? this.id,
+      propertyId: propertyId ?? this.propertyId,
+      unitNumber: unitNumber ?? this.unitNumber,
+      floorLevel: floorLevel ?? this.floorLevel,
+      monthlyRent: monthlyRent ?? this.monthlyRent,
+      bedrooms: bedrooms ?? this.bedrooms,
+      bathrooms: bathrooms ?? this.bathrooms,
+      likes: likes ?? this.likes,
+      commentsCount: commentsCount ?? this.commentsCount,
+      squareFeet: squareFeet ?? this.squareFeet,
+      features: features ?? this.features,
+      photoUrls: photoUrls ?? this.photoUrls,
+      videoUrl: videoUrl ?? this.videoUrl,
+      status: status ?? this.status,
+      createdAt: createdAt ?? this.createdAt,
+    );
+  }
+}

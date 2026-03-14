@@ -10,6 +10,7 @@ Router userRoutes(UserHandler handler) {
   router.delete('/me', handler.deleteCurrentUser);
   router.get('/<id>', handler.getUserById);
   router.get('/<email>', handler.getUserByEmail);
+  // router.get('/stats', handler.getUserStats);
 
   return router;
 }
