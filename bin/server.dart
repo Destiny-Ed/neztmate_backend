@@ -7,7 +7,9 @@ import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
 import 'package:neztmate_backend/core/services/database/firebase/firebase.dart';
 import 'package:neztmate_backend/features/auth_user/handler/auth_handler.dart';
 import 'package:neztmate_backend/features/auth_user/handler/user_handler.dart';
+import 'package:neztmate_backend/features/properties/handler/property_handler.dart';
 import 'package:neztmate_backend/routes/auth_routes.dart';
+import 'package:neztmate_backend/routes/unit_routes.dart';
 import 'package:neztmate_backend/routes/user_routes.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart';
@@ -59,6 +61,13 @@ void main() async {
     Pipeline()
         .addMiddleware(authMiddleware(jwtService)) // ← protects all /users/* routes
         .addHandler(userRoutes(userHandler).call),
+  );
+
+  router.mount(
+    '/properties/',
+    Pipeline()
+        .addMiddleware(authMiddleware(jwtService))
+        .addHandler(propertyRoutes(injector<PropertyHandler>()).call),
   );
 
   final handler = Pipeline().addMiddleware(logRequests()).addHandler(router.call);
