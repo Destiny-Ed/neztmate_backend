@@ -29,8 +29,8 @@ class AuthHandler {
       if (request.password.length < 6) {
         return badRequest('Password must be at least 6 characters');
       }
-      if (!['Tenant', 'Landowner', 'Manager', 'Artisan'].contains(request.role)) {
-        return badRequest('Invalid role. Allowed: Tenant, Landowner, Manager, Artisan');
+      if (!['tenant', 'landowner', 'manager', 'artisan'].contains(request.role)) {
+        throw InvalidRoleException(request.role);
       }
 
       if (request.country.isEmpty) {
@@ -78,6 +78,18 @@ class AuthHandler {
       final body = jsonDecode(await req.readAsString());
       final request = LoginRequest.fromJson(body);
 
+      // Basic validation
+      if (request.email.isEmpty || !request.email.contains('@')) {
+        return badRequest('Invalid email format');
+      }
+      if (request.password.length < 6) {
+        return badRequest('Password must be at least 6 characters');
+      }
+
+      if (request.fcmToken.isEmpty) {
+        throw ValidationException('Fcm Token is required ');
+      }
+
       final user = await authRepository.loginUser(request);
 
       final accessToken = jwtService.generateAccessToken(user.id, user.role);
@@ -109,6 +121,10 @@ class AuthHandler {
       // Basic validation
       if (request.idToken.isEmpty) {
         return badRequest('idToken is required');
+      }
+
+      if (request.fcmToken.isEmpty) {
+        throw ValidationException('Fcm Token is required ');
       }
 
       final user = await authRepository.socialLogin(req: request);

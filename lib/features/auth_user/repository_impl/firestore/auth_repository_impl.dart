@@ -1,3 +1,4 @@
+ 
 import 'package:dart_firebase_admin/auth.dart';
 import 'package:dart_firebase_admin/firestore.dart';
 import 'package:neztmate_backend/core/error.dart';
@@ -73,6 +74,8 @@ class AuthRepositoryImpl implements AuthRepository {
     final decodedToken = await firebaseAuth.verifyIdToken(req.idToken);
     final email = decodedToken.email ?? '';
 
+    print(decodedToken.email.toString());
+
     try {
       final existing = await userRepository.getUserByEmail(email);
       // exists → update last login & return
@@ -82,7 +85,11 @@ class AuthRepositoryImpl implements AuthRepository {
       // does NOT exist → create new
     }
 
-    if (req.role.isEmpty || !['Tenant', 'Landowner', 'Manager', 'Artisan'].contains(req.role)) {
+    if (req.role.isEmpty || req.role == 'none') {
+      throw ValidationException('User does not exist. Please register a new account');
+    }
+
+    if (req.role.isEmpty || !['tenant', 'landowner', 'manager', 'artisan'].contains(req.role)) {
       throw InvalidRoleException(req.role);
     }
 
@@ -97,10 +104,6 @@ class AuthRepositoryImpl implements AuthRepository {
 
     if (req.platform.isEmpty) {
       throw ValidationException('Platform type of device is required ');
-    }
-
-    if (req.fcmToken.isEmpty) {
-      throw ValidationException('Fcm Token is required ');
     }
 
     final id = UuidV4().generate();

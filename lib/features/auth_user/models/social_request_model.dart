@@ -17,12 +17,12 @@ class SocialRequestModel {
 
   factory SocialRequestModel.fromJson(Map<String, dynamic> json) {
     return SocialRequestModel(
-      idToken: json['idToken'] as String,
-      fullName: json['fullName'] as String,
-      role: json['role'] as String,
-      fcmToken: json['fcmToken'],
-      country: json['country'],
-      platform: json['platform'],
+      idToken: json['idToken'] ?? "",
+      fullName: json['fullName'] ?? "",
+      role: json['role'] ?? "",
+      fcmToken: json['fcmToken'] ?? "",
+      country: json['country'] ?? "",
+      platform: json['platform'] ?? "",
     );
   }
 }

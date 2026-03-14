@@ -1,6 +1,4 @@
 import 'dart:convert';
-import 'dart:developer';
-
 import 'package:shelf/shelf.dart';
 
 sealed class AppException implements Exception {
@@ -10,7 +8,8 @@ sealed class AppException implements Exception {
   const AppException(this.message, {this.cause});
 
   @override
-  String toString() => '$runtimeType: $message${cause != null ? ' ($cause)' : ''}';
+  // String toString() => '$runtimeType: $message${cause != null ? ' ($cause)' : ''}';
+  String toString() => '$message${cause != null ? ' ($cause)' : ''}';
 }
 
 class NotFoundException extends AppException {
@@ -28,7 +27,7 @@ class EmailAlreadyExistsException extends AppException {
 
 class InvalidRoleException extends AppException {
   InvalidRoleException(String role)
-    : super('Invalid role: $role. Allowed: Tenant, Landowner, Manager, Artisan');
+    : super('Invalid role: $role. Allowed: tenant, landowner, manager, artisan');
 }
 
 class InvalidTokenException extends AppException {
@@ -47,21 +46,21 @@ class ServerException extends AppException {
 
 ///Handle error accross project
 Response handleAppException(Object e, StackTrace stack) {
-  log('Error: $e\n$stack');
+  print('Error: $e\n$stack');
 
   if (e is NotFoundException) {
-    return Response(404, body: jsonEncode({'message': e.message}));
+    return Response(404, body: jsonEncode({'message': e.message.toString()}));
   }
   if (e is InvalidCredentialsException || e is InvalidTokenException) {
-    return Response(401, body: jsonEncode({'message': e}));
+    return Response(401, body: jsonEncode({'message': e.toString()}));
   }
   if (e is EmailAlreadyExistsException || e is InvalidRoleException) {
-    return Response(400, body: jsonEncode({'message': e}));
+    return Response(400, body: jsonEncode({'message': e.toString()}));
   }
   if (e is ValidationException) {
     return Response(
       400,
-      body: jsonEncode({'message': e.message, if (e.fieldErrors != null) 'fields': e.fieldErrors}),
+      body: jsonEncode({'message': e.message.toString(), if (e.fieldErrors != null) 'fields': e.fieldErrors}),
     );
   }
   return Response.internalServerError(body: jsonEncode({'message': 'An unexpected error occurred'}));
