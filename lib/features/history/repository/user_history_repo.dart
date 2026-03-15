@@ -1,4 +1,4 @@
-import 'package:neztmate_backend/features/auth_user/models/user_history_model.dart';
+import 'package:neztmate_backend/features/history/model/user_history_model.dart';
 
 abstract class HistoryRepository {
   /// Logs a new history entry for a user

@@ -1,14 +1,20 @@
-import 'package:neztmate_backend/features/properties/handler/property_handler.dart';
+import 'package:neztmate_backend/features/units/handler/unit_handler.dart';
 import 'package:shelf_router/shelf_router.dart';
 
-Router propertyRoutes(PropertyHandler handler) {
+Router unitRoutes(UnitHandler handler) {
   final router = Router();
 
-  router.get('/', handler.getMyProperties);
-  router.get('/<id>', handler.getPropertyById);
-  router.post('/', handler.createProperty);
-  router.patch('/<id>', handler.updateProperty);
-  router.delete('/<id>', handler.deleteProperty);
+  // Public / tenant-facing
+  router.get('/available', handler.getAvailableUnits);
+  router.get('/property/<propertyId>', handler.getUnitsByProperty);
+
+  // Protected (authenticated users)
+  router.get('/<id>', handler.getUnitById);
+
+  // Admin / manager / landowner only (can be further restricted in middleware)
+  router.post('/', handler.createUnit);
+  router.patch('/<id>', handler.updateUnit);
+  router.delete('/<id>', handler.deleteUnit);
 
   return router;
 }

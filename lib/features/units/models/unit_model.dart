@@ -29,7 +29,7 @@ class UnitModel {
     this.features,
     this.photoUrls,
     this.videoUrl,
-    this.status = 'Vacant',
+    this.status = 'vacant',
     required this.createdAt,
   });
 

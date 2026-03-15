@@ -25,6 +25,10 @@ class EmailAlreadyExistsException extends AppException {
   EmailAlreadyExistsException(String email) : super('Email $email is already registered');
 }
 
+class ForbiddenException extends AppException {
+  ForbiddenException(super.message);
+}
+
 class InvalidRoleException extends AppException {
   InvalidRoleException(String role)
     : super('Invalid role: $role. Allowed: tenant, landowner, manager, artisan');

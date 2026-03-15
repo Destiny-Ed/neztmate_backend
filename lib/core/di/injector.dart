@@ -17,6 +17,11 @@ import 'package:neztmate_backend/features/properties/datasources/property_remote
 import 'package:neztmate_backend/features/properties/handler/property_handler.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
 import 'package:neztmate_backend/features/properties/repository_impl/property_impl.dart';
+import 'package:neztmate_backend/features/units/datasource/firestore/unit_firestore_datasource.dart';
+import 'package:neztmate_backend/features/units/datasource/unit_remote_datasource.dart';
+import 'package:neztmate_backend/features/units/handler/unit_handler.dart';
+import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
+import 'package:neztmate_backend/features/units/repository_impl/unit_repo_impl.dart';
 
 final injector = GetIt.instance;
 
@@ -44,14 +49,24 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
   injector.registerLazySingleton<JwtService>(() => JwtService(jwtSecret));
 
   // 3. Data sources & repositories
+  ///user
   injector.registerLazySingleton<UserRemoteDataSource>(() => FirestoreUserDataSource(injector<Firestore>()));
   injector.registerLazySingleton<UserRepository>(() => UserRepositoryImpl(injector<UserRemoteDataSource>()));
+  injector.registerLazySingleton<UserHandler>(() => UserHandler(injector<UserRepository>()));
+
+  //properties
   injector.registerLazySingleton<PropertyRemoteDataSource>(
     () => FirestorePropertyDataSource(injector<Firestore>()),
   );
   injector.registerLazySingleton<PropertyRepository>(() => PropertyRepositoryImpl(injector()));
   injector.registerLazySingleton<PropertyHandler>(() => PropertyHandler(injector()));
 
+  //units
+  injector.registerLazySingleton<UnitRemoteDataSource>(() => FirestoreUnitDataSource(injector<Firestore>()));
+  injector.registerLazySingleton<UnitRepository>(() => UnitRepositoryImpl(injector<UnitRemoteDataSource>()));
+  injector.registerLazySingleton<UnitHandler>(() => UnitHandler(injector<UnitRepository>()));
+
+  //auth
   injector.registerLazySingleton<AuthRepository>(
     () => AuthRepositoryImpl(
       userRepository: injector<UserRepository>(),
@@ -69,6 +84,4 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
       injector<UserRepository>(),
     ),
   );
-
-  injector.registerLazySingleton<UserHandler>(() => UserHandler(injector<UserRepository>()));
 }

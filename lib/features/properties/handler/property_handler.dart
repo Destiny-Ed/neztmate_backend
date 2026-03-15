@@ -63,7 +63,7 @@ class PropertyHandler {
   Future<Response> updateProperty(Request request) async {
     try {
       final id = request.params['id'];
-      if (id == null) return Response(400, body: jsonEncode({'message': 'Missing ID'}));
+      if (id == null) return Response(400, body: jsonEncode({'message': 'Missing Property ID'}));
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final property = PropertyModel.fromMap(body, id);
@@ -79,7 +79,7 @@ class PropertyHandler {
   Future<Response> deleteProperty(Request request) async {
     try {
       final id = request.params['id'];
-      if (id == null) return Response(400, body: jsonEncode({'message': 'Missing ID'}));
+      if (id == null) return Response(400, body: jsonEncode({'message': 'Missing Property ID'}));
 
       await propertyRepository.deleteProperty(id);
       return Response.ok(jsonEncode({'message': 'Property deleted'}));
