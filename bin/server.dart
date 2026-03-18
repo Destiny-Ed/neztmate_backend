@@ -114,12 +114,12 @@ void main() async {
         .addHandler(inviteRoutes(injector<InviteHandler>()).call),
   );
 
-  router.mount(
-    '/tasks/',
-    Pipeline()
-        .addMiddleware(authMiddleware(jwtService))
-        .addHandler(taskRoutes(injector<TaskHandler>()).call),
-  );
+  // router.mount(
+  //   '/tasks/',
+  //   Pipeline()
+  //       .addMiddleware(authMiddleware(jwtService))
+  //       .addHandler(taskRoutes(injector<TaskHandler>()).call),
+  // );
 
   final handler = Pipeline().addMiddleware(logRequests()).addHandler(router.call);
 

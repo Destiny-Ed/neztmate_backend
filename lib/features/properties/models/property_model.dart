@@ -1,15 +1,18 @@
 class PropertyModel {
-  final String id;
+  String id;
   final String name;
   final String type; // 'Apartment', 'House', 'Commercial'
   final String address;
   final String landownerId;
   final String? managerId;
+  final String documentType;
+  final String proofOfOwnershipUrl;
   final List<String>? photoUrls;
   final List<String>? amenities; // ['WiFi', 'Parking', 'Pool', ...]
   final int totalUnits;
   final double occupancyRate;
-  final DateTime createdAt;
+  DateTime createdAt;
+  DateTime updatedAt;
 
   PropertyModel({
     required this.id,
@@ -23,6 +26,9 @@ class PropertyModel {
     this.totalUnits = 0,
     this.occupancyRate = 0.0,
     required this.createdAt,
+    required this.updatedAt,
+    required this.proofOfOwnershipUrl,
+    required this.documentType,
   });
 
   factory PropertyModel.fromMap(Map<String, dynamic> map, String id) {
@@ -38,6 +44,9 @@ class PropertyModel {
       totalUnits: map['totalUnits'] as int? ?? 0,
       occupancyRate: (map['occupancyRate'] as num?)?.toDouble() ?? 0.0,
       createdAt: DateTime.parse(map['createdAt'] as String),
+      updatedAt: DateTime.parse(map['updatedAt'] as String),
+      proofOfOwnershipUrl: map['proofOfOwnershipUrl'] as String,
+      documentType: map['documentType'] as String,
     );
   }
 
@@ -52,6 +61,9 @@ class PropertyModel {
     'totalUnits': totalUnits,
     'occupancyRate': occupancyRate,
     'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
+    'proofOfOwnershipUrl': proofOfOwnershipUrl,
+    'documentType': documentType,
   };
 
   PropertyModel copyWith({
@@ -61,17 +73,21 @@ class PropertyModel {
     String? address,
     String? landownerId,
     String? managerId,
+    String? proofOfOwnershipUrl,
+    String? documentType,
     List<String>? photoUrls,
     List<String>? amenities,
     int? totalUnits,
     double? occupancyRate,
     DateTime? createdAt,
+    DateTime? updatedAt,
   }) {
     return PropertyModel(
       id: id ?? this.id,
       name: name ?? this.name,
       type: type ?? this.type,
       address: address ?? this.address,
+      proofOfOwnershipUrl: proofOfOwnershipUrl ?? this.proofOfOwnershipUrl,
       landownerId: landownerId ?? this.landownerId,
       managerId: managerId ?? this.managerId,
       photoUrls: photoUrls ?? this.photoUrls,
@@ -79,6 +95,8 @@ class PropertyModel {
       totalUnits: totalUnits ?? this.totalUnits,
       occupancyRate: occupancyRate ?? this.occupancyRate,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+      documentType: documentType ?? this.documentType,
     );
   }
 }

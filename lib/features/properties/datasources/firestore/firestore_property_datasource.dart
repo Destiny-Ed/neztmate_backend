@@ -13,6 +13,7 @@ class FirestorePropertyDataSource implements PropertyRemoteDataSource {
   @override
   Future<PropertyModel> createProperty(PropertyModel property) async {
     final docRef = _properties.doc(property.id.isEmpty ? null : property.id);
+    property.id = docRef.id;
     await docRef.set(property.toMap());
     return property.copyWith(id: docRef.id);
   }

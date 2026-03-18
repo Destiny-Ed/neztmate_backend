@@ -8,7 +8,7 @@ class JwtService {
   String generateAccessToken(String userId, String role) {
     final jwt = JWT({"sub": userId, "role": role, "type": "access"});
 
-    return jwt.sign(SecretKey(secret), expiresIn: const Duration(hours: 2));
+    return jwt.sign(SecretKey(secret), expiresIn: const Duration(hours: 24));
   }
 
   String generateRefreshToken(String userId) {

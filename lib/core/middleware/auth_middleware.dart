@@ -19,7 +19,7 @@ Middleware authMiddleware(JwtService jwtService) {
 
         return await innerHandler(updated);
       } catch (e) {
-        return Response.forbidden("Invalid token");
+        return Response.unauthorized("Invalid token");
       }
     };
   };
