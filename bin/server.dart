@@ -5,16 +5,22 @@ import 'package:neztmate_backend/core/di/injector.dart';
 import 'package:neztmate_backend/core/middleware/auth_middleware.dart';
 import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
 import 'package:neztmate_backend/core/services/database/firebase/firebase.dart';
+import 'package:neztmate_backend/features/applications/handler/application_handler.dart';
 import 'package:neztmate_backend/features/auth_user/handler/auth_handler.dart';
 import 'package:neztmate_backend/features/auth_user/handler/user_handler.dart';
 import 'package:neztmate_backend/features/history/handler/history_handler.dart';
+import 'package:neztmate_backend/features/invites/handler/invite_handler.dart';
 import 'package:neztmate_backend/features/leases/handler/lease_handler.dart';
 import 'package:neztmate_backend/features/properties/handler/property_handler.dart';
+import 'package:neztmate_backend/features/tasks/handler/task_handler.dart';
 import 'package:neztmate_backend/features/units/handler/unit_handler.dart';
+import 'package:neztmate_backend/routes/applications_routes.dart';
 import 'package:neztmate_backend/routes/auth_routes.dart';
 import 'package:neztmate_backend/routes/history_routes.dart';
+import 'package:neztmate_backend/routes/invites_route.dart';
 import 'package:neztmate_backend/routes/lease_routes.dart';
 import 'package:neztmate_backend/routes/property_routes.dart';
+import 'package:neztmate_backend/routes/task_route.dart';
 import 'package:neztmate_backend/routes/unit_routes.dart';
 import 'package:neztmate_backend/routes/user_routes.dart';
 import 'package:shelf/shelf.dart';
@@ -92,6 +98,27 @@ void main() async {
     Pipeline()
         .addMiddleware(authMiddleware(jwtService))
         .addHandler(leaseRoutes(injector<LeaseHandler>()).call),
+  );
+
+  router.mount(
+    '/applications/',
+    Pipeline()
+        .addMiddleware(authMiddleware(jwtService))
+        .addHandler(applicationRoutes(injector<ApplicationHandler>()).call),
+  );
+
+  router.mount(
+    '/invites/',
+    Pipeline()
+        .addMiddleware(authMiddleware(jwtService))
+        .addHandler(inviteRoutes(injector<InviteHandler>()).call),
+  );
+
+  router.mount(
+    '/tasks/',
+    Pipeline()
+        .addMiddleware(authMiddleware(jwtService))
+        .addHandler(taskRoutes(injector<TaskHandler>()).call),
   );
 
   final handler = Pipeline().addMiddleware(logRequests()).addHandler(router.call);

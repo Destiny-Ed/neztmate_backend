@@ -4,17 +4,31 @@ import 'package:get_it/get_it.dart';
 import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
 import 'package:neztmate_backend/core/services/auth/password_service.dart';
 import 'package:neztmate_backend/core/services/database/firebase/firebase.dart';
+import 'package:neztmate_backend/features/applications/datasource/application_remote_datasource.dart';
+import 'package:neztmate_backend/features/applications/datasource/firestore/firestore_remote_datasource.dart';
+import 'package:neztmate_backend/features/applications/handler/application_handler.dart';
+import 'package:neztmate_backend/features/applications/repository/application_repo.dart';
+import 'package:neztmate_backend/features/applications/repository_impl/repository_impl.dart';
 import 'package:neztmate_backend/features/auth_user/datasources/firestore/firestore_user_datasource.dart';
 import 'package:neztmate_backend/features/history/datasource/firestore/history_firestore_datasource.dart';
 import 'package:neztmate_backend/features/history/datasource/history_remote_datasource.dart';
 import 'package:neztmate_backend/features/history/handler/history_handler.dart';
 import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
 import 'package:neztmate_backend/features/history/repository_impl/history_repo_impl.dart';
+import 'package:neztmate_backend/features/invites/datasource/firestore/invite_firestore_datasource.dart';
+import 'package:neztmate_backend/features/invites/handler/invite_handler.dart';
+import 'package:neztmate_backend/features/invites/invite_repository_impl/invite_repo_impl.dart';
+import 'package:neztmate_backend/features/invites/repository/invite_repo.dart';
 import 'package:neztmate_backend/features/leases/datasource/firestore/firestore_lease_datasource.dart';
 import 'package:neztmate_backend/features/leases/datasource/lease_remote_datasource.dart';
 import 'package:neztmate_backend/features/leases/handler/lease_handler.dart';
 import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
 import 'package:neztmate_backend/features/leases/repository_impl/lease_repo_impl.dart';
+import 'package:neztmate_backend/features/maintenance/datasource/firestore/firestore_maintenance_remote_datasource.dart';
+import 'package:neztmate_backend/features/maintenance/datasource/maintenance_remote_datasource.dart';
+import 'package:neztmate_backend/features/maintenance/handler/maintenance_handler.dart';
+import 'package:neztmate_backend/features/maintenance/repository/maintenance_repo.dart';
+import 'package:neztmate_backend/features/maintenance/repository_impl/repository_impl.dart';
 import 'package:neztmate_backend/features/properties/datasources/firestore/firestore_property_datasource.dart';
 import 'package:neztmate_backend/features/auth_user/datasources/user_remote_datasource.dart';
 import 'package:neztmate_backend/features/auth_user/handler/auth_handler.dart';
@@ -120,4 +134,35 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
     () => LeaseRepositoryImpl(injector<LeaseRemoteDataSource>()),
   );
   injector.registerLazySingleton<LeaseHandler>(() => LeaseHandler(injector<LeaseRepository>()));
+
+  //applications
+  injector.registerLazySingleton<ApplicationRemoteDataSource>(
+    () => FirestoreApplicationDataSource(injector<Firestore>()),
+  );
+  injector.registerLazySingleton<ApplicationRepository>(
+    () => ApplicationRepositoryImpl(injector<ApplicationRemoteDataSource>()),
+  );
+  injector.registerLazySingleton<ApplicationHandler>(
+    () => ApplicationHandler(injector<ApplicationRepository>()),
+  );
+
+  //maintenance request
+  injector.registerLazySingleton<MaintenanceRequestRemoteDataSource>(
+    () => FirestoreMaintenanceRequestDataSource(injector<Firestore>()),
+  );
+  injector.registerLazySingleton<MaintenanceRequestRepository>(
+    () => MaintenanceRequestRepositoryImpl(injector<MaintenanceRequestRemoteDataSource>()),
+  );
+  injector.registerLazySingleton<MaintenanceRequestHandler>(
+    () => MaintenanceRequestHandler(injector<MaintenanceRequestRepository>()),
+  );
+
+  //invites
+  injector.registerLazySingleton<FirestoreInviteDataSource>(
+    () => FirestoreInviteDataSource(injector<Firestore>()),
+  );
+  injector.registerLazySingleton<InviteRepositoryImpl>(
+    () => InviteRepositoryImpl(injector<FirestoreInviteDataSource>()),
+  );
+  injector.registerLazySingleton<InviteHandler>(() => InviteHandler(injector<InviteRepositoryImpl>()));
 }

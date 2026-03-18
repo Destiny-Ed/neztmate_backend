@@ -1,13 +1,13 @@
 class InviteModel {
   final String id;
-  final String inviterId; // who sent the invite
+  final String inviterId;
   final String inviteeEmail;
   final String? inviteePhone;
-  final String role;
-  final List<String>? propertyIds;
+  final String role; // Tenant, Landowner, Manager, Artisan
+  final List<String>? propertyIds; // properties they will manage/own
   final String? message;
-  final String status; // 'Pending', 'Accepted', 'Declined'
-  final String? inviteLink;
+  final String status; // Pending, Accepted, Declined, Expired
+  final String? inviteLink; // unique shareable link
   final DateTime createdAt;
   final DateTime? expiresAt;
 

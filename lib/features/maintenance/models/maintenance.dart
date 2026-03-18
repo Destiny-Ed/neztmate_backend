@@ -3,11 +3,13 @@ class MaintenanceRequestModel {
   final String unitId;
   final String tenantId;
   final String description;
-  final String priority; // 'Low', 'Medium', 'High', 'Emergency'
-  final String status; // 'Pending', 'InProgress', 'Completed', 'Rejected'
+  final String priority; // Low, Medium, High, Emergency
+  final String status; // Pending, Assigned, InProgress, Completed, Rejected
   final DateTime createdAt;
   final List<String>? photoUrls;
-  final String? assignedTo; // artisan or manager ID
+  final String? assignedTo; // artisan ID
+  final String? assignedBy; // manager ID
+  final DateTime? assignedAt;
   final DateTime? resolvedAt;
   final String? resolutionNotes;
 
@@ -21,6 +23,8 @@ class MaintenanceRequestModel {
     required this.createdAt,
     this.photoUrls,
     this.assignedTo,
+    this.assignedBy,
+    this.assignedAt,
     this.resolvedAt,
     this.resolutionNotes,
   });
@@ -34,8 +38,10 @@ class MaintenanceRequestModel {
       priority: map['priority'] as String,
       status: map['status'] as String? ?? 'Pending',
       createdAt: DateTime.parse(map['createdAt'] as String),
-      photoUrls: (map['photoUrls'] as List<dynamic>?)?.cast<String>(),
+      photoUrls: (map['photoUrls'] as List?)?.cast<String>(),
       assignedTo: map['assignedTo'] as String?,
+      assignedBy: map['assignedBy'] as String?,
+      assignedAt: map['assignedAt'] != null ? DateTime.parse(map['assignedAt'] as String) : null,
       resolvedAt: map['resolvedAt'] != null ? DateTime.parse(map['resolvedAt'] as String) : null,
       resolutionNotes: map['resolutionNotes'] as String?,
     );
@@ -50,6 +56,8 @@ class MaintenanceRequestModel {
     'createdAt': createdAt.toIso8601String(),
     'photoUrls': photoUrls,
     'assignedTo': assignedTo,
+    'assignedBy': assignedBy,
+    'assignedAt': assignedAt?.toIso8601String(),
     'resolvedAt': resolvedAt?.toIso8601String(),
     'resolutionNotes': resolutionNotes,
   };
@@ -64,6 +72,8 @@ class MaintenanceRequestModel {
     DateTime? createdAt,
     List<String>? photoUrls,
     String? assignedTo,
+    String? assignedBy,
+    DateTime? assignedAt,
     DateTime? resolvedAt,
     String? resolutionNotes,
   }) {
@@ -77,6 +87,8 @@ class MaintenanceRequestModel {
       createdAt: createdAt ?? this.createdAt,
       photoUrls: photoUrls ?? this.photoUrls,
       assignedTo: assignedTo ?? this.assignedTo,
+      assignedBy: assignedBy ?? this.assignedBy,
+      assignedAt: assignedAt ?? this.assignedAt,
       resolvedAt: resolvedAt ?? this.resolvedAt,
       resolutionNotes: resolutionNotes ?? this.resolutionNotes,
     );
