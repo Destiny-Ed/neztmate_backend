@@ -4,12 +4,28 @@ import 'package:neztmate_backend/features/history/repository/user_history_repo.d
 
 class HistoryRepositoryImpl implements HistoryRepository {
   final HistoryRemoteDataSource dataSource;
+
   HistoryRepositoryImpl(this.dataSource);
 
   @override
-  Future<HistoryEntryModel> create(HistoryEntryModel entry) => dataSource.create(entry);
+  Future<HistoryEntryModel> createHistoryEntry(HistoryEntryModel entry) => dataSource.create(entry);
 
   @override
-  Future<List<HistoryEntryModel>> getByUser(String userId, {int limit = 30}) =>
-      dataSource.getByUser(userId, limit: limit);
+  Future<List<HistoryEntryModel>> getHistoryByUser(
+    String userId, {
+    int limit = 50,
+    DateTime? startAfter,
+    String? typeFilter,
+  }) async {
+    // typeFilter can be added later if datasource supports it
+    return dataSource.getByUser(userId, limit: limit, startAfter: startAfter);
+  }
+
+  @override
+  Future<List<HistoryEntryModel>> getHistoryByRelatedId(String relatedId, String relatedCollection) =>
+      dataSource.getByRelatedId(relatedId, relatedCollection);
+
+  @override
+  Future<void> deleteOldEntries(String userId, {int olderThanDays = 365}) =>
+      dataSource.deleteOld(userId, olderThanDays: olderThanDays);
 }

@@ -3,6 +3,8 @@ import 'package:neztmate_backend/features/auth_user/models/user_model.dart';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
 import 'package:neztmate_backend/features/history/model/user_history_model.dart';
 import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
+import 'package:neztmate_backend/features/leases/models/leases_model.dart';
+import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
 import 'package:neztmate_backend/features/properties/datasources/property_remote_datasource.dart';
 import 'package:neztmate_backend/features/properties/models/property_model.dart';
 import 'package:neztmate_backend/features/units/datasource/unit_remote_datasource.dart';
@@ -14,6 +16,7 @@ import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
 class UnitRepositoryImpl implements UnitRepository {
   final UnitRemoteDataSource unitDataSource;
   final PropertyRemoteDataSource propertyDataSource;
+  final LeaseRepository leaseRepository;
   final HistoryRepository historyRepository;
   final UserRepository userRepository; // to fetch tenant info
 
@@ -22,6 +25,7 @@ class UnitRepositoryImpl implements UnitRepository {
     this.propertyDataSource,
     this.historyRepository,
     this.userRepository,
+    this.leaseRepository,
   );
   @override
   Future<UnitModel> createUnit(UnitModel unit) => unitDataSource.createUnit(unit);
@@ -104,10 +108,19 @@ class UnitRepositoryImpl implements UnitRepository {
       final activeLeases = await leaseRepository.getLeasesByUnit(unit.id);
       final activeLease = activeLeases.firstWhere(
         (l) => l.status == 'Active' && l.endDate.isAfter(DateTime.now()),
-        orElse: () => null,
+        orElse: () => LeaseModel(
+          id: "",
+          unitId: "",
+          tenantId: "",
+          landownerId: "",
+          startDate: DateTime.now(),
+          endDate: DateTime.now(),
+          monthlyRent: 0,
+          createdAt: DateTime.now(),
+        ),
       );
 
-      if (activeLease != null) {
+      if (activeLease.tenantId.isNotEmpty) {
         currentTenant = await userRepository.getUserById(activeLease.tenantId);
       }
 

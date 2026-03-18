@@ -7,9 +7,13 @@ import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
 import 'package:neztmate_backend/core/services/database/firebase/firebase.dart';
 import 'package:neztmate_backend/features/auth_user/handler/auth_handler.dart';
 import 'package:neztmate_backend/features/auth_user/handler/user_handler.dart';
+import 'package:neztmate_backend/features/history/handler/history_handler.dart';
+import 'package:neztmate_backend/features/leases/handler/lease_handler.dart';
 import 'package:neztmate_backend/features/properties/handler/property_handler.dart';
 import 'package:neztmate_backend/features/units/handler/unit_handler.dart';
 import 'package:neztmate_backend/routes/auth_routes.dart';
+import 'package:neztmate_backend/routes/history_routes.dart';
+import 'package:neztmate_backend/routes/lease_routes.dart';
 import 'package:neztmate_backend/routes/property_routes.dart';
 import 'package:neztmate_backend/routes/unit_routes.dart';
 import 'package:neztmate_backend/routes/user_routes.dart';
@@ -74,6 +78,20 @@ void main() async {
   router.mount(
     '/units/',
     Pipeline().addMiddleware(authMiddleware(jwtService)).addHandler(unitRoutes(injector<UnitHandler>()).call),
+  );
+
+  router.mount(
+    '/history/',
+    Pipeline()
+        .addMiddleware(authMiddleware(jwtService))
+        .addHandler(historyRoutes(injector<HistoryHandler>()).call),
+  );
+
+  router.mount(
+    '/leases/',
+    Pipeline()
+        .addMiddleware(authMiddleware(jwtService))
+        .addHandler(leaseRoutes(injector<LeaseHandler>()).call),
   );
 
   final handler = Pipeline().addMiddleware(logRequests()).addHandler(router.call);

@@ -1,6 +1,6 @@
 import 'package:neztmate_backend/features/leases/models/leases_model.dart';
 
-abstract class LeaseRepository {
+abstract class LeaseRemoteDataSource {
   Future<LeaseModel> createLease(LeaseModel lease);
   Future<LeaseModel> getLeaseById(String id);
   Future<List<LeaseModel>> getActiveLeasesByTenant(String tenantId);

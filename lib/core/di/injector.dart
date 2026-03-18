@@ -5,6 +5,16 @@ import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
 import 'package:neztmate_backend/core/services/auth/password_service.dart';
 import 'package:neztmate_backend/core/services/database/firebase/firebase.dart';
 import 'package:neztmate_backend/features/auth_user/datasources/firestore/firestore_user_datasource.dart';
+import 'package:neztmate_backend/features/history/datasource/firestore/history_firestore_datasource.dart';
+import 'package:neztmate_backend/features/history/datasource/history_remote_datasource.dart';
+import 'package:neztmate_backend/features/history/handler/history_handler.dart';
+import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
+import 'package:neztmate_backend/features/history/repository_impl/history_repo_impl.dart';
+import 'package:neztmate_backend/features/leases/datasource/firestore/firestore_lease_datasource.dart';
+import 'package:neztmate_backend/features/leases/datasource/lease_remote_datasource.dart';
+import 'package:neztmate_backend/features/leases/handler/lease_handler.dart';
+import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
+import 'package:neztmate_backend/features/leases/repository_impl/lease_repo_impl.dart';
 import 'package:neztmate_backend/features/properties/datasources/firestore/firestore_property_datasource.dart';
 import 'package:neztmate_backend/features/auth_user/datasources/user_remote_datasource.dart';
 import 'package:neztmate_backend/features/auth_user/handler/auth_handler.dart';
@@ -63,8 +73,25 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
 
   //units
   injector.registerLazySingleton<UnitRemoteDataSource>(() => FirestoreUnitDataSource(injector<Firestore>()));
-  injector.registerLazySingleton<UnitRepository>(() => UnitRepositoryImpl(injector<UnitRemoteDataSource>()));
+  injector.registerLazySingleton<UnitRepository>(
+    () => UnitRepositoryImpl(
+      injector<UnitRemoteDataSource>(),
+      injector<PropertyRemoteDataSource>(),
+      injector<HistoryRepository>(),
+      injector<UserRepository>(),
+      injector<LeaseRepository>(),
+    ),
+  );
   injector.registerLazySingleton<UnitHandler>(() => UnitHandler(injector<UnitRepository>()));
+
+  //history
+  injector.registerLazySingleton<HistoryRemoteDataSource>(
+    () => FirestoreHistoryDataSource(injector<Firestore>()),
+  );
+  injector.registerLazySingleton<HistoryRepository>(
+    () => HistoryRepositoryImpl(injector<HistoryRemoteDataSource>()),
+  );
+  injector.registerLazySingleton<HistoryHandler>(() => HistoryHandler(injector<HistoryRepository>()));
 
   //auth
   injector.registerLazySingleton<AuthRepository>(
@@ -84,4 +111,13 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
       injector<UserRepository>(),
     ),
   );
+
+  //Leases
+  injector.registerLazySingleton<LeaseRemoteDataSource>(
+    () => FirestoreLeaseDataSource(injector<Firestore>()),
+  );
+  injector.registerLazySingleton<LeaseRepository>(
+    () => LeaseRepositoryImpl(injector<LeaseRemoteDataSource>()),
+  );
+  injector.registerLazySingleton<LeaseHandler>(() => LeaseHandler(injector<LeaseRepository>()));
 }
