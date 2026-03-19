@@ -1,9 +1,10 @@
 import 'dart:convert';
- import 'package:neztmate_backend/features/properties/models/property_model.dart';
+import 'package:neztmate_backend/features/properties/models/property_model.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
 import 'package:shelf/shelf.dart';
 import 'package:neztmate_backend/core/error.dart';
 import 'package:shelf_router/shelf_router.dart';
+import 'package:uuid/uuid.dart';
 
 class PropertyHandler {
   final PropertyRepository propertyRepository;
@@ -77,7 +78,8 @@ class PropertyHandler {
 
       body['createdAt'] = DateTime.now().toIso8601String();
       body['updatedAt'] = DateTime.now().toIso8601String();
-      final property = PropertyModel.fromMap(body, '');
+      body['id'] = Uuid().v4();
+      final property = PropertyModel.fromMap(body);
 
       final created = await propertyRepository.createProperty(property);
       return Response.ok(jsonEncode({'message': 'Property created', 'property': created.toMap()}));
@@ -121,7 +123,7 @@ class PropertyHandler {
 
       body['updatedAt'] = DateTime.now().toIso8601String();
 
-      final property = PropertyModel.fromMap(body, id);
+      final property = PropertyModel.fromMap(body);
 
       await propertyRepository.updateProperty(property);
       return Response.ok(jsonEncode({'message': 'Property updated', 'property': property.toMap()}));

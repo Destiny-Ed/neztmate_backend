@@ -1,5 +1,5 @@
 class UnitModel {
-  final String id;
+  String id;
   final String propertyId;
   final String unitNumber;
   final int? floorLevel;
@@ -16,6 +16,7 @@ class UnitModel {
   final String? videoUrl;
   final String status;
   final DateTime createdAt;
+  final DateTime updatedAt;
 
   UnitModel({
     required this.id,
@@ -35,11 +36,12 @@ class UnitModel {
     this.videoUrl,
     this.status = 'vacant',
     required this.createdAt,
+    required this.updatedAt,
   });
 
-  factory UnitModel.fromMap(Map<String, dynamic> map, String id) {
+  factory UnitModel.fromMap(Map<String, dynamic> map) {
     return UnitModel(
-      id: id,
+      id: map['id'],
       propertyId: map['propertyId'],
       unitNumber: map['unitNumber'],
       floorLevel: map['floorLevel'],
@@ -58,6 +60,7 @@ class UnitModel {
       videoUrl: map['videoUrl'],
       status: map['status'] ?? 'Vacant',
       createdAt: DateTime.parse(map['createdAt']),
+      updatedAt: DateTime.parse(map['updatedAt']),
     );
   }
 
@@ -78,6 +81,7 @@ class UnitModel {
     'videoUrl': videoUrl,
     'status': status,
     'createdAt': createdAt.toIso8601String(),
+    'updatedAt': updatedAt.toIso8601String(),
   };
 
   UnitModel copyWith({
@@ -96,6 +100,7 @@ class UnitModel {
     String? videoUrl,
     String? status,
     DateTime? createdAt,
+    DateTime? updatedAt,
     Map<String, bool>? customFeatures,
     List<UnitFee>? fees,
   }) {
@@ -115,6 +120,7 @@ class UnitModel {
       videoUrl: videoUrl ?? this.videoUrl,
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
       customFeatures: customFeatures ?? this.customFeatures,
       fees: fees ?? this.fees,
     );

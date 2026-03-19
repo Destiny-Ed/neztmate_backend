@@ -4,6 +4,7 @@ import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
 import 'package:shelf/shelf.dart';
 import 'package:neztmate_backend/core/error.dart';
 import 'package:shelf_router/shelf_router.dart';
+import 'package:uuid/uuid.dart';
 
 class UnitHandler {
   final UnitRepository unitRepository;
@@ -36,7 +37,7 @@ class UnitHandler {
     try {
       final role = request.context['role'] as String?;
 
-      if (role == 'Tenant' || role == null) {
+      if (role == 'tenant' || role == null) {
         // Tenant sees unit + property
         final unitsWithProperty = await unitRepository.getAvailableUnitsWithProperty();
         return Response.ok(jsonEncode({'units': unitsWithProperty.map((u) => u.toMap()).toList()}));
@@ -72,19 +73,25 @@ class UnitHandler {
   Future<Response> createUnit(Request request) async {
     try {
       final role = request.context['role'] as String?;
-      if (!['Landowner', 'Manager'].contains(role)) {
+      if (!['landowner', 'manager'].contains(role)) {
         return Response(403, body: jsonEncode({'message': 'Unauthorized to create unit'}));
       }
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
-      final unit = UnitModel.fromMap(body, '');
+
+      body['createdAt'] = DateTime.now().toIso8601String();
+      body['updatedAt'] = DateTime.now().toIso8601String();
+      body['id'] = Uuid().v4();
+
+      final unit = UnitModel.fromMap(body);
 
       final created = await unitRepository.createUnit(unit);
       return Response.ok(
         jsonEncode({'message': 'Unit created', 'unit': created.toMap()}),
         headers: {'Content-Type': 'application/json'},
       );
-    } catch (e) {
+    } catch (e, s) {
+      print("Unit creation error $e --- $s");
       return Response.internalServerError(body: jsonEncode({'message': 'Failed to create unit'}));
     }
   }
@@ -96,7 +103,9 @@ class UnitHandler {
       if (id == null) return Response(400, body: jsonEncode({'message': 'Missing unit ID'}));
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
-      final unit = UnitModel.fromMap(body, id);
+      body['updatedAt'] = DateTime.now().toIso8601String();
+
+      final unit = UnitModel.fromMap(body);
 
       await unitRepository.updateUnit(unit);
       return Response.ok(jsonEncode({'message': 'Unit updated'}));

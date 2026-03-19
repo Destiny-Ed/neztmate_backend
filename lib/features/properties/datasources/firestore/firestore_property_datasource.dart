@@ -13,7 +13,6 @@ class FirestorePropertyDataSource implements PropertyRemoteDataSource {
   @override
   Future<PropertyModel> createProperty(PropertyModel property) async {
     final docRef = _properties.doc(property.id.isEmpty ? null : property.id);
-    property.id = docRef.id;
     await docRef.set(property.toMap());
     return property.copyWith(id: docRef.id);
   }
@@ -22,25 +21,25 @@ class FirestorePropertyDataSource implements PropertyRemoteDataSource {
   Future<PropertyModel> getPropertyById(String id) async {
     final doc = await _properties.doc(id).get();
     if (!doc.exists) throw NotFoundException('Property', id);
-    return PropertyModel.fromMap(doc.data() as Map<String, dynamic>, id);
+    return PropertyModel.fromMap(doc.data() as Map<String, dynamic>);
   }
 
   @override
   Future<List<PropertyModel>> getPropertiesByLandowner(String landownerId) async {
     final snap = await _properties.where('landownerId', WhereFilter.equal, landownerId).get();
-    return snap.docs.map((d) => PropertyModel.fromMap(d.data(), d.id)).toList();
+    return snap.docs.map((d) => PropertyModel.fromMap(d.data())).toList();
   }
 
   @override
   Future<List<PropertyModel>> getPropertiesByManager(String managerId) async {
     final snap = await _properties.where('managerId', WhereFilter.equal, managerId).get();
-    return snap.docs.map((d) => PropertyModel.fromMap(d.data(), d.id)).toList();
+    return snap.docs.map((d) => PropertyModel.fromMap(d.data())).toList();
   }
 
   @override
   Future<List<PropertyModel>> getAllProperties() async {
     final snap = await _properties.orderBy('createdAt', descending: true).get();
-    return snap.docs.map((d) => PropertyModel.fromMap(d.data(), d.id)).toList();
+    return snap.docs.map((d) => PropertyModel.fromMap(d.data())).toList();
   }
 
   @override

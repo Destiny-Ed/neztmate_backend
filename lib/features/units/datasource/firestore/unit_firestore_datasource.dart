@@ -21,13 +21,13 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
   Future<UnitModel> getUnitById(String id) async {
     final doc = await _units.doc(id).get();
     if (!doc.exists) throw NotFoundException('Unit', id);
-    return UnitModel.fromMap(doc.data() as Map<String, dynamic>, id);
+    return UnitModel.fromMap(doc.data() as Map<String, dynamic>);
   }
 
   @override
   Future<List<UnitModel>> getUnitsByProperty(String propertyId) async {
     final snap = await _units.where('propertyId', WhereFilter.equal, propertyId).get();
-    return snap.docs.map((d) => UnitModel.fromMap(d.data(), d.id)).toList();
+    return snap.docs.map((d) => UnitModel.fromMap(d.data())).toList();
   }
 
   @override
@@ -36,7 +36,7 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
         .where('propertyId', WhereFilter.equal, propertyId)
         .where('status', WhereFilter.equal, 'vacant')
         .get();
-    return snap.docs.map((d) => UnitModel.fromMap(d.data(), d.id)).toList();
+    return snap.docs.map((d) => UnitModel.fromMap(d.data())).toList();
   }
 
   @override
@@ -54,7 +54,7 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
     }
 
     final snap = await query.orderBy('monthlyRent').get();
-    return snap.docs.map((d) => UnitModel.fromMap(d.data(), d.id)).toList();
+    return snap.docs.map((d) => UnitModel.fromMap(d.data())).toList();
   }
 
   @override

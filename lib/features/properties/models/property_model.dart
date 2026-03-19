@@ -31,9 +31,9 @@ class PropertyModel {
     required this.documentType,
   });
 
-  factory PropertyModel.fromMap(Map<String, dynamic> map, String id) {
+  factory PropertyModel.fromMap(Map<String, dynamic> map) {
     return PropertyModel(
-      id: id,
+      id: map['id'] as String,
       name: map['name'] as String,
       type: map['type'] as String,
       address: map['address'] as String,
