@@ -14,7 +14,7 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
   Future<UnitModel> createUnit(UnitModel unit) async {
     final docRef = _units.doc(unit.id.isEmpty ? null : unit.id);
     await docRef.set(unit.toMap());
-    return unit.copyWith(id: docRef.id);
+    return unit;
   }
 
   @override

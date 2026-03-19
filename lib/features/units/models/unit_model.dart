@@ -65,6 +65,7 @@ class UnitModel {
   }
 
   Map<String, dynamic> toMap() => {
+    'id': id,
     'propertyId': propertyId,
     'unitNumber': unitNumber,
     'floorLevel': floorLevel,

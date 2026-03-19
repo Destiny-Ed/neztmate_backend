@@ -1,5 +1,5 @@
 class PropertyModel {
-  String id;
+  final String id;
   final String name;
   final String type; // 'Apartment', 'House', 'Commercial'
   final String address;
@@ -51,6 +51,7 @@ class PropertyModel {
   }
 
   Map<String, dynamic> toMap() => {
+    'id' : id,
     'name': name,
     'type': type,
     'address': address,
