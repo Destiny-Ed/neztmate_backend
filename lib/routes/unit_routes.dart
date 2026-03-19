@@ -12,9 +12,9 @@ Router unitRoutes(UnitHandler handler) {
   router.get('/<id>', handler.getUnitById);
 
   // Admin / manager / landowner only (can be further restricted in middleware)
-  router.post('/', handler.createUnit);
-  router.patch('/<id>', handler.updateUnit);
-  router.delete('/<id>', handler.deleteUnit);
+  router.post('/create', handler.createUnit);
+  router.patch('/<id>/update', handler.updateUnit);
+  router.delete('/<id>/delete', handler.deleteUnit);
 
   return router;
 }
