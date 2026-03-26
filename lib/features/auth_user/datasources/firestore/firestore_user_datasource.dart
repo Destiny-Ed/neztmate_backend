@@ -2,6 +2,7 @@ import 'package:dart_firebase_admin/firestore.dart';
 import 'package:neztmate_backend/core/error.dart';
 import 'package:neztmate_backend/features/auth_user/datasources/user_remote_datasource.dart';
 import 'package:neztmate_backend/features/auth_user/models/user_model.dart';
+import 'package:neztmate_backend/features/auth_user/models/user_stats_model.dart';
 
 class FirestoreUserDataSource implements UserRemoteDataSource {
   final Firestore firestore;
@@ -50,5 +51,109 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
   @override
   Future<void> deleteUser(String id) async {
     await _users.doc(id).delete();
+  }
+
+  @override
+  Future<UserStatsModel> getUserStats(String userId, String role) async {
+    int totalProperties = 0;
+    double totalRevenue = 0.0;
+    int totalTenants = 0;
+    int submittedTasks = 0;
+    int maintenanceRequests = 0;
+    double totalWithdrawn = 0.0;
+
+    try {
+      // Landowner / Manager stats
+      if (role == 'landowner' || role == 'manager') {
+        final propertyField = role == 'Landowner' ? 'landownerId' : 'managerId';
+
+        // 1. Total properties
+        final propertiesSnap = await firestore
+            .collection('properties')
+            .where(propertyField, WhereFilter.equal, userId)
+            .get();
+        totalProperties = propertiesSnap.docs.length;
+
+        // 2. Total revenue from paid payments
+        final paymentsSnap = await firestore
+            .collection('payments')
+            .where('status', WhereFilter.equal, 'Paid')
+            .get();
+
+        for (var doc in paymentsSnap.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final amount = (data['amount'] as num?)?.toDouble() ?? 0.0;
+          totalRevenue += amount;
+        }
+
+        // 3. Total active tenants
+        final leasesSnap = await firestore
+            .collection('leases')
+            .where('landownerId', WhereFilter.equal, userId)
+            .where('status', WhereFilter.equal, 'Active')
+            .get();
+        totalTenants = leasesSnap.docs.length;
+
+        // 4. Maintenance requests
+        final requestsSnap = await firestore
+            .collection('maintenance_requests')
+            .where('managerId', WhereFilter.equal, userId)
+            .get();
+        maintenanceRequests = requestsSnap.docs.length;
+
+        // 5. Submitted tasks (as manager)
+        final tasksSnap = await firestore
+            .collection('tasks')
+            .where('managerId', WhereFilter.equal, userId)
+            .get();
+        submittedTasks = tasksSnap.docs.length;
+
+        // 6. Total withdrawn
+        final withdrawalsSnap = await firestore
+            .collection('withdrawals')
+            .where('userId', WhereFilter.equal, userId)
+            .where('status', WhereFilter.equal, 'Completed')
+            .get();
+
+        for (var doc in withdrawalsSnap.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          totalWithdrawn += (data['amount'] as num?)?.toDouble() ?? 0.0;
+        }
+      }
+      // Tenant stats
+      else if (role == 'Tenant') {
+        final requestsSnap = await firestore
+            .collection('maintenance_requests')
+            .where('tenantId', WhereFilter.equal, userId)
+            .get();
+        maintenanceRequests = requestsSnap.docs.length;
+
+        final tasksSnap = await firestore
+            .collection('tasks')
+            .where('artisanId', WhereFilter.equal, userId)
+            .get();
+        submittedTasks = tasksSnap.docs.length;
+      }
+      // Artisan stats
+      else if (role == 'Artisan') {
+        final tasksSnap = await firestore
+            .collection('tasks')
+            .where('artisanId', WhereFilter.equal, userId)
+            .get();
+        submittedTasks = tasksSnap.docs.length;
+      }
+
+      return UserStatsModel(
+        totalProperties: totalProperties,
+        totalRevenue: totalRevenue,
+        totalTenants: totalTenants,
+        submittedTasks: submittedTasks,
+        maintenanceRequests: maintenanceRequests,
+        totalWithdrawn: totalWithdrawn,
+      );
+    } catch (e, stack) {
+      print('getUserStats error: $e\n$stack');
+      rethrow;
+    }
   }
 }

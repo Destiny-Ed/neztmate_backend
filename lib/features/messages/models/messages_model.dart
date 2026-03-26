@@ -2,9 +2,9 @@ class MessageModel {
   final String id;
   final String senderId;
   final String receiverId;
-  final String? propertyId; // optional context
+  final String? propertyId; // Optional context (e.g. related to a specific property)
   final String content;
-  final List<String>? attachmentUrls;
+  final List<String>? attachmentUrls; // photos, PDFs, etc.
   final DateTime createdAt;
   final DateTime? readAt;
 

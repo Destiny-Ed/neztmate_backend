@@ -10,6 +10,11 @@ import 'package:neztmate_backend/features/applications/handler/application_handl
 import 'package:neztmate_backend/features/applications/repository/application_repo.dart';
 import 'package:neztmate_backend/features/applications/repository_impl/repository_impl.dart';
 import 'package:neztmate_backend/features/auth_user/datasources/firestore/firestore_user_datasource.dart';
+import 'package:neztmate_backend/features/community/datasource/firestore/firestore_remote_datasource.dart';
+import 'package:neztmate_backend/features/community/datasource/remote_datasource.dart';
+import 'package:neztmate_backend/features/community/handler/community_handler.dart';
+import 'package:neztmate_backend/features/community/repository/community_post_repo.dart';
+import 'package:neztmate_backend/features/community/repository_impl/comunity_repo_impl.dart';
 import 'package:neztmate_backend/features/history/datasource/firestore/history_firestore_datasource.dart';
 import 'package:neztmate_backend/features/history/datasource/history_remote_datasource.dart';
 import 'package:neztmate_backend/features/history/handler/history_handler.dart';
@@ -29,6 +34,16 @@ import 'package:neztmate_backend/features/maintenance/datasource/maintenance_rem
 import 'package:neztmate_backend/features/maintenance/handler/maintenance_handler.dart';
 import 'package:neztmate_backend/features/maintenance/repository/maintenance_repo.dart';
 import 'package:neztmate_backend/features/maintenance/repository_impl/repository_impl.dart';
+import 'package:neztmate_backend/features/messages/datasource/firestore/firestore_message_remote_datasource.dart';
+import 'package:neztmate_backend/features/messages/datasource/remote_datasource.dart';
+import 'package:neztmate_backend/features/messages/handler/messages_handler.dart';
+import 'package:neztmate_backend/features/messages/repository/message_repo.dart';
+import 'package:neztmate_backend/features/messages/repository_impl/messages_repo_impl.dart';
+import 'package:neztmate_backend/features/notifications/datasource/firestore/firestore_remote_datasource.dart';
+import 'package:neztmate_backend/features/notifications/datasource/remote_datasource.dart';
+import 'package:neztmate_backend/features/notifications/handler/handler.dart';
+import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
+import 'package:neztmate_backend/features/notifications/repository_impl/notification_repo_impl.dart';
 import 'package:neztmate_backend/features/properties/datasources/firestore/firestore_property_datasource.dart';
 import 'package:neztmate_backend/features/auth_user/datasources/user_remote_datasource.dart';
 import 'package:neztmate_backend/features/auth_user/handler/auth_handler.dart';
@@ -177,4 +192,33 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
   injector.registerLazySingleton<TaskRepository>(() => TaskRepositoryImpl(injector<TaskRemoteDataSource>()));
 
   injector.registerLazySingleton<TaskHandler>(() => TaskHandler(injector<TaskRepository>()));
+
+  //community
+  injector.registerLazySingleton<CommunityRemoteDataSource>(
+    () => FirestoreCommunityDataSource(injector<Firestore>()),
+  );
+  injector.registerLazySingleton<CommunityRepository>(
+    () => CommunityRepositoryImpl(injector<CommunityRemoteDataSource>()),
+  );
+  injector.registerLazySingleton<CommunityHandler>(() => CommunityHandler(injector<CommunityRepository>()));
+
+  ///messages
+  injector.registerLazySingleton<MessageRemoteDataSource>(
+    () => FirestoreMessageDataSource(injector<Firestore>()),
+  );
+  injector.registerLazySingleton<MessageRepository>(
+    () => MessageRepositoryImpl(injector<MessageRemoteDataSource>()),
+  );
+  injector.registerLazySingleton<MessageHandler>(() => MessageHandler(injector<MessageRepository>()));
+
+  //notifications
+  injector.registerLazySingleton<NotificationRemoteDataSource>(
+    () => FirestoreNotificationDataSource(injector<Firestore>()),
+  );
+  injector.registerLazySingleton<NotificationRepository>(
+    () => NotificationRepositoryImpl(injector<NotificationRemoteDataSource>()),
+  );
+  injector.registerLazySingleton<NotificationHandler>(
+    () => NotificationHandler(injector<NotificationRepository>()),
+  );
 }

@@ -1,12 +1,12 @@
-class UserStats {
+class UserStatsModel {
   final int totalProperties;
-  final double totalRevenue; // in NGN or your currency
+  final double totalRevenue;
   final int totalTenants;
   final int submittedTasks;
   final int maintenanceRequests;
   final double totalWithdrawn;
 
-  UserStats({
+  UserStatsModel({
     required this.totalProperties,
     required this.totalRevenue,
     required this.totalTenants,

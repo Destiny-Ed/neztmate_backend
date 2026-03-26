@@ -1,14 +1,14 @@
 class WithdrawalModel {
   final String id;
-  final String userId; // landowner/manager requesting withdrawal
+  final String userId; // Landowner/Manager requesting withdrawal
   final double amount;
-  final String currency; // 'NGN'
+  final String currency;
   final String status; // 'Pending', 'Approved', 'Completed', 'Rejected'
-  final String? method; // 'Bank', 'Paystack', etc.
-  final String? reference; // transaction reference
+  final String? method;
+  final String? reference;
   final DateTime requestedAt;
   final DateTime? processedAt;
-  final String? processedBy; // admin/manager who approved
+  final String? processedBy;
 
   WithdrawalModel({
     required this.id,

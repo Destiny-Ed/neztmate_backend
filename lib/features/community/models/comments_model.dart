@@ -1,14 +1,14 @@
-class Comment {
+class CommentModel {
   final String id;
-  final String postId; // reference to CommunityPost.id (or unitId if used for units)
-  final String authorId; // user who commented
+  final String postId;
+  final String authorId;
   final String content;
   final DateTime createdAt;
   final DateTime? updatedAt;
-  final String? parentId; // for threaded/replies (optional)
+  final String? parentId; // for replies
   final int likes;
 
-  Comment({
+  CommentModel({
     required this.id,
     required this.postId,
     required this.authorId,
@@ -19,8 +19,8 @@ class Comment {
     this.likes = 0,
   });
 
-  factory Comment.fromMap(Map<String, dynamic> map, String id) {
-    return Comment(
+  factory CommentModel.fromMap(Map<String, dynamic> map, String id) {
+    return CommentModel(
       id: id,
       postId: map['postId'] as String,
       authorId: map['authorId'] as String,
@@ -42,7 +42,7 @@ class Comment {
     'likes': likes,
   };
 
-  Comment copyWith({
+  CommentModel copyWith({
     String? id,
     String? postId,
     String? authorId,
@@ -52,7 +52,7 @@ class Comment {
     String? parentId,
     int? likes,
   }) {
-    return Comment(
+    return CommentModel(
       id: id ?? this.id,
       postId: postId ?? this.postId,
       authorId: authorId ?? this.authorId,

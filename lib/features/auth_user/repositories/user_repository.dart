@@ -14,5 +14,6 @@ abstract class UserRepository {
 
   Future<void> deleteUser(String id);
 
-  Future<UserStats> getUserStats(String userId, String role);
+  /// Get dashboard stats based on user role
+  Future<UserStatsModel> getUserStats(String userId, String role);
 }

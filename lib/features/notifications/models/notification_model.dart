@@ -1,13 +1,14 @@
 class NotificationModel {
   final String id;
   final String userId;
-  final String type; // e.g. "new_lease", "payment_due", "maintenance_update"
+  final String type; // e.g. "application_approved", "new_message", "payment_received", "task_assigned"
   final String title;
   final String body;
   final bool isRead;
   final DateTime createdAt;
-  final String? relatedId; // link to lease, request, etc.
-  final Map<String, dynamic>? data;
+  final String? relatedId; // ID of related entity (application, message, lease, task, etc.)
+  final String? relatedCollection; // "applications", "messages", "leases", "tasks"
+  final Map<String, dynamic>? data; // extra payload for deep linking
 
   NotificationModel({
     required this.id,
@@ -18,6 +19,7 @@ class NotificationModel {
     this.isRead = false,
     required this.createdAt,
     this.relatedId,
+    this.relatedCollection,
     this.data,
   });
 
@@ -31,6 +33,7 @@ class NotificationModel {
       isRead: map['isRead'] as bool? ?? false,
       createdAt: DateTime.parse(map['createdAt'] as String),
       relatedId: map['relatedId'] as String?,
+      relatedCollection: map['relatedCollection'] as String?,
       data: map['data'] as Map<String, dynamic>?,
     );
   }
@@ -43,6 +46,7 @@ class NotificationModel {
     'isRead': isRead,
     'createdAt': createdAt.toIso8601String(),
     'relatedId': relatedId,
+    'relatedCollection': relatedCollection,
     'data': data,
   };
 
@@ -55,6 +59,7 @@ class NotificationModel {
     bool? isRead,
     DateTime? createdAt,
     String? relatedId,
+    String? relatedCollection,
     Map<String, dynamic>? data,
   }) {
     return NotificationModel(
@@ -66,6 +71,7 @@ class NotificationModel {
       isRead: isRead ?? this.isRead,
       createdAt: createdAt ?? this.createdAt,
       relatedId: relatedId ?? this.relatedId,
+      relatedCollection: relatedCollection ?? this.relatedCollection,
       data: data ?? this.data,
     );
   }

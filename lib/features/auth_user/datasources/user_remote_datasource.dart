@@ -1,4 +1,5 @@
 import 'package:neztmate_backend/features/auth_user/models/user_model.dart';
+import 'package:neztmate_backend/features/auth_user/models/user_stats_model.dart';
 
 abstract class UserRemoteDataSource {
   Future<User> getUserById(String id);
@@ -6,4 +7,6 @@ abstract class UserRemoteDataSource {
   Future<User> createUser(User user);
   Future<void> updateUser(User user);
   Future<void> deleteUser(String id);
+
+  Future<UserStatsModel> getUserStats(String userId, String role);
 }

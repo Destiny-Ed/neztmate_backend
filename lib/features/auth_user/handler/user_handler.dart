@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:neztmate_backend/features/auth_user/models/user_stats_model.dart';
 import 'package:shelf/shelf.dart';
 import 'package:neztmate_backend/core/error.dart';
 import 'package:neztmate_backend/features/auth_user/models/user_model.dart';
@@ -201,6 +200,30 @@ class UserHandler {
     } catch (e, stack) {
       print('Delete user error: $e\n$stack');
       return Response.internalServerError(body: jsonEncode({'message': 'Failed to delete account'}));
+    }
+  }
+
+  /// GET /users/stats - Get dashboard statistics for the current user
+  Future<Response> getUserStats(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+
+      if (userId == null || role == null) {
+        return unauthorized('Missing authentication');
+      }
+
+      final stats = await userRepository.getUserStats(userId, role);
+
+      return Response.ok(
+        jsonEncode({'stats': stats.toJson(), 'message': 'User statistics retrieved successfully'}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } on AppException catch (e) {
+      return Response(400, body: jsonEncode({'message': e.message}));
+    } catch (e, stack) {
+      print('Get user stats error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to fetch statistics'}));
     }
   }
 
