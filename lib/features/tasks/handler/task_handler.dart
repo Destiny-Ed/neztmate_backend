@@ -16,7 +16,7 @@ class TaskHandler {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
 
-      if (userId == null || role != 'Manager') {
+      if (userId == null || role != 'manager') {
         return Response(403, body: jsonEncode({'message': 'Only managers can assign tasks'}));
       }
 
@@ -57,7 +57,7 @@ class TaskHandler {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
 
-      if (userId == null || role != 'Artisan') {
+      if (userId == null || role != 'artisan') {
         return Response(403, body: jsonEncode({'message': 'Only artisans can view their assigned tasks'}));
       }
 
@@ -84,7 +84,7 @@ class TaskHandler {
         return Response(400, body: jsonEncode({'message': 'Missing user or request ID'}));
       }
 
-      if (role != 'Manager') {
+      if (role != 'manager') {
         return Response(403, body: jsonEncode({'message': 'Only managers can view tasks for a request'}));
       }
 
@@ -118,7 +118,7 @@ class TaskHandler {
 
       // Authorization: assigned artisan or manager who created it
       final isArtisan = task.artisanId == userId;
-      final isManager = task.managerId == userId || role == 'Manager';
+      final isManager = task.managerId == userId || role == 'manager';
 
       if (!isArtisan && !isManager) {
         return Response(403, body: jsonEncode({'message': 'Forbidden'}));
@@ -144,7 +144,7 @@ class TaskHandler {
         return Response(400, body: jsonEncode({'message': 'Missing ID'}));
       }
 
-      if (role != 'Artisan') {
+      if (role != 'artisan') {
         return Response(403, body: jsonEncode({'message': 'Only artisans can complete tasks'}));
       }
 

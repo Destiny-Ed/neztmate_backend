@@ -16,7 +16,7 @@ class InviteHandler {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
 
-      if (userId == null || !['Landowner', 'Manager'].contains(role)) {
+      if (userId == null || !['landowner', 'manager'].contains(role)) {
         return Response(403, body: jsonEncode({'message': 'Only landowners or managers can send invites'}));
       }
 

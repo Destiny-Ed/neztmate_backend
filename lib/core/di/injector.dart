@@ -41,6 +41,11 @@ import 'package:neztmate_backend/features/properties/datasources/property_remote
 import 'package:neztmate_backend/features/properties/handler/property_handler.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
 import 'package:neztmate_backend/features/properties/repository_impl/property_impl.dart';
+import 'package:neztmate_backend/features/tasks/datasource/firestore/firestore_task_remote_datasource.dart';
+import 'package:neztmate_backend/features/tasks/datasource/task_remote_datasource.dart';
+import 'package:neztmate_backend/features/tasks/handler/task_handler.dart';
+import 'package:neztmate_backend/features/tasks/repository/task_repo.dart';
+import 'package:neztmate_backend/features/tasks/repository_impl/task_repo_impl.dart';
 import 'package:neztmate_backend/features/units/datasource/firestore/unit_firestore_datasource.dart';
 import 'package:neztmate_backend/features/units/datasource/unit_remote_datasource.dart';
 import 'package:neztmate_backend/features/units/handler/unit_handler.dart';
@@ -165,4 +170,11 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
     () => InviteRepositoryImpl(injector<FirestoreInviteDataSource>()),
   );
   injector.registerLazySingleton<InviteHandler>(() => InviteHandler(injector<InviteRepositoryImpl>()));
+
+  //Task
+  injector.registerLazySingleton<TaskRemoteDataSource>(() => FirestoreTaskDataSource(injector<Firestore>()));
+
+  injector.registerLazySingleton<TaskRepository>(() => TaskRepositoryImpl(injector<TaskRemoteDataSource>()));
+
+  injector.registerLazySingleton<TaskHandler>(() => TaskHandler(injector<TaskRepository>()));
 }

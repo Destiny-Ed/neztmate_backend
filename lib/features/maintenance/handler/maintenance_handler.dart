@@ -16,7 +16,7 @@ class MaintenanceRequestHandler {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
 
-      if (userId == null || role != 'Tenant') {
+      if (userId == null || role != 'tenant') {
         return Response(403, body: jsonEncode({'message': 'Only tenants can submit maintenance requests'}));
       }
 
@@ -54,7 +54,7 @@ class MaintenanceRequestHandler {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
 
-      if (userId == null || role != 'Tenant') {
+      if (userId == null || role != 'tenant') {
         return Response(403, body: jsonEncode({'message': 'Only tenants can view their own requests'}));
       }
 
@@ -84,7 +84,7 @@ class MaintenanceRequestHandler {
         return Response(400, body: jsonEncode({'message': 'Missing user or unit ID'}));
       }
 
-      if (!['Manager', 'Landowner'].contains(role)) {
+      if (!['manager', 'landowner'].contains(role)) {
         return Response(403, body: jsonEncode({'message': 'Unauthorized'}));
       }
 
@@ -118,7 +118,7 @@ class MaintenanceRequestHandler {
 
       // Authorization: tenant who submitted or manager/landowner
       final isTenant = requestModel.tenantId == userId;
-      final isManagerOrOwner = ['Manager', 'Landowner'].contains(role);
+      final isManagerOrOwner = ['manager', 'landowner'].contains(role);
 
       if (!isTenant && !isManagerOrOwner) {
         return Response(403, body: jsonEncode({'message': 'Forbidden'}));
@@ -147,7 +147,7 @@ class MaintenanceRequestHandler {
         return Response(400, body: jsonEncode({'message': 'Missing ID'}));
       }
 
-      if (role != 'Manager') {
+      if (role != 'manager') {
         return Response(403, body: jsonEncode({'message': 'Only managers can assign requests'}));
       }
 
@@ -184,7 +184,7 @@ class MaintenanceRequestHandler {
       // Authorization: tenant (if pending), assigned artisan, or manager
       final isTenant = currentRequest.tenantId == userId && currentRequest.status == 'Pending';
       final isArtisan = currentRequest.assignedTo == userId;
-      final isManager = role == 'Manager';
+      final isManager = role == 'manager';
 
       if (!isTenant && !isArtisan && !isManager) {
         return Response(403, body: jsonEncode({'message': 'Forbidden'}));
