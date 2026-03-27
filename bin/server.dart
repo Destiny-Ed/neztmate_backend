@@ -14,6 +14,7 @@ import 'package:neztmate_backend/features/invites/handler/invite_handler.dart';
 import 'package:neztmate_backend/features/leases/handler/lease_handler.dart';
 import 'package:neztmate_backend/features/messages/handler/messages_handler.dart';
 import 'package:neztmate_backend/features/notifications/handler/handler.dart';
+import 'package:neztmate_backend/features/payments/handler/payment_handler.dart';
 import 'package:neztmate_backend/features/properties/handler/property_handler.dart';
 import 'package:neztmate_backend/features/tasks/handler/task_handler.dart';
 import 'package:neztmate_backend/features/units/handler/unit_handler.dart';
@@ -25,6 +26,7 @@ import 'package:neztmate_backend/routes/invites_route.dart';
 import 'package:neztmate_backend/routes/lease_routes.dart';
 import 'package:neztmate_backend/routes/message_routes.dart';
 import 'package:neztmate_backend/routes/notifications_routes.dart';
+import 'package:neztmate_backend/routes/payment_routes.dart';
 import 'package:neztmate_backend/routes/property_routes.dart';
 import 'package:neztmate_backend/routes/task_route.dart';
 import 'package:neztmate_backend/routes/unit_routes.dart';
@@ -145,6 +147,16 @@ void main() async {
         .addMiddleware(authMiddleware(jwtService))
         .addHandler(notificationRoutes(injector<NotificationHandler>()).call),
   );
+
+  router.mount(
+    '/payments/',
+    Pipeline()
+        .addMiddleware(authMiddleware(jwtService))
+        .addHandler(paymentRoutes(injector<PaymentHandler>()).call),
+  );
+
+  /// Webhook from Paystack (NO auth middleware - must be public)
+  router.post('payments/webhook', injector<PaymentHandler>().paystackWebhook);
 
   final handler = Pipeline().addMiddleware(logRequests()).addHandler(router.call);
 

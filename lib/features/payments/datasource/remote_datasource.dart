@@ -10,6 +10,8 @@ abstract class PaymentRemoteDataSource {
   Future<List<PaymentModel>> getPaymentsByTask(String taskId);
   Future<void> markAsPaid(String id, String receiptUrl, String? transactionRef);
 
+  Future<void> markAsPaidByReference(String reference, String receiptUrl, String? transactionRef);
+
   // Withdrawals
   Future<WithdrawalModel> createWithdrawal(WithdrawalModel withdrawal);
   Future<WithdrawalModel> getWithdrawalById(String id);

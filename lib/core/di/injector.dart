@@ -44,6 +44,11 @@ import 'package:neztmate_backend/features/notifications/datasource/remote_dataso
 import 'package:neztmate_backend/features/notifications/handler/handler.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
 import 'package:neztmate_backend/features/notifications/repository_impl/notification_repo_impl.dart';
+import 'package:neztmate_backend/features/payments/datasource/firestore/firestore_remote_payment_datasource.dart';
+import 'package:neztmate_backend/features/payments/datasource/remote_datasource.dart';
+import 'package:neztmate_backend/features/payments/handler/payment_handler.dart';
+import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
+import 'package:neztmate_backend/features/payments/repository_impl/payment_repo_impl.dart';
 import 'package:neztmate_backend/features/properties/datasources/firestore/firestore_property_datasource.dart';
 import 'package:neztmate_backend/features/auth_user/datasources/user_remote_datasource.dart';
 import 'package:neztmate_backend/features/auth_user/handler/auth_handler.dart';
@@ -221,4 +226,13 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
   injector.registerLazySingleton<NotificationHandler>(
     () => NotificationHandler(injector<NotificationRepository>()),
   );
+
+  //payments
+  injector.registerLazySingleton<PaymentRemoteDataSource>(
+    () => FirestorePaymentDataSource(injector<Firestore>()),
+  );
+  injector.registerLazySingleton<PaymentRepository>(
+    () => PaymentRepositoryImpl(injector<PaymentRemoteDataSource>()),
+  );
+  injector.registerLazySingleton<PaymentHandler>(() => PaymentHandler(injector<PaymentRepository>()));
 }
