@@ -84,6 +84,20 @@ class PaymentHandler {
         // Update payment status using reference
         await repository.markAsPaidByReference(reference, receiptUrl ?? '', reference);
 
+        //Generate custom PDF receipt (placeholder - commented for now)
+        /*
+        final payment = await repository.getPaymentByReference(reference); // you may need to add this method
+        if (payment != null) {
+          final customReceiptUrl = await receiptService.generateReceipt(payment, "User Name");
+          if (customReceiptUrl != null) {
+            // Update payment with custom receipt URL
+            await firestore.collection('payments').doc(payment.id).update({
+              'receiptUrl': customReceiptUrl,
+            });
+          }
+        }
+        */
+
         // Log history for tenant
         // You can expand this with actual tenant and landowner IDs
 
