@@ -21,6 +21,7 @@ import 'package:neztmate_backend/features/units/handler/unit_handler.dart';
 import 'package:neztmate_backend/routes/applications_routes.dart';
 import 'package:neztmate_backend/routes/auth_routes.dart';
 import 'package:neztmate_backend/routes/community_routes.dart';
+import 'package:neztmate_backend/routes/docs.dart';
 import 'package:neztmate_backend/routes/history_routes.dart';
 import 'package:neztmate_backend/routes/invites_route.dart';
 import 'package:neztmate_backend/routes/lease_routes.dart';
@@ -34,6 +35,8 @@ import 'package:neztmate_backend/routes/user_routes.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart';
 import 'package:shelf_router/shelf_router.dart';
+import 'package:shelf_swagger_ui/shelf_swagger_ui.dart';
+import 'package:shelf_static/shelf_static.dart';
 
 void main() async {
   final env = DotEnv()..load();
@@ -156,10 +159,25 @@ void main() async {
   );
 
   /// Webhook from Paystack (NO auth middleware - must be public)
-  router.post('payments/webhook', injector<PaymentHandler>().paystackWebhook);
+  router.post('/payments/webhook', injector<PaymentHandler>().paystackWebhook);
+
+  //  SWAGGER UI SETUP
+
+  final swaggerHandler = SwaggerUI(
+    openApiSpec,
+    // specType: SpecType.yaml,
+    title: 'Swagger Test',
+    docExpansion: DocExpansion.list,
+    syntaxHighlightTheme: SyntaxHighlightTheme.nord,
+  );
+
+  router.get('/docs', swaggerHandler.call);
+  router.get('/docs/', (Request req) => Response.found('/docs')); // Nice redirect
+
+  //  END SETUP
 
   final handler = Pipeline().addMiddleware(logRequests()).addHandler(router.call);
 
   final server = await serve(handler, ip, port);
-  print('Server listening on port ${server.port}');
+  print('Serving served at http://${server.address.host}:${server.port}');
 }
