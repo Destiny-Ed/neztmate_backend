@@ -14,6 +14,7 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
   @override
   Future<User> getUserById(String id) async {
     final doc = await _users.doc(id).get();
+    print('getUserById: Fetched document for ID $id: ${doc.data()}');
     if (!doc.exists) {
       throw NotFoundException('User', id);
     }
@@ -63,9 +64,10 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
     double totalWithdrawn = 0.0;
 
     try {
+      print("The main role ::: $role");
       // Landowner / Manager stats
       if (role == 'landowner' || role == 'manager') {
-        final propertyField = role == 'Landowner' ? 'landownerId' : 'managerId';
+        final propertyField = role == 'landowner' ? 'landownerId' : 'managerId';
 
         // 1. Total properties
         final propertiesSnap = await firestore
@@ -121,7 +123,7 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
         }
       }
       // Tenant stats
-      else if (role == 'Tenant') {
+      else if (role == 'tenant') {
         final requestsSnap = await firestore
             .collection('maintenance_requests')
             .where('tenantId', WhereFilter.equal, userId)
@@ -135,7 +137,7 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
         submittedTasks = tasksSnap.docs.length;
       }
       // Artisan stats
-      else if (role == 'Artisan') {
+      else if (role == 'artisan') {
         final tasksSnap = await firestore
             .collection('tasks')
             .where('artisanId', WhereFilter.equal, userId)

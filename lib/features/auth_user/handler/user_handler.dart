@@ -42,6 +42,7 @@ class UserHandler {
       }
 
       final requestedUserId = request.params['id'];
+      print("requestedUserId: $requestedUserId");
       if (requestedUserId == null) {
         return Response(
           400,
@@ -51,7 +52,10 @@ class UserHandler {
       }
 
       final userRole = request.context['role'] as String?;
-      final isAdmin = userRole == 'Manager' || userRole == 'Landowner';
+      print(
+        'Authenticated user ID: $authenticatedUserId, Role: $userRole, Requested user ID: $requestedUserId',
+      );
+      final isAdmin = userRole == 'manager' || userRole == 'landowner';
       final isSelf = requestedUserId == authenticatedUserId;
 
       if (!isSelf && !isAdmin) {
@@ -101,7 +105,7 @@ class UserHandler {
       }
 
       final userRole = request.context['role'] as String?;
-      final isAdmin = userRole == 'Manager' || userRole == 'Landowner';
+      final isAdmin = userRole == 'manager' || userRole == 'landowner';
 
       // Only admins should be able to lookup by email (privacy)
       if (!isAdmin) {
@@ -212,6 +216,7 @@ class UserHandler {
       if (userId == null || role == null) {
         return unauthorized('Missing authentication');
       }
+      print("The main role ::: $role");
 
       final stats = await userRepository.getUserStats(userId, role);
 
@@ -220,6 +225,8 @@ class UserHandler {
         headers: {'Content-Type': 'application/json'},
       );
     } on AppException catch (e) {
+      print('Get user stats error app: $e');
+
       return Response(400, body: jsonEncode({'message': e.message}));
     } catch (e, stack) {
       print('Get user stats error: $e\n$stack');

@@ -8,9 +8,9 @@ Router userRoutes(UserHandler handler) {
   router.get('/me', handler.getCurrentUser);
   router.patch('/me', handler.updateCurrentUser);
   router.delete('/me', handler.deleteCurrentUser);
+  router.get('/stats', handler.getUserStats);
   router.get('/<id>', handler.getUserById);
   router.get('/<email>', handler.getUserByEmail);
-  router.get('/stats', handler.getUserStats);
 
   return router;
 }
