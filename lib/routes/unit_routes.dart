@@ -8,13 +8,14 @@ Router unitRoutes(UnitHandler handler) {
   router.get('/available', handler.getAvailableUnits);
   router.get('/property/<propertyId>', handler.getUnitsByProperty);
 
-  // Protected (authenticated users)
-  router.get('/<id>', handler.getUnitById);
-
   // Admin / manager / landowner only (can be further restricted in middleware)
   router.post('/create', handler.createUnit);
   router.patch('/<id>/update', handler.updateUnit);
   router.delete('/<id>/delete', handler.deleteUnit);
+  router.patch('/{id}/listing', handler.toggleUnitListing);
+
+  // Protected (authenticated users)
+  router.get('/<id>', handler.getUnitById);
 
   return router;
 }

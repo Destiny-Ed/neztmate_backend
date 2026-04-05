@@ -66,4 +66,28 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
   Future<void> deleteUnit(String id) async {
     await _units.doc(id).delete();
   }
+
+  @override
+  Future<void> toggleUnitListing(String unitId, bool isListed) async {
+    final unitDoc = await firestore.collection('units').doc(unitId).get();
+    if (!unitDoc.exists) {
+      throw NotFoundException('Unit', unitId);
+    }
+
+    final data = unitDoc.data() as Map<String, dynamic>;
+    final currentTenantId = data['currentTenantId'] as String?;
+    final rentDueDate = data['rentDueDate'] != null ? DateTime.parse(data['rentDueDate'] as String) : null;
+
+    // Business Rule: Cannot list if occupied and rent due date has not elapsed
+    if (currentTenantId != null && rentDueDate != null && rentDueDate.isAfter(DateTime.now())) {
+      throw ValidationException(
+        'Cannot list unit for rent. Unit is occupied and rent due date has not elapsed.',
+      );
+    }
+
+    await firestore.collection('units').doc(unitId).update({
+      'isListedForRent': isListed,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
 }

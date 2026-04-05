@@ -8,4 +8,5 @@ abstract class UnitRemoteDataSource {
   Future<List<UnitModel>> getAvailableUnits({String? propertyId, int? minBedrooms, double? maxRent});
   Future<void> updateUnit(UnitModel unit);
   Future<void> deleteUnit(String id);
+  Future<void> toggleUnitListing(String unitId, bool isListed);
 }

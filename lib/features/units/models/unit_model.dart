@@ -1,5 +1,6 @@
+// lib/features/unit/models/unit_model.dart
 class UnitModel {
-  String id;
+  final String id;
   final String propertyId;
   final String unitNumber;
   final int? floorLevel;
@@ -9,12 +10,19 @@ class UnitModel {
   final int likes;
   final int commentsCount;
   final int? squareFeet;
-  final List<String>? features; // default features (balcony etc)
-  final Map<String, bool>? customFeatures; // NEW
-  final List<UnitFee>? fees; // NEW
+  final List<String>? features;
+  final Map<String, bool>? customFeatures;
+  final List<UnitFee>? fees;
   final List<String>? photoUrls;
   final String? videoUrl;
-  final String status;
+
+  // New fields for listing system
+  final bool isListedForRent; // Main field: Is this unit currently listed for rent?
+  final DateTime? listedAt; // When it was last listed
+  final DateTime? rentDueDate; // When the current tenant's rent is due
+  final String? currentTenantId; // Who is currently occupying it (if any)
+
+  final String status; // vacant, occupied, maintenance, etc.
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -34,19 +42,23 @@ class UnitModel {
     this.fees,
     this.photoUrls,
     this.videoUrl,
+    this.isListedForRent = false,
+    this.listedAt,
+    this.rentDueDate,
+    this.currentTenantId,
     this.status = 'vacant',
     required this.createdAt,
     required this.updatedAt,
   });
 
-  factory UnitModel.fromMap(Map<String, dynamic> map) {
+  factory UnitModel.fromMap(Map<String, dynamic> map, {String? id}) {
     return UnitModel(
-      id: map['id'],
-      propertyId: map['propertyId'],
-      unitNumber: map['unitNumber'],
-      floorLevel: map['floorLevel'],
+      id: id ?? map['id'] ?? '',
+      propertyId: map['propertyId'] ?? '',
+      unitNumber: map['unitNumber'] ?? '',
+      floorLevel: map['floorLevel'] as int?,
       yearlyRent: (map['yearlyRent'] as num).toDouble(),
-      bedrooms: map['bedrooms'],
+      bedrooms: map['bedrooms'] as int?,
       bathrooms: (map['bathrooms'] as num?)?.toDouble(),
       likes: map['likes'] as int? ?? 0,
       commentsCount: map['commentsCount'] as int? ?? 0,
@@ -57,10 +69,17 @@ class UnitModel {
       ),
       fees: (map['fees'] as List?)?.map((e) => UnitFee.fromMap(e)).toList(),
       photoUrls: (map['photoUrls'] as List?)?.cast<String>(),
-      videoUrl: map['videoUrl'],
-      status: map['status'] ?? 'Vacant',
-      createdAt: DateTime.parse(map['createdAt']),
-      updatedAt: DateTime.parse(map['updatedAt']),
+      videoUrl: map['videoUrl'] as String?,
+
+      // New fields
+      isListedForRent: map['isListedForRent'] as bool? ?? false,
+      listedAt: map['listedAt'] != null ? DateTime.parse(map['listedAt'] as String) : null,
+      rentDueDate: map['rentDueDate'] != null ? DateTime.parse(map['rentDueDate'] as String) : null,
+      currentTenantId: map['currentTenantId'] as String?,
+
+      status: map['status'] as String? ?? 'vacant',
+      createdAt: DateTime.parse(map['createdAt'] as String),
+      updatedAt: DateTime.parse(map['updatedAt'] as String),
     );
   }
 
@@ -80,6 +99,13 @@ class UnitModel {
     'fees': fees?.map((e) => e.toMap()).toList(),
     'photoUrls': photoUrls,
     'videoUrl': videoUrl,
+
+    // New fields
+    'isListedForRent': isListedForRent,
+    'listedAt': listedAt?.toIso8601String(),
+    'rentDueDate': rentDueDate?.toIso8601String(),
+    'currentTenantId': currentTenantId,
+
     'status': status,
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt.toIso8601String(),
@@ -97,13 +123,17 @@ class UnitModel {
     int? commentsCount,
     int? squareFeet,
     List<String>? features,
+    Map<String, bool>? customFeatures,
+    List<UnitFee>? fees,
     List<String>? photoUrls,
     String? videoUrl,
+    bool? isListedForRent,
+    DateTime? listedAt,
+    DateTime? rentDueDate,
+    String? currentTenantId,
     String? status,
     DateTime? createdAt,
     DateTime? updatedAt,
-    Map<String, bool>? customFeatures,
-    List<UnitFee>? fees,
   }) {
     return UnitModel(
       id: id ?? this.id,
@@ -117,13 +147,17 @@ class UnitModel {
       commentsCount: commentsCount ?? this.commentsCount,
       squareFeet: squareFeet ?? this.squareFeet,
       features: features ?? this.features,
+      customFeatures: customFeatures ?? this.customFeatures,
+      fees: fees ?? this.fees,
       photoUrls: photoUrls ?? this.photoUrls,
       videoUrl: videoUrl ?? this.videoUrl,
+      isListedForRent: isListedForRent ?? this.isListedForRent,
+      listedAt: listedAt ?? this.listedAt,
+      rentDueDate: rentDueDate ?? this.rentDueDate,
+      currentTenantId: currentTenantId ?? this.currentTenantId,
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      customFeatures: customFeatures ?? this.customFeatures,
-      fees: fees ?? this.fees,
     );
   }
 }

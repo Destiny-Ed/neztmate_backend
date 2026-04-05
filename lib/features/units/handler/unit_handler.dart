@@ -47,7 +47,8 @@ class UnitHandler {
         final ownerUnits = await unitRepository.getMyUnitsWithOccupants(userId, role);
         return Response.ok(jsonEncode({'units': ownerUnits.map((u) => u.toMap()).toList()}));
       }
-    } catch (e) {
+    } catch (e, s) {
+      print("Error fetching available units: $e --- $s");
       return Response.internalServerError();
     }
   }
@@ -124,6 +125,50 @@ class UnitHandler {
       return Response.ok(jsonEncode({'message': 'Unit deleted'}));
     } catch (e) {
       return Response.internalServerError();
+    }
+  }
+
+  // lib/features/unit/handlers/unit_handler.dart
+  Future<Response> toggleUnitListing(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+      final unitId = request.params['id'];
+
+      if (userId == null || unitId == null) {
+        return Response(401, body: jsonEncode({'message': 'Unauthorized'}));
+      }
+
+      if (!['landowner', 'manager'].contains(role)) {
+        return Response(
+          403,
+          body: jsonEncode({'message': 'Only Landowners and Managers can list/unlist units'}),
+        );
+      }
+
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final isListed = body['isListed'] as bool?;
+
+      if (isListed == null) {
+        return Response(400, body: jsonEncode({'message': 'isListed field is required'}));
+      }
+
+      await unitRepository.toggleUnitListing(unitId, isListed);
+
+      final action = isListed ? 'listed' : 'unlisted';
+      return Response.ok(
+        jsonEncode({'message': 'Unit successfully $action for rent', 'unitId': unitId, 'isListed': isListed}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } on NotFoundException catch (e) {
+      return Response(404, body: jsonEncode({'message': e.message}));
+    } on ValidationException catch (e) {
+      return Response(400, body: jsonEncode({'message': e.message}));
+    } catch (e, stack) {
+      print('Toggle unit listing error: $e\n$stack');
+      return Response.internalServerError(
+        body: jsonEncode({'message': 'Failed to update unit listing status'}),
+      );
     }
   }
 }

@@ -140,4 +140,8 @@ class UnitRepositoryImpl implements UnitRepository {
 
     return responses;
   }
+
+  @override
+  Future<void> toggleUnitListing(String unitId, bool isListed) =>
+      unitDataSource.toggleUnitListing(unitId, isListed);
 }

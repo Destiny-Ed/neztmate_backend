@@ -4,7 +4,7 @@ import 'package:shelf_router/shelf_router.dart';
 Router historyRoutes(HistoryHandler handler) {
   final router = Router();
 
-  router.get('/', handler.getMyHistory);
+  router.get('/me', handler.getMyHistory);
 
   return router;
 }
