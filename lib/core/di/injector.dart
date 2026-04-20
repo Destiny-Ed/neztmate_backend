@@ -23,7 +23,6 @@ import 'package:neztmate_backend/features/history/repository_impl/history_repo_i
 import 'package:neztmate_backend/features/invites/datasource/firestore/invite_firestore_datasource.dart';
 import 'package:neztmate_backend/features/invites/handler/invite_handler.dart';
 import 'package:neztmate_backend/features/invites/invite_repository_impl/invite_repo_impl.dart';
-import 'package:neztmate_backend/features/invites/repository/invite_repo.dart';
 import 'package:neztmate_backend/features/leases/datasource/firestore/firestore_lease_datasource.dart';
 import 'package:neztmate_backend/features/leases/datasource/lease_remote_datasource.dart';
 import 'package:neztmate_backend/features/leases/handler/lease_handler.dart';
@@ -168,7 +167,12 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
     () => ApplicationRepositoryImpl(injector<ApplicationRemoteDataSource>()),
   );
   injector.registerLazySingleton<ApplicationHandler>(
-    () => ApplicationHandler(injector<ApplicationRepository>()),
+    () => ApplicationHandler(
+      applicationRepository: injector<ApplicationRepository>(),
+      userRepository: injector<UserRepository>(),
+      propertyRepository: injector<PropertyRepository>(),
+      unitRepository: injector<UnitRepository>(),
+    ),
   );
 
   //maintenance request

@@ -65,4 +65,22 @@ class FirestoreApplicationDataSource implements ApplicationRemoteDataSource {
       'reason': reason,
     });
   }
+
+  @override
+  Future<void> withdrawApplication(String id, String tenantId, String? reason) async {
+    final doc = await _applications.doc(id).get();
+    if (!doc.exists) throw NotFoundException('Application', id);
+
+    final app = ApplicationModel.fromMap(doc.data() as Map<String, dynamic>, id);
+
+    if (app.tenantId != tenantId) {
+      throw ValidationException('You can only withdraw your own application');
+    }
+
+    await _applications.doc(id).update({
+      'status': 'Withdrawn',
+      'reviewedAt': DateTime.now().toIso8601String(),
+      'reviewReason': reason ?? 'Withdrawn by tenant',
+    });
+  }
 }

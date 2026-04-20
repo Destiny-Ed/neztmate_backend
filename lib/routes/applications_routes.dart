@@ -11,5 +11,7 @@ Router applicationRoutes(ApplicationHandler handler) {
   router.patch('/<id>/approve', handler.approveApplication);
   router.patch('/<id>/reject', handler.rejectApplication);
 
+  router.patch('/<id>/withdraw', handler.withdrawApplication);
+
   return router;
 }

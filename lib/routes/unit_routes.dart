@@ -12,7 +12,7 @@ Router unitRoutes(UnitHandler handler) {
   router.post('/create', handler.createUnit);
   router.patch('/<id>/update', handler.updateUnit);
   router.delete('/<id>/delete', handler.deleteUnit);
-  router.patch('/{id}/listing', handler.toggleUnitListing);
+  router.patch('/<id>/listing', handler.toggleUnitListing);
 
   // Protected (authenticated users)
   router.get('/<id>', handler.getUnitById);

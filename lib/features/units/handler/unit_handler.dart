@@ -40,6 +40,7 @@ class UnitHandler {
       if (role == 'tenant' || role == null) {
         // Tenant sees unit + property
         final unitsWithProperty = await unitRepository.getAvailableUnitsWithProperty();
+        print(" Fetched ${unitsWithProperty.length} available units with property info");
         return Response.ok(jsonEncode({'units': unitsWithProperty.map((u) => u.toMap()).toList()}));
       } else {
         // Landowner/Manager sees unit + occupants + history
@@ -110,7 +111,8 @@ class UnitHandler {
 
       await unitRepository.updateUnit(unit);
       return Response.ok(jsonEncode({'message': 'Unit updated'}));
-    } catch (e) {
+    } catch (e, s) {
+      print("Error updating unit: $e --- $s");
       return Response.internalServerError();
     }
   }

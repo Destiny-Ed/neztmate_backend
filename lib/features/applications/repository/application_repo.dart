@@ -9,4 +9,5 @@ abstract class ApplicationRepository {
   Future<void> deleteApplication(String id);
   Future<void> approveApplication(String id, String reviewedBy);
   Future<void> rejectApplication(String id, String reviewedBy, String? reason);
+  Future<void> withdrawApplication(String id, String tenantId, String? reason);
 }

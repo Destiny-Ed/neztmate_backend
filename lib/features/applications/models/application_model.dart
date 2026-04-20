@@ -1,16 +1,20 @@
 class ApplicationModel {
   final String id;
-  final String unitId; // references unit
-  final String tenantId; // who applied
-  final String propertyId; // for faster queries
+  final String unitId;
+  final String tenantId;
+  final String propertyId;
   final DateTime appliedAt;
   final String status; // 'Pending', 'Approved', 'Rejected', 'Withdrawn'
-  final String? message; // optional tenant note
-  final double? proposedRent; // if tenant wants to negotiate
+
+  final String? message; // Optional tenant note
+  final double? proposedRent; // If tenant negotiates
   final DateTime? desiredStartDate;
-  final List<String>? documents; // e.g. ["id_card_url", "payslip_url"]
+  final List<String>? documents; // Uploaded documents URLs
+
   final DateTime? reviewedAt;
-  final String? reviewedBy; // manager or landowner ID
+  final String? reviewedBy; // Manager or Landowner ID
+
+  final ScreeningData? screeningData;
 
   ApplicationModel({
     required this.id,
@@ -25,6 +29,7 @@ class ApplicationModel {
     this.documents,
     this.reviewedAt,
     this.reviewedBy,
+    this.screeningData,
   });
 
   factory ApplicationModel.fromMap(Map<String, dynamic> map, String id) {
@@ -43,6 +48,11 @@ class ApplicationModel {
       documents: (map['documents'] as List<dynamic>?)?.cast<String>(),
       reviewedAt: map['reviewedAt'] != null ? DateTime.parse(map['reviewedAt'] as String) : null,
       reviewedBy: map['reviewedBy'] as String?,
+
+      // Parse screening data if present
+      screeningData: map['screeningData'] != null
+          ? ScreeningData.fromMap(map['screeningData'] as Map<String, dynamic>)
+          : null,
     );
   }
 
@@ -58,6 +68,7 @@ class ApplicationModel {
     'documents': documents,
     'reviewedAt': reviewedAt?.toIso8601String(),
     'reviewedBy': reviewedBy,
+    'screeningData': screeningData?.toMap(),
   };
 
   ApplicationModel copyWith({
@@ -73,6 +84,7 @@ class ApplicationModel {
     List<String>? documents,
     DateTime? reviewedAt,
     String? reviewedBy,
+    ScreeningData? screeningData,
   }) {
     return ApplicationModel(
       id: id ?? this.id,
@@ -87,6 +99,41 @@ class ApplicationModel {
       documents: documents ?? this.documents,
       reviewedAt: reviewedAt ?? this.reviewedAt,
       reviewedBy: reviewedBy ?? this.reviewedBy,
+      screeningData: screeningData ?? this.screeningData,
     );
   }
+}
+
+class ScreeningData {
+  final bool hasPets;
+  final String? petType;
+  final String monthlyIncomeRange;
+  final int occupants;
+  final String reasonForMoving;
+
+  ScreeningData({
+    required this.hasPets,
+    this.petType,
+    required this.monthlyIncomeRange,
+    required this.occupants,
+    required this.reasonForMoving,
+  });
+
+  factory ScreeningData.fromMap(Map<String, dynamic> map) {
+    return ScreeningData(
+      hasPets: map['hasPets'] as bool? ?? false,
+      petType: map['petType'] as String?,
+      monthlyIncomeRange: map['monthlyIncomeRange'] as String? ?? 'Not provided',
+      occupants: map['occupants'] as int? ?? 1,
+      reasonForMoving: map['reasonForMoving'] as String? ?? '',
+    );
+  }
+
+  Map<String, dynamic> toMap() => {
+    'hasPets': hasPets,
+    'petType': petType,
+    'monthlyIncomeRange': monthlyIncomeRange,
+    'occupants': occupants,
+    'reasonForMoving': reasonForMoving,
+  };
 }

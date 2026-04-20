@@ -1,14 +1,25 @@
 import 'dart:convert';
 import 'package:neztmate_backend/features/applications/models/application_model.dart';
 import 'package:neztmate_backend/features/applications/repository/application_repo.dart';
+import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
+import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
+import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
 import 'package:shelf/shelf.dart';
 import 'package:neztmate_backend/core/error.dart';
 import 'package:shelf_router/shelf_router.dart';
 
 class ApplicationHandler {
-  final ApplicationRepository repository;
+  final ApplicationRepository applicationRepository;
+  final UserRepository userRepository;
+  final PropertyRepository propertyRepository;
+  final UnitRepository unitRepository;
 
-  ApplicationHandler(this.repository);
+  ApplicationHandler({
+    required this.applicationRepository,
+    required this.userRepository,
+    required this.propertyRepository,
+    required this.unitRepository,
+  });
 
   /// POST /applications - Tenant submits application
   Future<Response> submitApplication(Request request) async {
@@ -32,7 +43,7 @@ class ApplicationHandler {
         '',
       ).copyWith(tenantId: userId, appliedAt: DateTime.now(), status: 'Pending');
 
-      final created = await repository.createApplication(application);
+      final created = await applicationRepository.createApplication(application);
 
       return Response.ok(
         jsonEncode({'message': 'Application submitted successfully', 'application': created.toMap()}),
@@ -46,23 +57,83 @@ class ApplicationHandler {
     }
   }
 
-  /// GET /applications/me - Tenant views their applications
+  /// PATCH /applications/{id}/withdraw - Tenant withdraws their application
+  Future<Response> withdrawApplication(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+      final appId = request.params['id'];
+
+      if (userId == null || appId == null) {
+        return Response(400, body: jsonEncode({'message': 'Missing ID'}));
+      }
+
+      if (role != 'tenant') {
+        return Response(403, body: jsonEncode({'message': 'Only tenant can withdraw their application'}));
+      }
+
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final reason = body['reason'] as String?;
+
+      await applicationRepository.withdrawApplication(appId, userId, reason);
+
+      return Response.ok(
+        jsonEncode({'message': 'Application withdrawn successfully'}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, stack) {
+      print('Withdraw application error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to withdraw application'}));
+    }
+  }
+
+  /// GET /applications/me - Tenant views their applications (enriched)
   Future<Response> getMyApplications(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
 
-      if (userId == null || role != 'tenant') {
+      if (userId == null || role != 'Tenant') {
         return Response(403, body: jsonEncode({'message': 'Only tenants can view their applications'}));
       }
 
-      final applications = await repository.getApplicationsByTenant(userId);
+      final applications = await applicationRepository.getApplicationsByTenant(userId);
+
+      // Enrich each application with tenant, property, and unit details
+      final enrichedApplications = await Future.wait(
+        applications.map((app) async {
+          final tenant = await userRepository.getUserById(app.tenantId);
+          final property = await propertyRepository.getPropertyById(app.propertyId);
+          final unit = await unitRepository.getUnitById(app.unitId);
+
+          return {
+            ...app.toMap(),
+            'tenant': {
+              'id': tenant.id,
+              'fullName': tenant.fullName,
+              'email': tenant.email,
+              'phone': tenant.phone,
+            },
+            'property': {
+              'id': property.id,
+              'name': property.name,
+              'address': property.address,
+              'type': property.type,
+            },
+            'unit': {
+              'id': unit.id,
+              'unitNumber': unit.unitNumber,
+              'bedrooms': unit.bedrooms,
+              'bathrooms': unit.bathrooms,
+              'yearlyRent': unit.yearlyRent,
+              'status': unit.status,
+            },
+          };
+        }),
+      );
 
       return Response.ok(
-        jsonEncode({
-          'applications': applications.map((a) => a.toMap()).toList(),
-          'message': 'Your applications loaded',
-        }),
+        jsonEncode({'applications': enrichedApplications, 'message': 'Your applications loaded'}),
         headers: {'Content-Type': 'application/json'},
       );
     } catch (e, stack) {
@@ -82,20 +153,49 @@ class ApplicationHandler {
         return Response(400, body: jsonEncode({'message': 'Missing user ID or unit ID'}));
       }
 
-      if (!['landowner', 'manager'].contains(role)) {
+      if (!['Landowner', 'Manager'].contains(role)) {
         return Response(
           403,
           body: jsonEncode({'message': 'Only landowners or managers can view unit applications'}),
         );
       }
 
-      final applications = await repository.getApplicationsByUnit(unitId);
+      final applications = await applicationRepository.getApplicationsByUnit(unitId);
+
+      final enrichedApplications = await Future.wait(
+        applications.map((app) async {
+          final tenant = await userRepository.getUserById(app.tenantId);
+          final property = await propertyRepository.getPropertyById(app.propertyId);
+          final unit = await unitRepository.getUnitById(app.unitId);
+
+          return {
+            ...app.toMap(),
+            'tenant': {
+              'id': tenant.id,
+              'fullName': tenant.fullName,
+              'email': tenant.email,
+              'phone': tenant.phone,
+            },
+            'property': {
+              'id': property.id,
+              'name': property.name,
+              'address': property.address,
+              'type': property.type,
+            },
+            'unit': {
+              'id': unit.id,
+              'unitNumber': unit.unitNumber,
+              'bedrooms': unit.bedrooms,
+              'bathrooms': unit.bathrooms,
+              'yearlyRent': unit.yearlyRent,
+              'status': unit.status,
+            },
+          };
+        }),
+      );
 
       return Response.ok(
-        jsonEncode({
-          'applications': applications.map((a) => a.toMap()).toList(),
-          'message': 'Applications for this unit',
-        }),
+        jsonEncode({'applications': enrichedApplications, 'message': 'Applications for this unit'}),
         headers: {'Content-Type': 'application/json'},
       );
     } catch (e, stack) {
@@ -104,7 +204,7 @@ class ApplicationHandler {
     }
   }
 
-  /// GET /applications/<id> - View single application (tenant or manager/landowner)
+  /// GET /applications/<id> - View single application with full details
   Future<Response> getApplicationById(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
@@ -115,18 +215,49 @@ class ApplicationHandler {
         return Response(400, body: jsonEncode({'message': 'Missing ID'}));
       }
 
-      final application = await repository.getApplicationById(appId);
+      final application = await applicationRepository.getApplicationById(appId);
 
-      // Authorization: tenant who applied or manager/landowner
+      // Authorization check
       final isApplicant = application.tenantId == userId;
-      final isManagerOrOwner = ['manager', 'landowner'].contains(role);
+      final isManagerOrOwner = ['Manager', 'Landowner'].contains(role);
 
       if (!isApplicant && !isManagerOrOwner) {
         return Response(403, body: jsonEncode({'message': 'Forbidden'}));
       }
 
+      // Enrich with related data
+      final tenant = await userRepository.getUserById(application.tenantId);
+      final property = await propertyRepository.getPropertyById(application.propertyId);
+      final unit = await unitRepository.getUnitById(application.unitId);
+
+      final enrichedApplication = {
+        ...application.toMap(),
+        'tenant': {
+          'id': tenant.id,
+          'fullName': tenant.fullName,
+          'email': tenant.email,
+          'phone': tenant.phone,
+          'verifiedIdentity': tenant.verifiedIdentity,
+        },
+        'property': {
+          'id': property.id,
+          'name': property.name,
+          'address': property.address,
+          'type': property.type,
+          'amenities': property.amenities,
+        },
+        'unit': {
+          'id': unit.id,
+          'unitNumber': unit.unitNumber,
+          'bedrooms': unit.bedrooms,
+          'bathrooms': unit.bathrooms,
+          'yearlyRent': unit.yearlyRent,
+          'status': unit.status,
+        },
+      };
+
       return Response.ok(
-        jsonEncode({'application': application.toMap()}),
+        jsonEncode({'application': enrichedApplication}),
         headers: {'Content-Type': 'application/json'},
       );
     } on NotFoundException catch (e) {
@@ -150,7 +281,7 @@ class ApplicationHandler {
         return Response(403, body: jsonEncode({'message': 'Only managers or landowners can approve'}));
       }
 
-      await repository.approveApplication(appId, userId);
+      await applicationRepository.approveApplication(appId, userId);
 
       return Response.ok(jsonEncode({'message': 'Application approved'}));
     } catch (e, stack) {
@@ -175,7 +306,7 @@ class ApplicationHandler {
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final reason = body['reason'] as String?;
 
-      await repository.rejectApplication(appId, userId, reason);
+      await applicationRepository.rejectApplication(appId, userId, reason);
 
       return Response.ok(jsonEncode({'message': 'Application rejected'}));
     } catch (e, stack) {
@@ -197,11 +328,11 @@ class ApplicationHandler {
         return Response(403, body: jsonEncode({'message': 'Only tenant can delete their application'}));
       }
 
-      await repository.deleteApplication(appId);
+      await applicationRepository.deleteApplication(appId);
 
       return Response.ok(jsonEncode({'message': 'Application deleted'}));
     } catch (e, stack) {
-      print('Reject error: $e\n$stack');
+      print('Delete error: $e\n$stack');
       return Response.internalServerError(body: jsonEncode({'message': 'Failed to delete application'}));
     }
   }

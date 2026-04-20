@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'package:neztmate_backend/features/properties/models/property_model.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
 import 'package:shelf/shelf.dart';
@@ -92,43 +93,69 @@ class PropertyHandler {
   // PATCH /properties/<id>
   Future<Response> updateProperty(Request request) async {
     try {
-      final id = request.params['id'];
-      if (id == null) return Response(400, body: jsonEncode({'message': 'Missing Property ID'}));
+      final propertyId = request.params['id'];
+      if (propertyId == null || propertyId.isEmpty) {
+        return Response(400, body: jsonEncode({'message': 'Property ID is required'}));
+      }
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
 
-      if (body['name'] == null) {
-        return badRequest("Property name is required");
+      // Basic validation
+      if (body['name'] == null || (body['name'] as String).trim().isEmpty) {
+        return badRequest('Property name is required');
       }
-      if (body['address'] == null) {
-        return badRequest("Property address is required");
+      if (body['address'] == null || (body['address'] as String).trim().isEmpty) {
+        return badRequest('Property address is required');
       }
-      if (body['proofOfOwnershipUrl'] == null) {
-        return badRequest("Property proof of ownership is required");
-      }
-
-      if (body['photoUrls'] == null) {
-        return badRequest("Photo Urls is required");
+      if (body['proofOfOwnershipUrl'] == null || (body['proofOfOwnershipUrl'] as String).trim().isEmpty) {
+        return badRequest('Proof of ownership URL is required');
       }
 
-      final photos = body['photoUrls'] as List<dynamic>;
+      // Get existing property first
+      final existingProperty = await propertyRepository.getPropertyById(propertyId);
 
-      if (photos.isEmpty) {
-        return badRequest("Photos is required");
+      // Prepare photo URLs safely
+      List<String> photoUrls = [];
+      if (body['photoUrls'] != null) {
+        photoUrls = (body['photoUrls'] as List<dynamic>).cast<String>();
       }
 
-      if (body['totalUnits'] == null || body['totalUnits'].runtimeType != int) {
-        return badRequest("Total units must be an integer");
+      if (photoUrls.isEmpty) {
+        return badRequest('At least one photo URL is required');
       }
 
-      body['updatedAt'] = DateTime.now().toIso8601String();
+      // Create updated property using copyWith
+      final updatedProperty = existingProperty.copyWith(
+        name: body['name'] as String,
+        address: body['address'] as String,
+        proofOfOwnershipUrl: body['proofOfOwnershipUrl'] as String,
+        photoUrls: photoUrls,
+        totalUnits: body['totalUnits'] as int?,
+        amenities: body['amenities'] != null ? (body['amenities'] as List<dynamic>).cast<String>() : null,
+        updatedAt: DateTime.now(),
+      );
 
-      final property = PropertyModel.fromMap(body);
+      print("Updating property: ${updatedProperty.toMap()}");
 
-      await propertyRepository.updateProperty(property);
-      return Response.ok(jsonEncode({'message': 'Property updated', 'property': property.toMap()}));
-    } catch (e) {
-      return Response.internalServerError();
+      // Perform the update
+      await propertyRepository.updateProperty(updatedProperty);
+
+      return Response.ok(
+        jsonEncode({'message': 'Property updated successfully', 'property': updatedProperty.toMap()}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, stack) {
+      print("Error updating property: $e");
+      print("Stack trace: $stack");
+
+      if (e is NotFoundException) {
+        return Response(404, body: jsonEncode({'message': e.message}));
+      }
+      if (e is ValidationException) {
+        return Response(400, body: jsonEncode({'message': e.message}));
+      }
+
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to update property'}));
     }
   }
 

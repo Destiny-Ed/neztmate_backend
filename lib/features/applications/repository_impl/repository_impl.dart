@@ -46,4 +46,9 @@ class ApplicationRepositoryImpl implements ApplicationRepository {
   Future<void> rejectApplication(String id, String reviewedBy, String? reason) async {
     await dataSource.rejectApplication(id, reviewedBy, reason);
   }
+
+  @override
+  Future<void> withdrawApplication(String id, String tenantId, String? reason) async {
+    await dataSource.withdrawApplication(id, tenantId, reason);
+  }
 }
