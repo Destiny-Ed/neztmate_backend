@@ -2,9 +2,11 @@ class ApplicationModel {
   final String id;
   final String unitId;
   final String tenantId;
+  final String landownerId;
   final String propertyId;
   final DateTime appliedAt;
   final String status; // 'Pending', 'Approved', 'Rejected', 'Withdrawn'
+  final String? reason;
 
   final String? message; // Optional tenant note
   final double? proposedRent; // If tenant negotiates
@@ -20,10 +22,12 @@ class ApplicationModel {
     required this.id,
     required this.unitId,
     required this.tenantId,
+    required this.landownerId,
     required this.propertyId,
     required this.appliedAt,
     this.status = 'Pending',
     this.message,
+    this.reason,
     this.proposedRent,
     this.desiredStartDate,
     this.documents,
@@ -32,15 +36,16 @@ class ApplicationModel {
     this.screeningData,
   });
 
-  factory ApplicationModel.fromMap(Map<String, dynamic> map, String id) {
+  factory ApplicationModel.fromMap(Map<String, dynamic> map) {
     return ApplicationModel(
-      id: id,
+      id: map['id'] as String,
       unitId: map['unitId'] as String,
       tenantId: map['tenantId'] as String,
       propertyId: map['propertyId'] as String,
       appliedAt: DateTime.parse(map['appliedAt'] as String),
       status: map['status'] as String? ?? 'Pending',
       message: map['message'] as String?,
+      reason: map['reason'] as String?,
       proposedRent: (map['proposedRent'] as num?)?.toDouble(),
       desiredStartDate: map['desiredStartDate'] != null
           ? DateTime.parse(map['desiredStartDate'] as String)
@@ -53,22 +58,26 @@ class ApplicationModel {
       screeningData: map['screeningData'] != null
           ? ScreeningData.fromMap(map['screeningData'] as Map<String, dynamic>)
           : null,
+      landownerId: map['landownerId'] as String? ?? '',
     );
   }
 
   Map<String, dynamic> toMap() => {
+    "id": id,
     'unitId': unitId,
     'tenantId': tenantId,
     'propertyId': propertyId,
     'appliedAt': appliedAt.toIso8601String(),
     'status': status,
     'message': message,
+    'reason': reason,
     'proposedRent': proposedRent,
     'desiredStartDate': desiredStartDate?.toIso8601String(),
     'documents': documents,
     'reviewedAt': reviewedAt?.toIso8601String(),
     'reviewedBy': reviewedBy,
     'screeningData': screeningData?.toMap(),
+    'landownerId': landownerId,
   };
 
   ApplicationModel copyWith({
@@ -79,12 +88,14 @@ class ApplicationModel {
     DateTime? appliedAt,
     String? status,
     String? message,
+    String? reason,
     double? proposedRent,
     DateTime? desiredStartDate,
     List<String>? documents,
     DateTime? reviewedAt,
     String? reviewedBy,
     ScreeningData? screeningData,
+    String? landownerId,
   }) {
     return ApplicationModel(
       id: id ?? this.id,
@@ -94,12 +105,14 @@ class ApplicationModel {
       appliedAt: appliedAt ?? this.appliedAt,
       status: status ?? this.status,
       message: message ?? this.message,
+      reason: reason ?? this.reason,
       proposedRent: proposedRent ?? this.proposedRent,
       desiredStartDate: desiredStartDate ?? this.desiredStartDate,
       documents: documents ?? this.documents,
       reviewedAt: reviewedAt ?? this.reviewedAt,
       reviewedBy: reviewedBy ?? this.reviewedBy,
       screeningData: screeningData ?? this.screeningData,
+      landownerId: landownerId ?? this.landownerId,
     );
   }
 }
@@ -107,14 +120,14 @@ class ApplicationModel {
 class ScreeningData {
   final bool hasPets;
   final String? petType;
-  final String monthlyIncomeRange;
+  final String annualHouseholdIncomeRange;
   final int occupants;
   final String reasonForMoving;
 
   ScreeningData({
     required this.hasPets,
     this.petType,
-    required this.monthlyIncomeRange,
+    required this.annualHouseholdIncomeRange,
     required this.occupants,
     required this.reasonForMoving,
   });
@@ -123,7 +136,7 @@ class ScreeningData {
     return ScreeningData(
       hasPets: map['hasPets'] as bool? ?? false,
       petType: map['petType'] as String?,
-      monthlyIncomeRange: map['monthlyIncomeRange'] as String? ?? 'Not provided',
+      annualHouseholdIncomeRange: map['annualHouseholdIncomeRange'] as String? ?? 'Not provided',
       occupants: map['occupants'] as int? ?? 1,
       reasonForMoving: map['reasonForMoving'] as String? ?? '',
     );
@@ -132,7 +145,7 @@ class ScreeningData {
   Map<String, dynamic> toMap() => {
     'hasPets': hasPets,
     'petType': petType,
-    'monthlyIncomeRange': monthlyIncomeRange,
+    'annualHouseholdIncomeRange': annualHouseholdIncomeRange,
     'occupants': occupants,
     'reasonForMoving': reasonForMoving,
   };

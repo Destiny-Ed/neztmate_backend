@@ -4,7 +4,7 @@ import 'package:shelf_router/shelf_router.dart';
 Router applicationRoutes(ApplicationHandler handler) {
   final router = Router();
 
-  router.post('/', handler.submitApplication);
+  router.post('/create', handler.submitApplication);
   router.get('/me', handler.getMyApplications);
   router.get('/unit/<unitId>', handler.getApplicationsByUnit);
   router.get('/<id>', handler.getApplicationById);

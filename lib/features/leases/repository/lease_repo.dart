@@ -8,4 +8,6 @@ abstract class LeaseRepository {
   Future<List<LeaseModel>> getLeasesByUnit(String unitId);
   Future<void> updateLease(LeaseModel lease);
   Future<void> terminateLease(String id);
+  Future<LeaseModel> getLeaseByApplicationId(String applicationId);
+  Future<void> markLeaseAsSigned(String leaseId, String signedPdfUrl, String signedBy);
 }

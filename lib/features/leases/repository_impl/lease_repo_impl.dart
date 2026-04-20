@@ -1,4 +1,3 @@
-
 import 'package:neztmate_backend/features/leases/datasource/lease_remote_datasource.dart';
 import 'package:neztmate_backend/features/leases/models/leases_model.dart';
 import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
@@ -30,4 +29,12 @@ class LeaseRepositoryImpl implements LeaseRepository {
 
   @override
   Future<void> terminateLease(String id) => dataSource.terminateLease(id);
+
+  @override
+  Future<LeaseModel> getLeaseByApplicationId(String applicationId) =>
+      dataSource.getLeaseByApplicationId(applicationId);
+
+  @override
+  Future<void> markLeaseAsSigned(String leaseId, String signedPdfUrl, String signedBy) =>
+      dataSource.markLeaseAsSigned(leaseId, signedPdfUrl, signedBy);
 }

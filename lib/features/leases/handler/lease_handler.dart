@@ -17,7 +17,7 @@ class LeaseHandler {
 
       if (userId == null) return _unauthorized();
 
-      if (role != 'Tenant') {
+      if (role != 'tenant') {
         return Response(403, body: jsonEncode({'message': 'Only tenants can view personal leases'}));
       }
 
@@ -45,7 +45,7 @@ class LeaseHandler {
         return Response(400, body: jsonEncode({'message': 'Missing required parameters'}));
       }
 
-      if (!['Landowner', 'Manager'].contains(role)) {
+      if (!['landowner', 'manager'].contains(role)) {
         return Response(403, body: jsonEncode({'message': 'Unauthorized'}));
       }
 
@@ -72,7 +72,7 @@ class LeaseHandler {
 
       // Simple authorization: tenant or landowner/manager
       final isTenant = lease.tenantId == userId;
-      final isOwnerOrManager = lease.landownerId == userId || role == 'Manager';
+      final isOwnerOrManager = lease.landownerId == userId || role == 'manager';
 
       if (!isTenant && !isOwnerOrManager) {
         return Response(403, body: jsonEncode({'message': 'Forbidden'}));

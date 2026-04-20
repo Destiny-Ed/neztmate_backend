@@ -21,7 +21,7 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   Future<LeaseModel> getLeaseById(String id) async {
     final doc = await _leases.doc(id).get();
     if (!doc.exists) throw NotFoundException('Lease', id);
-    return LeaseModel.fromMap(doc.data() as Map<String, dynamic>, id);
+    return LeaseModel.fromMap(doc.data() as Map<String, dynamic>);
   }
 
   @override
@@ -30,19 +30,19 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
         .where('tenantId', WhereFilter.equal, tenantId)
         .where('status', WhereFilter.equal, 'Active')
         .get();
-    return snap.docs.map((d) => LeaseModel.fromMap(d.data(), d.id)).toList();
+    return snap.docs.map((d) => LeaseModel.fromMap(d.data())).toList();
   }
 
   @override
   Future<List<LeaseModel>> getLeasesByLandowner(String landownerId) async {
     final snap = await _leases.where('landownerId', WhereFilter.equal, landownerId).get();
-    return snap.docs.map((d) => LeaseModel.fromMap(d.data(), d.id)).toList();
+    return snap.docs.map((d) => LeaseModel.fromMap(d.data())).toList();
   }
 
   @override
   Future<List<LeaseModel>> getLeasesByUnit(String unitId) async {
     final snap = await _leases.where('unitId', WhereFilter.equal, unitId).get();
-    return snap.docs.map((d) => LeaseModel.fromMap(d.data(), d.id)).toList();
+    return snap.docs.map((d) => LeaseModel.fromMap(d.data())).toList();
   }
 
   @override
@@ -53,5 +53,30 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   @override
   Future<void> terminateLease(String id) async {
     await _leases.doc(id).update({'status': 'Terminated'});
+  }
+
+  @override
+  Future<LeaseModel> getLeaseByApplicationId(String applicationId) async {
+    final snap = await firestore
+        .collection('leases')
+        .where('applicationId', WhereFilter.equal, applicationId)
+        .limit(1)
+        .get();
+
+    if (snap.docs.isEmpty) throw NotFoundException('Lease', 'application:$applicationId');
+
+    final doc = snap.docs.first;
+    return LeaseModel.fromMap(doc.data() as Map<String, dynamic>);
+  }
+
+  @override
+  Future<void> markLeaseAsSigned(String leaseId, String signedPdfUrl, String signedBy) async {
+    await firestore.collection('leases').doc(leaseId).update({
+      'signedAgreementPdfUrl': signedPdfUrl,
+      'signedAt': DateTime.now().toIso8601String(),
+      'signedBy': signedBy,
+      'status': 'Active',
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
   }
 }

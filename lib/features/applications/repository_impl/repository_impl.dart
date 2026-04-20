@@ -38,8 +38,8 @@ class ApplicationRepositoryImpl implements ApplicationRepository {
   }
 
   @override
-  Future<void> approveApplication(String id, String reviewedBy) async {
-    await dataSource.approveApplication(id, reviewedBy);
+  Future<ApplicationModel> approveApplication(String id, String reviewedBy) async {
+    return await dataSource.approveApplication(id, reviewedBy);
   }
 
   @override
@@ -50,5 +50,10 @@ class ApplicationRepositoryImpl implements ApplicationRepository {
   @override
   Future<void> withdrawApplication(String id, String tenantId, String? reason) async {
     await dataSource.withdrawApplication(id, tenantId, reason);
+  }
+
+  @override
+  Future<List<ApplicationModel>> getApplicationsForManagerOrOwner(String userId, String role) async {
+    return await dataSource.getApplicationsForManagerOrOwner(userId, role);
   }
 }
