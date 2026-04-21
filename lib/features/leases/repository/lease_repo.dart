@@ -7,7 +7,9 @@ abstract class LeaseRepository {
   Future<List<LeaseModel>> getLeasesByLandowner(String landownerId);
   Future<List<LeaseModel>> getLeasesByUnit(String unitId);
   Future<void> updateLease(LeaseModel lease);
-  Future<void> terminateLease(String id);
+  Future<void> terminateLease(String id, String reason, String terminatedBy);
   Future<LeaseModel> getLeaseByApplicationId(String applicationId);
   Future<void> markLeaseAsSigned(String leaseId, String signedPdfUrl, String signedBy);
+  Future<void> markLeaseAsActive(String leaseId);
+  // Future<LeaseModel> renewLease(String oldLeaseId, DateTime newEndDate, String? reason);
 }

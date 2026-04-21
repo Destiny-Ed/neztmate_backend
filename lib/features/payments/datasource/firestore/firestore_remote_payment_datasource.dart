@@ -44,6 +44,18 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
   }
 
   @override
+  Future<PaymentModel> getPaymentByReference(String reference) async {
+    final snap = await firestore
+        .collection('payments')
+        .where('transactionRef', WhereFilter.equal, reference)
+        .limit(1)
+        .get();
+
+    if (snap.docs.isEmpty) throw NotFoundException('Payment', reference);
+    return PaymentModel.fromMap(snap.docs.first.data(), snap.docs.first.id);
+  }
+
+  @override
   Future<void> markAsPaid(String id, String receiptUrl, String? transactionRef) async {
     await firestore.collection('payments').doc(id).update({
       'status': 'Paid',

@@ -5,8 +5,11 @@ Router leaseRoutes(LeaseHandler handler) {
   final router = Router();
 
   router.get('/me', handler.getMyLeases);
-  router.get('/property/<propertyId>', handler.getLeasesByProperty);
+  router.get('/landowner/me', handler.getLandownerLeases);
   router.get('/<id>', handler.getLeaseById);
+  router.patch('/<id>/sign', handler.signLease);
+  router.patch('/<id>/terminate', handler.terminateLease);
+  router.get('/property/<propertyId>', handler.getLeasesByProperty);
 
   return router;
 }

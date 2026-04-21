@@ -51,8 +51,14 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   }
 
   @override
-  Future<void> terminateLease(String id) async {
-    await _leases.doc(id).update({'status': 'Terminated'});
+  Future<void> terminateLease(String id, String reason, String terminatedBy) async {
+    await firestore.collection('leases').doc(id).update({
+      'status': 'Terminated',
+      'terminationReason': reason,
+      'terminatedAt': DateTime.now().toIso8601String(),
+      'terminatedBy': terminatedBy,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
   }
 
   @override
@@ -75,8 +81,18 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
       'signedAgreementPdfUrl': signedPdfUrl,
       'signedAt': DateTime.now().toIso8601String(),
       'signedBy': signedBy,
+      'status': 'Pending Payment',
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  @override
+  Future<void> markLeaseAsActive(String leaseId) async {
+    await firestore.collection('leases').doc(leaseId).update({
       'status': 'Active',
       'updatedAt': DateTime.now().toIso8601String(),
     });
   }
+
+  
 }

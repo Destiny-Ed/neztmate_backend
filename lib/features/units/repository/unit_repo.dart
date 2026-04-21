@@ -20,5 +20,10 @@ abstract class UnitRepository {
   // Landowner/Manager view
   Future<List<OwnerUnitResponse>> getMyUnitsWithOccupants(String userId, String role);
   Future<void> toggleUnitListing(String unitId, bool isListed);
-
+  Future<void> updateUnitStatus({
+    required String unitId,
+    required String status,
+    String? currentTenantId,
+    bool? isListedForRent,
+  });
 }

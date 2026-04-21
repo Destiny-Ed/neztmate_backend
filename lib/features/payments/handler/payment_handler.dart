@@ -1,6 +1,11 @@
 import 'dart:convert';
 import 'package:neztmate_backend/core/error.dart';
 import 'package:neztmate_backend/core/services/payment/paystack_service.dart';
+import 'package:neztmate_backend/features/history/model/user_history_model.dart';
+import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
+import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
+import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
+import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
 import 'package:neztmate_backend/features/payments/models/payments.dart';
 import 'package:neztmate_backend/features/payments/models/withdrawal_model.dart';
 import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
@@ -8,9 +13,17 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
 class PaymentHandler {
-  final PaymentRepository repository;
+  final PaymentRepository paymentRepository;
+  final LeaseRepository leaseRepository;
+  final HistoryRepository historyRepository;
+  final NotificationRepository notificationRepository;
 
-  PaymentHandler(this.repository);
+  PaymentHandler(
+    this.paymentRepository,
+    this.leaseRepository,
+    this.historyRepository,
+    this.notificationRepository,
+  );
 
   final PaystackService paystackService = PaystackService("dotenv.env['PAYSTACK_SECRET_KEY']!");
 
@@ -50,7 +63,7 @@ class PaymentHandler {
         createdAt: DateTime.now(),
       );
 
-      await repository.createPayment(pendingPayment);
+      await paymentRepository.createPayment(pendingPayment);
 
       return Response.ok(
         jsonEncode({'authorization_url': initData['authorization_url'], 'reference': reference}),
@@ -61,15 +74,12 @@ class PaymentHandler {
   }
 
   /// POST /payments/webhook - Paystack sends confirmation
-  /// POST /payments/webhook - Paystack webhook
   Future<Response> paystackWebhook(Request request) async {
     try {
       final signature = request.headers['x-paystack-signature'];
       final bodyString = await request.readAsString();
 
-      // Critical: Verify signature
       if (!paystackService.verifySignature(bodyString, signature)) {
-        print('Invalid Paystack webhook signature');
         return Response(400, body: jsonEncode({'message': 'Invalid signature'}));
       }
 
@@ -80,36 +90,84 @@ class PaymentHandler {
         final data = body['data'] as Map<String, dynamic>;
         final reference = data['reference'] as String;
         final receiptUrl = data['receipt_url'] as String?;
+        final amount = (data['amount'] as num) / 100; // from kobo to Naira
 
-        // Update payment status using reference
-        await repository.markAsPaidByReference(reference, receiptUrl ?? '', reference);
+        // 1. Update payment status
+        await paymentRepository.markAsPaidByReference(reference, receiptUrl ?? '', reference);
 
-        //Generate custom PDF receipt (placeholder - commented for now)
-        /*
-        final payment = await repository.getPaymentByReference(reference); // you may need to add this method
-        if (payment != null) {
-          final customReceiptUrl = await receiptService.generateReceipt(payment, "User Name");
-          if (customReceiptUrl != null) {
-            // Update payment with custom receipt URL
-            await firestore.collection('payments').doc(payment.id).update({
-              'receiptUrl': customReceiptUrl,
-            });
+        // 2. Get the payment to know leaseId and tenant
+        // Note: You may need to add getPaymentByReference in repository if not present
+        final payment = await paymentRepository.getPaymentByReference(reference);
+
+        if (payment.leaseId != null) {
+          // 3. Update Lease status to Active (since payment was made)
+          await leaseRepository.markLeaseAsActive(payment.leaseId!);
+
+          // 4. Log History for Tenant
+          await historyRepository.createHistoryEntry(
+            HistoryEntryModel(
+              userId: payment.payerId,
+              type: 'payment_made',
+              title: 'Rent Payment Successful',
+              description: '₦${amount.toStringAsFixed(0)} paid for lease ${payment.leaseId}',
+              relatedId: payment.id,
+              relatedCollection: 'payments',
+              timestamp: DateTime.now(),
+              id: '',
+            ),
+          );
+
+          // 5. Log History for Landowner (if you have landownerId in payment)
+          if (payment.receiverId != null) {
+            await historyRepository.createHistoryEntry(
+              HistoryEntryModel(
+                userId: payment.receiverId!,
+                type: 'rent_received',
+                title: 'Rent Payment Received',
+                description: '₦${amount.toStringAsFixed(0)} received from tenant',
+                relatedId: payment.id,
+                relatedCollection: 'payments',
+                timestamp: DateTime.now(),
+                id: '',
+              ),
+            );
+          }
+
+          // 6. Send Notifications
+          await notificationRepository.create(
+            NotificationModel(
+              userId: payment.payerId,
+              type: 'payment_success',
+              title: 'Payment Successful',
+              body: 'Your rent payment of ₦${amount.toStringAsFixed(0)} has been confirmed.',
+              relatedId: payment.id,
+              relatedCollection: 'payments',
+              createdAt: DateTime.now(),
+              id: '',
+            ),
+          );
+
+          if (payment.receiverId != null) {
+            await notificationRepository.create(
+              NotificationModel(
+                userId: payment.receiverId!,
+                type: 'rent_received',
+                title: 'Rent Payment Received',
+                body: 'You received ₦${amount.toStringAsFixed(0)} from tenant.',
+                relatedId: payment.id,
+                relatedCollection: 'payments',
+                createdAt: DateTime.now(),
+                id: '',
+              ),
+            );
           }
         }
-        */
-
-        // Log history for tenant
-        // You can expand this with actual tenant and landowner IDs
-
-        print('Payment successful for reference: $reference');
       }
 
-      // Always return 200 OK to acknowledge receipt
       return Response.ok('Webhook received');
     } catch (e, stack) {
-      print('Webhook processing error: $e\n$stack');
-      // Still return 200 so Paystack doesn't keep retrying
-      return Response.ok('Webhook received with errors');
+      print('Webhook error: $e\n$stack');
+      return Response.ok('Webhook received');
     }
   }
 
@@ -119,7 +177,7 @@ class PaymentHandler {
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final payment = PaymentModel.fromMap(body, '');
 
-      final created = await repository.createPayment(payment);
+      final created = await paymentRepository.createPayment(payment);
 
       return Response.ok(
         jsonEncode({'message': 'Payment recorded successfully', 'payment': created.toMap()}),
@@ -136,7 +194,7 @@ class PaymentHandler {
       final userId = request.context['userId'] as String?;
       if (userId == null) return Response(401, body: jsonEncode({'message': 'Unauthorized'}));
 
-      final payments = await repository.getPaymentsByUser(userId);
+      final payments = await paymentRepository.getPaymentsByUser(userId);
 
       return Response.ok(
         jsonEncode({'payments': payments.map((p) => p.toMap()).toList()}),
@@ -157,7 +215,7 @@ class PaymentHandler {
       final receiptUrl = body['receiptUrl'] as String?;
       final transactionRef = body['transactionRef'] as String?;
 
-      await repository.markAsPaid(id, receiptUrl ?? '', transactionRef);
+      await paymentRepository.markAsPaid(id, receiptUrl ?? '', transactionRef);
 
       return Response.ok(jsonEncode({'message': 'Payment marked as paid'}));
     } catch (e) {
@@ -181,7 +239,7 @@ class PaymentHandler {
         '',
       ).copyWith(userId: userId, requestedAt: DateTime.now());
 
-      final created = await repository.createWithdrawal(withdrawal);
+      final created = await paymentRepository.createWithdrawal(withdrawal);
 
       return Response.ok(
         jsonEncode({'message': 'Withdrawal request submitted', 'withdrawal': created.toMap()}),
@@ -197,7 +255,7 @@ class PaymentHandler {
       final userId = request.context['userId'] as String?;
       if (userId == null) return Response(401, body: jsonEncode({'message': 'Unauthorized'}));
 
-      final withdrawals = await repository.getWithdrawalsByUser(userId);
+      final withdrawals = await paymentRepository.getWithdrawalsByUser(userId);
 
       return Response.ok(jsonEncode({'withdrawals': withdrawals.map((w) => w.toMap()).toList()}));
     } catch (e) {

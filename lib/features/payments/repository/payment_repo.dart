@@ -4,6 +4,7 @@ import 'package:neztmate_backend/features/payments/models/withdrawal_model.dart'
 abstract class PaymentRepository {
   Future<PaymentModel> createPayment(PaymentModel payment);
   Future<PaymentModel> getPaymentById(String id);
+  Future<PaymentModel> getPaymentByReference(String reference);
   Future<List<PaymentModel>> getPaymentsByLease(String leaseId);
   Future<List<PaymentModel>> getPaymentsByUser(String userId);
   Future<List<PaymentModel>> getPaymentsByTask(String taskId);

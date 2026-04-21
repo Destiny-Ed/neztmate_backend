@@ -9,4 +9,10 @@ abstract class UnitRemoteDataSource {
   Future<void> updateUnit(UnitModel unit);
   Future<void> deleteUnit(String id);
   Future<void> toggleUnitListing(String unitId, bool isListed);
+  Future<void> updateUnitStatus({
+    required String unitId,
+    required String status,
+    String? currentTenantId,
+    bool? isListedForRent,
+  });
 }

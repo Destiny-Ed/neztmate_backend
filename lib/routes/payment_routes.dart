@@ -5,6 +5,7 @@ Router paymentRoutes(PaymentHandler handler) {
   final router = Router();
 
   router.post('/', handler.recordPayment);
+  router.post('/initialize/', handler.initializePayment);
   router.get('/me', handler.getMyPayments);
   router.patch('/<id>/mark-paid', handler.markAsPaid);
 

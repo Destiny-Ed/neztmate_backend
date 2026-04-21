@@ -157,7 +157,16 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
   injector.registerLazySingleton<LeaseRepository>(
     () => LeaseRepositoryImpl(injector<LeaseRemoteDataSource>()),
   );
-  injector.registerLazySingleton<LeaseHandler>(() => LeaseHandler(injector<LeaseRepository>()));
+  injector.registerLazySingleton<LeaseHandler>(
+    () => LeaseHandler(
+      leaseRepository: injector<LeaseRepository>(),
+      historyRepository: injector<HistoryRepository>(),
+      notificationRepository: injector<NotificationRepository>(),
+      unitRepository: injector<UnitRepository>(),
+      propertyRepository: injector<PropertyRepository>(),
+      userRepository: injector<UserRepository>(),
+    ),
+  );
 
   //applications
   injector.registerLazySingleton<ApplicationRemoteDataSource>(
@@ -240,5 +249,12 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
   injector.registerLazySingleton<PaymentRepository>(
     () => PaymentRepositoryImpl(injector<PaymentRemoteDataSource>()),
   );
-  injector.registerLazySingleton<PaymentHandler>(() => PaymentHandler(injector<PaymentRepository>()));
+  injector.registerLazySingleton<PaymentHandler>(
+    () => PaymentHandler(
+      injector<PaymentRepository>(),
+      injector<LeaseRepository>(),
+      injector<HistoryRepository>(),
+      injector<NotificationRepository>(),
+    ),
+  );
 }

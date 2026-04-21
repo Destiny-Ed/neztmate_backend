@@ -140,4 +140,21 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
       'updatedAt': DateTime.now().toIso8601String(),
     });
   }
+
+  @override
+  Future<void> updateUnitStatus({
+    required String unitId,
+    required String status,
+    String? currentTenantId,
+    bool? isListedForRent,
+  }) async {
+    if (unitId.isEmpty) throw ValidationException('Unit ID cannot be empty');
+
+    final updates = <String, dynamic>{'status': status, 'updatedAt': DateTime.now().toIso8601String()};
+
+    if (currentTenantId != null) updates['currentTenantId'] = currentTenantId;
+    if (isListedForRent != null) updates['isListedForRent'] = isListedForRent;
+
+    await firestore.collection('units').doc(unitId).update(updates);
+  }
 }

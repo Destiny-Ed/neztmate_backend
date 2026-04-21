@@ -48,4 +48,7 @@ class PaymentRepositoryImpl implements PaymentRepository {
   @override
   Future<void> updateWithdrawalStatus(String id, String status, String? processedBy) =>
       dataSource.updateWithdrawalStatus(id, status, processedBy);
+
+  @override
+  Future<PaymentModel> getPaymentByReference(String reference) => dataSource.getPaymentByReference(reference);
 }

@@ -146,4 +146,17 @@ class UnitRepositoryImpl implements UnitRepository {
   @override
   Future<void> toggleUnitListing(String unitId, bool isListed) =>
       unitDataSource.toggleUnitListing(unitId, isListed);
+
+  @override
+  Future<void> updateUnitStatus({
+    required String unitId,
+    required String status,
+    String? currentTenantId,
+    bool? isListedForRent,
+  }) => unitDataSource.updateUnitStatus(
+    unitId: unitId,
+    status: status,
+    currentTenantId: currentTenantId,
+    isListedForRent: isListedForRent,
+  );
 }

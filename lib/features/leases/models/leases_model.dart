@@ -25,8 +25,16 @@ class LeaseModel {
 
   final String? termsNotes;
 
+  final String? terminationReason;
+  final DateTime? terminatedAt;
+  final String? terminatedBy;
+
   final DateTime createdAt;
   final DateTime updatedAt;
+
+  final bool isRenewed;
+  final String? previousLeaseId;
+  final String? renewalReason;
 
   LeaseModel({
     required this.id,
@@ -50,6 +58,13 @@ class LeaseModel {
     this.termsNotes,
     required this.createdAt,
     required this.updatedAt,
+    this.terminationReason,
+    this.terminatedAt,
+    this.terminatedBy,
+
+    this.isRenewed = false,
+    this.previousLeaseId,
+    this.renewalReason,
   });
 
   factory LeaseModel.fromMap(Map<String, dynamic> map) {
@@ -75,6 +90,13 @@ class LeaseModel {
       termsNotes: map['termsNotes'] as String?,
       createdAt: DateTime.parse(map['createdAt'] as String),
       updatedAt: DateTime.parse(map['updatedAt'] as String),
+      terminationReason: map['terminationReason'] as String?,
+      terminatedAt: map['terminatedAt'] != null ? DateTime.parse(map['terminatedAt'] as String) : null,
+      terminatedBy: map['terminatedBy'] as String?,
+
+      isRenewed: map['isRenewed'] as bool? ?? false,
+      previousLeaseId: map['previousLeaseId'] as String?,
+      renewalReason: map['renewalReason'] as String?,
     );
   }
 
@@ -100,6 +122,13 @@ class LeaseModel {
     'termsNotes': termsNotes,
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt.toIso8601String(),
+    'terminationReason': terminationReason,
+    'terminatedAt': terminatedAt?.toIso8601String(),
+    'terminatedBy': terminatedBy,
+
+    'isRenewed': isRenewed,
+    'previousLeaseId': previousLeaseId,
+    'renewalReason': renewalReason,
   };
 
   LeaseModel copyWith({
@@ -118,12 +147,19 @@ class LeaseModel {
     String? generatedLeasePdfUrl,
     String? customLeasePdfUrl,
     String? signedAgreementPdfUrl,
+    String? terminationReason,
+    DateTime? terminatedAt,
+    String? terminatedBy,
     bool? isCustomLease,
     DateTime? signedAt,
     String? signedBy,
     String? termsNotes,
     DateTime? createdAt,
     DateTime? updatedAt,
+
+    bool? isRenewed,
+    String? previousLeaseId,
+    String? renewalReason,
   }) {
     return LeaseModel(
       id: id ?? this.id,
@@ -147,6 +183,13 @@ class LeaseModel {
       termsNotes: termsNotes ?? this.termsNotes,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      terminationReason: terminationReason ?? this.terminationReason,
+      terminatedAt: terminatedAt ?? this.terminatedAt,
+      terminatedBy: terminatedBy ?? this.terminatedBy,
+
+      isRenewed: isRenewed ?? this.isRenewed,
+      previousLeaseId: previousLeaseId ?? this.previousLeaseId,
+      renewalReason: renewalReason ?? this.renewalReason,
     );
   }
 }
