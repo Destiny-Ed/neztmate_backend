@@ -153,15 +153,15 @@ void main() async {
         .addHandler(notificationRoutes(injector<NotificationHandler>()).call),
   );
 
+  /// Webhook from Paystack (NO auth middleware - must be public)
+  router.post('/payments/webhook', injector<PaymentHandler>().paystackWebhook);
+
   router.mount(
     '/payments/',
     Pipeline()
         .addMiddleware(authMiddleware(jwtService))
         .addHandler(paymentRoutes(injector<PaymentHandler>()).call),
   );
-
-  /// Webhook from Paystack (NO auth middleware - must be public)
-  router.post('/payments/webhook', injector<PaymentHandler>().paystackWebhook);
 
   //  SWAGGER UI SETUP
 

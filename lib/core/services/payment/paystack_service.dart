@@ -60,7 +60,12 @@ class PaystackService {
 
     final secretKey = Platform.environment['PAYSTACK_SECRET_KEY'] ?? env['PAYSTACK_SECRET_KEY'];
 
-    final hmac = Hmac(sha512, utf8.encode(secretKey ?? "paystackSecretKey"));
+    if (secretKey == null || secretKey.isEmpty) {
+      print('PAYSTACK_SECRET_KEY not found in environment');
+      return false;
+    }
+
+    final hmac = Hmac(sha512, utf8.encode(secretKey));
     final digest = hmac.convert(utf8.encode(payload));
     final expectedSignature = 'sha512=${digest.toString()}';
 

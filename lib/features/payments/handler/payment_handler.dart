@@ -94,6 +94,7 @@ class PaymentHandler {
       print("Paystack event received 111: $bodyString");
 
       if (!paystackService.verifySignature(bodyString, signature)) {
+        print('Invalid Paystack signature $signature');
         return Response(400, body: jsonEncode({'message': 'Invalid signature'}));
       }
 
@@ -180,10 +181,10 @@ class PaymentHandler {
         }
       }
 
-      return Response.ok('Webhook received');
+      return Response.ok('Webhook received successfully');
     } catch (e, stack) {
       print('Webhook error: $e\n$stack');
-      return Response.ok('Webhook received');
+      return Response.ok('Webhook received with errors');
     }
   }
 
