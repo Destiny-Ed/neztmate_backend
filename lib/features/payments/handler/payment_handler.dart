@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:dotenv/dotenv.dart';
 import 'package:neztmate_backend/core/error.dart';
 import 'package:neztmate_backend/core/services/payment/paystack_service.dart';
 import 'package:neztmate_backend/features/history/model/user_history_model.dart';
@@ -25,7 +26,9 @@ class PaymentHandler {
     this.notificationRepository,
   );
 
-  final PaystackService paystackService = PaystackService("dotenv.env['PAYSTACK_SECRET_KEY']!");
+
+
+  final PaystackService paystackService = PaystackService();
 
   /// POST /payments/initialize - Tenant starts rent payment
   Future<Response> initializePayment(Request request) async {

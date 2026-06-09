@@ -17,7 +17,8 @@ class FirebaseService {
     if (_isInitialized) return;
 
     try {
-      final serviceAccountPath = env['FIREBASE_SERVICE_ACCOUNT_PATH'];
+      final serviceAccountPath =
+          Platform.environment['FIREBASE_SERVICE_ACCOUNT_PATH'] ?? env['FIREBASE_SERVICE_ACCOUNT_PATH'];
 
       if (serviceAccountPath == null) throw 'Firebase service account not found';
 

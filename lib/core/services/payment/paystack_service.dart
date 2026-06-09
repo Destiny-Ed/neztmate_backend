@@ -1,13 +1,15 @@
 // lib/core/services/payment/paystack_service.dart
+import 'dart:io';
+
 import 'package:crypto/crypto.dart';
+import 'package:dotenv/dotenv.dart';
 import 'package:http/http.dart' as http;
 import 'dart:convert';
 
 class PaystackService {
-  final String secretKey; // sk_test_ or sk_live_
   final String baseUrl = 'https://api.paystack.co';
 
-  PaystackService(this.secretKey);
+  final env = DotEnv()..load();
 
   // Step 1: Initialize transaction
   Future<Map<String, dynamic>> initializeTransaction({
@@ -17,6 +19,7 @@ class PaystackService {
     String? callbackUrl,
     Map<String, dynamic>? metadata,
   }) async {
+    final secretKey = Platform.environment['PAYSTACK_SECRET_KEY'] ?? env['PAYSTACK_SECRET_KEY'];
     final response = await http.post(
       Uri.parse('$baseUrl/transaction/initialize'),
       headers: {'Authorization': 'Bearer $secretKey', 'Content-Type': 'application/json'},
@@ -38,6 +41,8 @@ class PaystackService {
 
   // Step 2: Verify transaction (called from webhook or manually)
   Future<Map<String, dynamic>> verifyTransaction(String reference) async {
+    final secretKey = Platform.environment['PAYSTACK_SECRET_KEY'] ?? env['PAYSTACK_SECRET_KEY'];
+
     final response = await http.get(
       Uri.parse('$baseUrl/transaction/verify/$reference'),
       headers: {'Authorization': 'Bearer $secretKey'},
