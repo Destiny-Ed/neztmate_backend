@@ -1,3 +1,4 @@
+import 'dart:convert';
 import 'dart:io';
 import 'package:dart_firebase_admin/auth.dart';
 import 'package:dart_firebase_admin/dart_firebase_admin.dart';
@@ -17,12 +18,21 @@ class FirebaseService {
     if (_isInitialized) return;
 
     try {
-      final serviceAccountPath =
-          Platform.environment['FIREBASE_SERVICE_ACCOUNT_PATH'] ?? env['FIREBASE_SERVICE_ACCOUNT_PATH'];
+      // final serviceAccountPath =
+      // Platform.environment['FIREBASE_SERVICE_ACCOUNT_PATH'] ?? env['FIREBASE_SERVICE_ACCOUNT_PATH'];
 
-      if (serviceAccountPath == null) throw 'Firebase service account not found';
+      final serviceAccountJson = Platform.environment['FIREBASE_SERVICE_ACCOUNT_PATH'];
 
-      final credential = Credential.fromServiceAccount(File(serviceAccountPath));
+      if (serviceAccountJson == null) throw 'Firebase service account not found';
+
+      final params = jsonDecode(serviceAccountJson) as Map<String, dynamic>;
+
+      // final credential = Credential.fromServiceAccount(File(serviceAccountPath));
+      final credential = Credential.fromServiceAccountParams(
+        clientId: params['client_id'],
+        privateKey: params['private_key'],
+        email: params['client_email'],
+      );
 
       app = FirebaseAdminApp.initializeApp('next-mate', credential);
 
