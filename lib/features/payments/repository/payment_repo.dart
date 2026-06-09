@@ -16,4 +16,6 @@ abstract class PaymentRepository {
   Future<WithdrawalModel> getWithdrawalById(String id);
   Future<List<WithdrawalModel>> getWithdrawalsByUser(String userId);
   Future<void> updateWithdrawalStatus(String id, String status, String? processedBy);
+  Future<bool> isPaymentAlreadyProcessed(String reference);
+  Future<void> markPaymentAsProcessed(String reference);
 }

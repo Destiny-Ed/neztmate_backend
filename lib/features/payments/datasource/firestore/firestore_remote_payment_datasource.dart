@@ -140,4 +140,22 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
       'processedBy': processedBy,
     });
   }
+
+  @override
+  Future<bool> isPaymentAlreadyProcessed(String reference) async {
+    final snap = await firestore
+        .collection('processed_payments')
+        .where('reference', WhereFilter.equal, reference)
+        .limit(1)
+        .get();
+    return snap.docs.isNotEmpty;
+  }
+
+  @override
+  Future<void> markPaymentAsProcessed(String reference) async {
+    await firestore.collection('processed_payments').doc(reference).set({
+      'reference': reference,
+      'processedAt': DateTime.now().toIso8601String(),
+    });
+  }
 }

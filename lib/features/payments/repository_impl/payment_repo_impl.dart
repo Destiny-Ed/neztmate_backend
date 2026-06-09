@@ -51,4 +51,10 @@ class PaymentRepositoryImpl implements PaymentRepository {
 
   @override
   Future<PaymentModel> getPaymentByReference(String reference) => dataSource.getPaymentByReference(reference);
+
+  @override
+  Future<bool> isPaymentAlreadyProcessed(String reference) => dataSource.isPaymentAlreadyProcessed(reference);
+
+  @override
+  Future<void> markPaymentAsProcessed(String reference) => dataSource.markPaymentAsProcessed(reference);
 }

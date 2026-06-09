@@ -108,6 +108,16 @@ class PaymentHandler {
         final receiptUrl = data['receipt_url'] as String?;
         final amount = (data['amount'] as num) / 100; // from kobo to Naira
 
+        // === IDEMPOTENCY CHECK ===
+        final alreadyProcessed = await paymentRepository.isPaymentAlreadyProcessed(reference);
+        if (alreadyProcessed) {
+          print('⚠️ Payment already processed (idempotency): $reference');
+          return Response.ok('Already processed');
+        }
+
+        // Mark as processed first (to prevent duplicates)
+        await paymentRepository.markPaymentAsProcessed(reference);
+
         // 1. Update payment status
         await paymentRepository.markAsPaidByReference(reference, receiptUrl ?? '', reference);
 
