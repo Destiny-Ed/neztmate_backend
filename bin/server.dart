@@ -42,8 +42,10 @@ void main() async {
   final env = DotEnv()..load();
   //   // Use any available host or container IP (usually `0.0.0.0`).
   final ip = InternetAddress.anyIPv4;
-  final port = int.tryParse(env['PORT'] ?? '8080') ?? 8080;
-  final jwtSecret = env['JWT_SECRET'];
+  final jwtSecret = Platform.environment['JWT_SECRET'] ?? env['JWT_SECRET'];
+  final rawPort = Platform.environment['PORT'] ?? env['PORT'];
+
+  final port = int.tryParse(rawPort ?? '8080') ?? 8080;
   if (jwtSecret == null || jwtSecret.isEmpty) {
     throw Exception("JWT_SECRET is required in .env");
   }
