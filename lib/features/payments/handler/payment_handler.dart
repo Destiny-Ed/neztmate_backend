@@ -85,9 +85,13 @@ class PaymentHandler {
 
   /// POST /payments/webhook - Paystack sends confirmation
   Future<Response> paystackWebhook(Request request) async {
+    print("starting webhook: ${await request.readAsString()}");
+
     try {
       final signature = request.headers['x-paystack-signature'];
       final bodyString = await request.readAsString();
+
+      print("Paystack event received 111: $bodyString");
 
       if (!paystackService.verifySignature(bodyString, signature)) {
         return Response(400, body: jsonEncode({'message': 'Invalid signature'}));

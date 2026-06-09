@@ -13,7 +13,7 @@ Router paymentRoutes(PaymentHandler handler) {
   router.get('/withdrawals/me', handler.getMyWithdrawals);
 
   // /// Webhook from Paystack (NO auth middleware - must be public)
-  router.post('/webhook', handler.paystackWebhook);
+  // router.post('/webhook', handler.paystackWebhook);
 
   return router;
 }

@@ -58,7 +58,9 @@ class PaystackService {
   bool verifySignature(String payload, String? signature) {
     if (signature == null) return false;
 
-    final hmac = Hmac(sha512, utf8.encode("paystackSecretKey"));
+    final secretKey = Platform.environment['PAYSTACK_SECRET_KEY'] ?? env['PAYSTACK_SECRET_KEY'];
+
+    final hmac = Hmac(sha512, utf8.encode(secretKey ?? "paystackSecretKey"));
     final digest = hmac.convert(utf8.encode(payload));
     final expectedSignature = 'sha512=${digest.toString()}';
 
