@@ -152,6 +152,70 @@ class LeaseHandler {
     }
   }
 
+  /// GET /leases/<id>/application - View single lease (tenant, landowner or manager)
+  Future<Response> getLeaseByApplicationId(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+      final applicationId = request.params['id'];
+      if (userId == null || applicationId == null) return _unauthorized();
+
+      final lease = await leaseRepository.getLeaseByApplicationId(applicationId);
+
+      // Authorization
+      final isTenant = lease.tenantId == userId;
+      final isLandowner = lease.landownerId == userId;
+      final isManager = role == 'manager';
+
+      if (!isTenant && !isLandowner && !isManager) {
+        return Response(403, body: jsonEncode({'message': 'Forbidden'}));
+      }
+
+      final enrichedLease = await Future.wait(
+        [lease].map((lease) async {
+          final tenant = await userRepository.getUserById(lease.tenantId);
+          final unit = await unitRepository.getUnitById(lease.unitId);
+          final property = await propertyRepository.getPropertyById(
+            lease.unitId,
+          ); // assuming you have propertyId in lease, adjust if needed
+
+          return {
+            ...lease.toMap(),
+            'tenant': {
+              'id': tenant.id,
+              'fullName': tenant.fullName,
+              'email': tenant.email,
+              'phone': tenant.phone,
+            },
+            'unit': {
+              'id': unit.id,
+              'unitNumber': unit.unitNumber,
+              'bedrooms': unit.bedrooms,
+              'bathrooms': unit.bathrooms,
+              'yearlyRent': unit.yearlyRent,
+            },
+            'property': {'id': property.id, 'name': property.name, 'address': property.address},
+            'duration': {
+              'startDate': lease.startDate.toIso8601String(),
+              'endDate': lease.endDate.toIso8601String(),
+              'monthsRemaining': lease.endDate.difference(DateTime.now()).inDays ~/ 30,
+            },
+          };
+        }),
+      );
+
+      return Response.ok(
+        jsonEncode({'lease': enrichedLease.first}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } on NotFoundException catch (e) {
+      return Response(404, body: jsonEncode({'message': e.message}));
+    } catch (e, stack) {
+      print('Get application lease by id error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to load lease'}));
+    }
+  }
+
   /// PATCH /leases/<id>/sign - Tenant signs the lease
   Future<Response> signLease(Request request) async {
     try {
