@@ -38,7 +38,7 @@ class LeaseHandler {
 
       if (userId == null) return _unauthorized();
 
-      if (role != 'Tenant') {
+      if (role != 'tenant') {
         return Response(403, body: jsonEncode({'message': 'Only tenants can view their leases'}));
       }
 
@@ -61,7 +61,13 @@ class LeaseHandler {
               'phone': tenant.phone,
             },
             'unit': unit.toMap(),
-            'property': property.toMap(),
+            'property': {
+              'id': property.id,
+              'name': property.name,
+              'address': property.address,
+              "landownerId": property.landownerId,
+              "propertyPhotos": property.photoUrls,
+            },
             'duration': {
               'startDate': lease.startDate.toIso8601String(),
               'endDate': lease.endDate.toIso8601String(),
@@ -83,6 +89,70 @@ class LeaseHandler {
 
   /// GET /leases/<id> - View single lease (tenant, landowner or manager)
   Future<Response> getLeaseById(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+      final leaseId = request.params['id'];
+
+      if (userId == null || leaseId == null) return _unauthorized();
+
+      final lease = await leaseRepository.getLeaseById(leaseId);
+
+      // Authorization
+      final isTenant = lease.tenantId == userId;
+      final isLandowner = lease.landownerId == userId;
+      final isManager = role == 'manager';
+
+      if (!isTenant && !isLandowner && !isManager) {
+        return Response(403, body: jsonEncode({'message': 'Forbidden'}));
+      }
+
+      final enrichedLease = await Future.wait(
+        [lease].map((lease) async {
+          final tenant = await userRepository.getUserById(lease.tenantId);
+          final unit = await unitRepository.getUnitById(lease.unitId);
+          final property = await propertyRepository.getPropertyById(
+            unit.propertyId,
+          ); // assuming you have propertyId in lease, adjust if needed
+
+          return {
+            ...lease.toMap(),
+            'tenant': {
+              'id': tenant.id,
+              'fullName': tenant.fullName,
+              'email': tenant.email,
+              'phone': tenant.phone,
+            },
+            'unit': unit.toMap(),
+            'property': {
+              'id': property.id,
+              'name': property.name,
+              'address': property.address,
+              "landownerId": property.landownerId,
+              "propertyPhotos": property.photoUrls,
+            },
+            'duration': {
+              'startDate': lease.startDate.toIso8601String(),
+              'endDate': lease.endDate.toIso8601String(),
+              'monthsRemaining': lease.endDate.difference(DateTime.now()).inDays ~/ 30,
+            },
+          };
+        }),
+      );
+
+      return Response.ok(
+        jsonEncode({'lease': enrichedLease.first}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } on NotFoundException catch (e) {
+      return Response(404, body: jsonEncode({'message': e.message}));
+    } catch (e, stack) {
+      print('Get lease by id error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to load lease'}));
+    }
+  }
+
+  Future<Response> getLeaseByTenantId(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
