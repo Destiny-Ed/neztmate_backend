@@ -65,10 +65,25 @@ class PaystackService {
       return false;
     }
 
-    final hmac = Hmac(sha512, utf8.encode(secretKey));
-    final digest = hmac.convert(utf8.encode(payload));
-    final expectedSignature = 'sha512=${digest.toString()}';
+    try {
+      final key = utf8.encode(secretKey);
+      final bytes = utf8.encode(payload);
+      final hmac = Hmac(sha512, key);
+      final digest = hmac.convert(bytes);
 
-    return signature == expectedSignature;
+      final expectedSignature = digest.toString(); // ← NO "sha512=" prefix
+
+      final isValid = signature == expectedSignature;
+
+      print('🔐 Signature Check:');
+      print('Received : $signature');
+      print('Expected : $expectedSignature');
+      print('Match    : ${isValid ? "✅ YES" : "❌ NO"}');
+
+      return isValid;
+    } catch (e) {
+      print('Signature verification error: $e');
+      return false;
+    }
   }
 }

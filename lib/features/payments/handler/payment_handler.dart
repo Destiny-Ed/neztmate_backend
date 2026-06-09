@@ -97,6 +97,7 @@ class PaymentHandler {
         print('Invalid Paystack signature $signature');
         return Response(400, body: jsonEncode({'message': 'Invalid signature'}));
       }
+      print('✅ Signature validation PASSED');
 
       final body = jsonDecode(bodyString);
       final event = body['event'] as String?;
