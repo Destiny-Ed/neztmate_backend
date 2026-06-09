@@ -48,9 +48,7 @@ class LeaseHandler {
         leases.map((lease) async {
           final tenant = await userRepository.getUserById(lease.tenantId);
           final unit = await unitRepository.getUnitById(lease.unitId);
-          final property = await propertyRepository.getPropertyById(
-            lease.unitId,
-          ); // assuming you have propertyId in lease, adjust if needed
+          final property = await propertyRepository.getPropertyById(unit.propertyId);
 
           return {
             ...lease.toMap(),
