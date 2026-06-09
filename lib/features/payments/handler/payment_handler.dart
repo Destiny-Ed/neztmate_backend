@@ -96,7 +96,7 @@ class PaymentHandler {
       final body = jsonDecode(bodyString);
       final event = body['event'] as String?;
 
-      print("Paystack event received: $event");
+      print("Paystack event received: $body");
 
       if (event == 'charge.success') {
         final data = body['data'] as Map<String, dynamic>;
