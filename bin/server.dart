@@ -154,7 +154,7 @@ void main() async {
   );
 
   /// Webhook from Paystack (NO auth middleware - must be public)
-  router.post('/webhook/payments', injector<PaymentHandler>().paystackWebhook);
+  router.post('/webhook/paystack', injector<PaymentHandler>().paystackWebhook);
 
   router.mount(
     '/payments/',
