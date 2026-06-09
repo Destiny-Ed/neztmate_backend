@@ -30,7 +30,6 @@ class ApplicationHandler {
     required this.notificationRepository,
   });
 
-  /// POST /applications - Tenant submits application
   /// POST /applications - Tenant submits lease application
   Future<Response> submitApplication(Request request) async {
     try {

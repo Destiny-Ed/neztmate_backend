@@ -60,14 +60,8 @@ class LeaseHandler {
               'email': tenant.email,
               'phone': tenant.phone,
             },
-            'unit': {
-              'id': unit.id,
-              'unitNumber': unit.unitNumber,
-              'bedrooms': unit.bedrooms,
-              'bathrooms': unit.bathrooms,
-              'yearlyRent': unit.yearlyRent,
-            },
-            'property': {'id': property.id, 'name': property.name, 'address': property.address},
+            'unit': unit.toMap(),
+            'property': property.toMap(),
             'duration': {
               'startDate': lease.startDate.toIso8601String(),
               'endDate': lease.endDate.toIso8601String(),
@@ -112,7 +106,7 @@ class LeaseHandler {
           final tenant = await userRepository.getUserById(lease.tenantId);
           final unit = await unitRepository.getUnitById(lease.unitId);
           final property = await propertyRepository.getPropertyById(
-            lease.unitId,
+            unit.propertyId,
           ); // assuming you have propertyId in lease, adjust if needed
 
           return {
@@ -123,14 +117,14 @@ class LeaseHandler {
               'email': tenant.email,
               'phone': tenant.phone,
             },
-            'unit': {
-              'id': unit.id,
-              'unitNumber': unit.unitNumber,
-              'bedrooms': unit.bedrooms,
-              'bathrooms': unit.bathrooms,
-              'yearlyRent': unit.yearlyRent,
+            'unit': unit.toMap(),
+            'property': {
+              'id': property.id,
+              'name': property.name,
+              'address': property.address,
+              "landownerId": property.landownerId,
+              "propertyPhotos": property.photoUrls,
             },
-            'property': {'id': property.id, 'name': property.name, 'address': property.address},
             'duration': {
               'startDate': lease.startDate.toIso8601String(),
               'endDate': lease.endDate.toIso8601String(),
@@ -176,7 +170,7 @@ class LeaseHandler {
           final tenant = await userRepository.getUserById(lease.tenantId);
           final unit = await unitRepository.getUnitById(lease.unitId);
           final property = await propertyRepository.getPropertyById(
-            lease.unitId,
+            unit.propertyId,
           ); // assuming you have propertyId in lease, adjust if needed
 
           return {
@@ -187,14 +181,14 @@ class LeaseHandler {
               'email': tenant.email,
               'phone': tenant.phone,
             },
-            'unit': {
-              'id': unit.id,
-              'unitNumber': unit.unitNumber,
-              'bedrooms': unit.bedrooms,
-              'bathrooms': unit.bathrooms,
-              'yearlyRent': unit.yearlyRent,
+            'unit': unit.toMap(),
+            'property': {
+              'id': property.id,
+              'name': property.name,
+              'address': property.address,
+              "landownerId": property.landownerId,
+              "propertyPhotos": property.photoUrls,
             },
-            'property': {'id': property.id, 'name': property.name, 'address': property.address},
             'duration': {
               'startDate': lease.startDate.toIso8601String(),
               'endDate': lease.endDate.toIso8601String(),
@@ -225,7 +219,7 @@ class LeaseHandler {
 
       if (userId == null || leaseId == null) return _unauthorized();
 
-      if (role != 'Tenant') {
+      if (role != 'tenant') {
         return Response(403, body: jsonEncode({'message': 'Only tenants can sign leases'}));
       }
 
@@ -346,14 +340,14 @@ class LeaseHandler {
               'email': tenant.email,
               'phone': tenant.phone,
             },
-            'unit': {
-              'id': unit.id,
-              'unitNumber': unit.unitNumber,
-              'bedrooms': unit.bedrooms,
-              'bathrooms': unit.bathrooms,
-              'yearlyRent': unit.yearlyRent,
+            'unit': unit.toMap(),
+
+            'property': {
+              'id': property.id,
+              'name': property.name,
+              'address': property.address,
+              "propertyPhotos": property.photoUrls,
             },
-            'property': {'id': property.id, 'name': property.name, 'address': property.address},
             'duration': {
               'startDate': lease.startDate.toIso8601String(),
               'endDate': lease.endDate.toIso8601String(),
@@ -377,7 +371,7 @@ class LeaseHandler {
 
       if (userId == null) return _unauthorized();
 
-      if (role != 'Landowner') {
+      if (role != 'landowner') {
         return Response(403, body: jsonEncode({'message': 'Only landowners can access this'}));
       }
 
@@ -399,14 +393,13 @@ class LeaseHandler {
               'email': tenant.email,
               'phone': tenant.phone,
             },
-            'unit': {
-              'id': unit.id,
-              'unitNumber': unit.unitNumber,
-              'bedrooms': unit.bedrooms,
-              'bathrooms': unit.bathrooms,
-              'yearlyRent': unit.yearlyRent,
+            'unit': unit.toMap(),
+            'property': {
+              'id': property.id,
+              'name': property.name,
+              'address': property.address,
+              "propertyPhotos": property.photoUrls,
             },
-            'property': {'id': property.id, 'name': property.name, 'address': property.address},
             'duration': {
               'startDate': lease.startDate.toIso8601String(),
               'endDate': lease.endDate.toIso8601String(),

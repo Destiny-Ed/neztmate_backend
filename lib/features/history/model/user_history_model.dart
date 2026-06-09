@@ -36,6 +36,7 @@ class HistoryEntryModel {
   }
 
   Map<String, dynamic> toMap() => {
+    'id': id,
     'userId': userId,
     'type': type,
     'title': title,

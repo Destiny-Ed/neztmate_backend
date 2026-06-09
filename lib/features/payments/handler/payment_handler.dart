@@ -36,10 +36,18 @@ class PaymentHandler {
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final leaseId = body['leaseId'] as String?;
       final amount = (body['amount'] as num).toDouble();
-      final email = (body['email'] as String);
+      final email = (body['email'] as String?);
 
       if (leaseId == null) {
         return badRequest('leaseId is required');
+      }
+
+      if (email == null) {
+        return badRequest('email is required');
+      }
+
+      if (amount <= 0) {
+        return badRequest('amount must be greater than zero');
       }
 
       final reference = 'nm_${DateTime.now().millisecondsSinceEpoch}';
@@ -69,6 +77,7 @@ class PaymentHandler {
         jsonEncode({'authorization_url': initData['authorization_url'], 'reference': reference}),
       );
     } catch (e) {
+      print("Error initializing payment: $e");
       return Response.internalServerError();
     }
   }
@@ -96,7 +105,7 @@ class PaymentHandler {
         await paymentRepository.markAsPaidByReference(reference, receiptUrl ?? '', reference);
 
         // 2. Get the payment to know leaseId and tenant
-        // Note: You may need to add getPaymentByReference in repository if not present
+
         final payment = await paymentRepository.getPaymentByReference(reference);
 
         if (payment.leaseId != null) {
