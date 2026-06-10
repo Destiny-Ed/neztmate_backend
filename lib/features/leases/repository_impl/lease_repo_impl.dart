@@ -36,13 +36,13 @@ class LeaseRepositoryImpl implements LeaseRepository {
       dataSource.markLeaseAsSigned(leaseId, signedPdfUrl, signedBy);
 
   @override
-  Future<void> markLeaseAsActive(String leaseId) => dataSource.markLeaseAsActive(leaseId);
+  Future<void> updateLeaseStatus(String leaseId, String status) =>
+      dataSource.updateLeaseStatus(leaseId, status);
 
   @override
   Future<void> terminateLease(String id, String reason, String terminatedBy) =>
       dataSource.terminateLease(id, reason, terminatedBy);
 
-  // @override
-  // Future<LeaseModel> renewLease(String oldLeaseId, DateTime newEndDate, String? reason) =>
-  //     dataSource.renewLease(oldLeaseId, newEndDate, reason);
+  @override
+  Future<LeaseModel> renewLeaseAfterPayment(String leaseId) => dataSource.renewLeaseAfterPayment(leaseId);
 }

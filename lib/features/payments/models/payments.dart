@@ -14,6 +14,7 @@ class PaymentModel {
   final DateTime? paidDate;
   final DateTime createdAt;
   final DateTime? updatedAt;
+  final String? type; // 'rent', 'task', 'rent-renewal'
 
   PaymentModel({
     required this.id,
@@ -31,6 +32,7 @@ class PaymentModel {
     this.paidDate,
     required this.createdAt,
     this.updatedAt,
+    this.type,
   });
 
   factory PaymentModel.fromMap(Map<String, dynamic> map, String id) {
@@ -50,6 +52,7 @@ class PaymentModel {
       paidDate: map['paidDate'] != null ? DateTime.parse(map['paidDate'] as String) : null,
       createdAt: DateTime.parse(map['createdAt'] as String),
       updatedAt: map['updatedAt'] != null ? DateTime.parse(map['updatedAt'] as String) : null,
+      type: map['type'] as String?,
     );
   }
 
@@ -68,6 +71,7 @@ class PaymentModel {
     'paidDate': paidDate?.toIso8601String(),
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt?.toIso8601String(),
+    'type': type,
   };
 
   PaymentModel copyWith({
@@ -86,6 +90,7 @@ class PaymentModel {
     DateTime? paidDate,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? type,
   }) {
     return PaymentModel(
       id: id ?? this.id,
@@ -103,6 +108,7 @@ class PaymentModel {
       paidDate: paidDate ?? this.paidDate,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      type: type ?? this.type,
     );
   }
 }

@@ -619,7 +619,6 @@ class LeaseHandler {
         isRenewed: true,
         previousLeaseId: leaseId,
         renewalReason: reason,
-        createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
 
@@ -643,6 +642,40 @@ class LeaseHandler {
     } catch (e, stack) {
       print('Renew lease error: $e\n$stack');
       return Response.internalServerError(body: jsonEncode({'message': 'Failed to renew lease'}));
+    }
+  }
+
+  //Patch /leases/<id>/status - Update lease status (e.g. set to Inactive after renewal payment)
+  Future<Response> updateLeaseStatus(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+      final leaseId = request.params['id'];
+
+      if (userId == null || leaseId == null) return _unauthorized();
+
+      if (!['landowner', 'manager'].contains(role)) {
+        return Response(
+          403,
+          body: jsonEncode({'message': 'Only landowners/managers can update lease status'}),
+        );
+      }
+
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final status = body['status'] as String?;
+
+      if (status == null) {
+        return Response(400, body: jsonEncode({'message': 'Status is required'}));
+      }
+
+      await leaseRepository.updateLeaseStatus(leaseId, status);
+
+      return Response.ok(
+        jsonEncode({'message': 'Lease status updated successfully', 'leaseId': leaseId, 'status': status}),
+      );
+    } catch (e, stack) {
+      print('Update lease status error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to update lease status'}));
     }
   }
 

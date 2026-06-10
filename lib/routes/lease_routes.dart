@@ -11,6 +11,7 @@ Router leaseRoutes(LeaseHandler handler) {
   router.patch('/<id>/sign', handler.signLease);
   router.patch('/<id>/terminate', handler.terminateLease);
   router.get('/property/<propertyId>', handler.getLeasesByProperty);
+  router.patch('/<id>/status', handler.updateLeaseStatus);
 
   return router;
 }

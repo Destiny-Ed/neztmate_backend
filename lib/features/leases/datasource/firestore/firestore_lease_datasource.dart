@@ -87,12 +87,31 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   }
 
   @override
-  Future<void> markLeaseAsActive(String leaseId) async {
+  Future<void> updateLeaseStatus(String leaseId, String status) async {
     await firestore.collection('leases').doc(leaseId).update({
-      'status': 'Active',
+      'status': status,
       'updatedAt': DateTime.now().toIso8601String(),
     });
   }
 
-  
+  @override
+  Future<LeaseModel> renewLeaseAfterPayment(String leaseId) async {
+    final lease = await getLeaseById(leaseId);
+
+    final newEndDate = lease.endDate.add(const Duration(days: 365)); // 1 year renewal
+
+    final renewedLease = lease.copyWith(
+      id: "", 
+      startDate: lease.endDate,
+      endDate: newEndDate,
+      nextDueDate: lease.endDate.add(const Duration(days: 30)), // next rent due in 30 days
+      status: 'Active',
+      isRenewed: true,
+      previousLeaseId: leaseId,
+      updatedAt: DateTime.now(),
+      createdAt: DateTime.now(),
+    );
+
+    return await createLease(renewedLease);
+  }
 }

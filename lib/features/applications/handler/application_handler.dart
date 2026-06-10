@@ -395,7 +395,7 @@ class ApplicationHandler {
         managerId: role == 'manager' ? approverId : null,
         startDate: application.desiredStartDate ?? DateTime.now().add(const Duration(days: 7)),
         endDate: DateTime.now().add(const Duration(days: 365)), // 1 year default
-        monthlyRent: application.proposedRent ?? 0.0,
+        yearlyRent: application.proposedRent ?? 0.0,
         securityDeposit: null,
         status: 'Pending Signature',
         createdAt: DateTime.now(),

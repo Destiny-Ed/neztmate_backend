@@ -10,6 +10,6 @@ abstract class LeaseRemoteDataSource {
   Future<void> terminateLease(String id, String reason, String terminatedBy);
   Future<LeaseModel> getLeaseByApplicationId(String applicationId);
   Future<void> markLeaseAsSigned(String leaseId, String signedPdfUrl, String signedBy);
-  Future<void> markLeaseAsActive(String leaseId);
-  // Future<LeaseModel> renewLease(String oldLeaseId, DateTime newEndDate, String? reason);
+  Future<LeaseModel> renewLeaseAfterPayment(String leaseId);
+  Future<void> updateLeaseStatus(String leaseId, String status);
 }

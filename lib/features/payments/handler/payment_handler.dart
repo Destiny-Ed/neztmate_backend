@@ -10,6 +10,7 @@ import 'package:neztmate_backend/features/notifications/repository/notification_
 import 'package:neztmate_backend/features/payments/models/payments.dart';
 import 'package:neztmate_backend/features/payments/models/withdrawal_model.dart';
 import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
+import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
@@ -17,6 +18,7 @@ class PaymentHandler {
   final PaymentRepository paymentRepository;
   final LeaseRepository leaseRepository;
   final HistoryRepository historyRepository;
+  final UnitRepository unitRepository;
   final NotificationRepository notificationRepository;
 
   PaymentHandler(
@@ -24,6 +26,7 @@ class PaymentHandler {
     this.leaseRepository,
     this.historyRepository,
     this.notificationRepository,
+    this.unitRepository,
   );
 
   final PaystackService paystackService = PaystackService();
@@ -38,6 +41,7 @@ class PaymentHandler {
       final leaseId = body['leaseId'] as String?;
       final amount = (body['amount'] as num).toDouble();
       final email = (body['email'] as String?);
+      final paymentType = (body['paymentType'] as String?);
 
       if (leaseId == null) {
         return badRequest('leaseId is required');
@@ -51,13 +55,18 @@ class PaymentHandler {
         return badRequest('amount must be greater than zero');
       }
 
+      //payment-types: rent(first payment), task(payment for a task), rent-renewal(renewal payment for a lease)
+      if (paymentType != 'rent' && paymentType != 'task' && paymentType != 'rent-renewal') {
+        return badRequest('Invalid payment type');
+      }
+
       final reference = 'nm_${DateTime.now().millisecondsSinceEpoch}';
 
       final initData = await paystackService.initializeTransaction(
         email: email,
         amount: amount,
         reference: reference,
-        metadata: {'userId': userId, 'leaseId': leaseId, 'type': 'rent'},
+        metadata: {'userId': userId, 'leaseId': leaseId, 'type': paymentType},
       );
 
       // Save pending payment
@@ -69,6 +78,7 @@ class PaymentHandler {
         status: 'Pending',
         method: 'Paystack',
         transactionRef: reference,
+        type: paymentType,
         createdAt: DateTime.now(),
       );
 
@@ -127,13 +137,29 @@ class PaymentHandler {
 
         if (payment.leaseId != null) {
           // 3. Update Lease status to Active (since payment was made)
-          await leaseRepository.markLeaseAsActive(payment.leaseId!);
+          if (payment.type == 'rent-renewal') {
+            await leaseRepository.renewLeaseAfterPayment(payment.leaseId!);
+          } else if (payment.type == 'rent') {
+            //Set as 'Active' if it's a first rent payment, but for task payments we don't change lease status
+            await leaseRepository.updateLeaseStatus(payment.leaseId!, "Active");
+          } else {
+            //task payment - no lease update needed
+          }
+
+          final lease = await leaseRepository.getLeaseById(payment.leaseId!);
+
+          await unitRepository.updateUnitStatus(
+            unitId: lease.unitId,
+            status: 'occupied',
+            currentTenantId: lease.tenantId,
+            isListedForRent: false,
+          );
 
           // 4. Log History for Tenant
           await historyRepository.createHistoryEntry(
             HistoryEntryModel(
               userId: payment.payerId,
-              type: 'payment_made',
+              type: payment.type ?? "payment-made",
               title: 'Rent Payment Successful',
               description: '₦${amount.toStringAsFixed(0)} paid for lease ${payment.leaseId}',
               relatedId: payment.id,
@@ -148,7 +174,7 @@ class PaymentHandler {
             await historyRepository.createHistoryEntry(
               HistoryEntryModel(
                 userId: payment.receiverId!,
-                type: 'rent_received',
+                type: payment.type ?? "rent-received",
                 title: 'Rent Payment Received',
                 description: '₦${amount.toStringAsFixed(0)} received from tenant',
                 relatedId: payment.id,
@@ -163,7 +189,7 @@ class PaymentHandler {
           await notificationRepository.create(
             NotificationModel(
               userId: payment.payerId,
-              type: 'payment_success',
+              type: payment.type ?? "payment-success",
               title: 'Payment Successful',
               body: 'Your rent payment of ₦${amount.toStringAsFixed(0)} has been confirmed.',
               relatedId: payment.id,
@@ -177,7 +203,7 @@ class PaymentHandler {
             await notificationRepository.create(
               NotificationModel(
                 userId: payment.receiverId!,
-                type: 'rent_received',
+                type: payment.type ?? "rent-received",
                 title: 'Rent Payment Received',
                 body: 'You received ₦${amount.toStringAsFixed(0)} from tenant.',
                 relatedId: payment.id,
