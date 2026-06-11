@@ -5,8 +5,8 @@ Router notificationRoutes(NotificationHandler handler) {
   final router = Router();
 
   router.get('/all', handler.getNotifications);
-  router.patch('/<id>/read', handler.markAsRead);
   router.patch('/read-all', handler.markAllAsRead);
+  router.patch('/<id>/read', handler.markAsRead);
 
   return router;
 }
