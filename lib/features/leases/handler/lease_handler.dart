@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:neztmate_backend/features/auth_user/models/user_model.dart';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
 import 'package:neztmate_backend/features/history/model/user_history_model.dart';
 import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
@@ -48,6 +49,8 @@ class LeaseHandler {
       final enrichedLeases = await Future.wait(
         leases.map((lease) async {
           final tenant = await userRepository.getUserById(lease.tenantId);
+          final manager = await userRepository.getUserById(lease.managerId ?? lease.landownerId);
+
           final unit = await unitRepository.getUnitById(lease.unitId);
           final property = await propertyRepository.getPropertyById(unit.propertyId);
 
@@ -58,6 +61,14 @@ class LeaseHandler {
               'fullName': tenant.fullName,
               'email': tenant.email,
               'phone': tenant.phone,
+              "profilePhotoUrl": tenant.profilePhotoUrl,
+            },
+            'manager': {
+              'id': manager.id,
+              'fullName': manager.fullName,
+              'email': manager.email,
+              'phone': manager.phone,
+              "profilePhotoUrl": manager.profilePhotoUrl,
             },
             'unit': unit.toMap(),
             'property': {
@@ -109,6 +120,8 @@ class LeaseHandler {
       final enrichedLease = await Future.wait(
         [lease].map((lease) async {
           final tenant = await userRepository.getUserById(lease.tenantId);
+          final manager = await userRepository.getUserById(lease.managerId ?? lease.landownerId);
+
           final unit = await unitRepository.getUnitById(lease.unitId);
           final property = await propertyRepository.getPropertyById(
             unit.propertyId,
@@ -121,6 +134,14 @@ class LeaseHandler {
               'fullName': tenant.fullName,
               'email': tenant.email,
               'phone': tenant.phone,
+              "profilePhotoUrl": tenant.profilePhotoUrl,
+            },
+            'manager': {
+              'id': manager.id,
+              'fullName': manager.fullName,
+              'email': manager.email,
+              'phone': manager.phone,
+              "profilePhotoUrl": manager.profilePhotoUrl,
             },
             'unit': unit.toMap(),
             'property': {
@@ -174,6 +195,8 @@ class LeaseHandler {
         [lease].map((lease) async {
           final tenant = await userRepository.getUserById(lease.tenantId);
           final unit = await unitRepository.getUnitById(lease.unitId);
+          final manager = await userRepository.getUserById(lease.managerId ?? lease.landownerId);
+
           final property = await propertyRepository.getPropertyById(
             unit.propertyId,
           ); // assuming you have propertyId in lease, adjust if needed
@@ -185,6 +208,14 @@ class LeaseHandler {
               'fullName': tenant.fullName,
               'email': tenant.email,
               'phone': tenant.phone,
+              "profilePhotoUrl": tenant.profilePhotoUrl,
+            },
+            'manager': {
+              'id': manager.id,
+              'fullName': manager.fullName,
+              'email': manager.email,
+              'phone': manager.phone,
+              "profilePhotoUrl": manager.profilePhotoUrl,
             },
             'unit': unit.toMap(),
             'property': {
@@ -238,6 +269,8 @@ class LeaseHandler {
         [lease].map((lease) async {
           final tenant = await userRepository.getUserById(lease.tenantId);
           final unit = await unitRepository.getUnitById(lease.unitId);
+          final manager = await userRepository.getUserById(lease.managerId ?? lease.landownerId);
+
           final property = await propertyRepository.getPropertyById(
             unit.propertyId,
           ); // assuming you have propertyId in lease, adjust if needed
@@ -249,6 +282,14 @@ class LeaseHandler {
               'fullName': tenant.fullName,
               'email': tenant.email,
               'phone': tenant.phone,
+              "profilePhotoUrl": tenant.profilePhotoUrl,
+            },
+            'manager': {
+              'id': manager.id,
+              'fullName': manager.fullName,
+              'email': manager.email,
+              'phone': manager.phone,
+              "profilePhotoUrl": manager.profilePhotoUrl,
             },
             'unit': unit.toMap(),
             'property': {
@@ -397,6 +438,8 @@ class LeaseHandler {
         leases.map((lease) async {
           final tenant = await userRepository.getUserById(lease.tenantId);
           final unit = await unitRepository.getUnitById(lease.unitId);
+          final manager = await userRepository.getUserById(lease.managerId ?? lease.landownerId);
+
           final property = await propertyRepository.getPropertyById(
             lease.unitId,
           ); // assuming you have propertyId in lease, adjust if needed
@@ -408,6 +451,14 @@ class LeaseHandler {
               'fullName': tenant.fullName,
               'email': tenant.email,
               'phone': tenant.phone,
+              "profilePhotoUrl": tenant.profilePhotoUrl,
+            },
+            'manager': {
+              'id': manager.id,
+              'fullName': manager.fullName,
+              'email': manager.email,
+              'phone': manager.phone,
+              "profilePhotoUrl": manager.profilePhotoUrl,
             },
             'unit': unit.toMap(),
 
@@ -450,6 +501,8 @@ class LeaseHandler {
         leases.map((lease) async {
           final tenant = await userRepository.getUserById(lease.tenantId);
           final unit = await unitRepository.getUnitById(lease.unitId);
+          final manager = await userRepository.getUserById(lease.managerId ?? lease.landownerId);
+
           final property = await propertyRepository.getPropertyById(
             lease.unitId,
           ); // assuming you have propertyId in lease, adjust if needed
@@ -461,6 +514,14 @@ class LeaseHandler {
               'fullName': tenant.fullName,
               'email': tenant.email,
               'phone': tenant.phone,
+              "profilePhotoUrl": tenant.profilePhotoUrl,
+            },
+            'manager': {
+              'id': manager.id,
+              'fullName': manager.fullName,
+              'email': manager.email,
+              'phone': manager.phone,
+              "profilePhotoUrl": manager.profilePhotoUrl,
             },
             'unit': unit.toMap(),
             'property': {

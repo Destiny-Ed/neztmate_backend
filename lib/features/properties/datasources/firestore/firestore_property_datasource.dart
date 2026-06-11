@@ -75,13 +75,13 @@ class FirestorePropertyDataSource implements PropertyRemoteDataSource {
         tenants.add(
           TenantSummary(
             id: tenantId,
-            fullName: tenantData['full_name'] ?? 'Unknown',
+            fullName: tenantData['fullName'] ?? 'Unknown',
             email: tenantData['email'] ?? '',
             phone: tenantData['phone'],
-            profilePhotoUrl: tenantData['profile_photo_url'],
+            profilePhotoUrl: tenantData['profilePhotoUrl'],
             unitId: leaseData['unitId'],
             unitNumber: leaseData['unitNumber'] ?? 'N/A',
-            monthlyRent: (leaseData['monthlyRent'] as num?)?.toDouble() ?? 0.0,
+            monthlyRent: (leaseData['yearlyRent'] as num?)?.toDouble() ?? 0.0,
             leaseStartDate: DateTime.parse(leaseData['startDate']),
             leaseEndDate: leaseData['endDate'] != null ? DateTime.parse(leaseData['endDate']) : null,
             leaseStatus: leaseData['status'] ?? 'Unknown',
