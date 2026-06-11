@@ -1,6 +1,7 @@
 import 'package:neztmate_backend/features/properties/datasources/property_remote_datasource.dart';
 import 'package:neztmate_backend/features/properties/models/property_model.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
+import 'package:neztmate_backend/features/tenants/models/tenant_summary.dart';
 
 class PropertyRepositoryImpl implements PropertyRepository {
   final PropertyRemoteDataSource dataSource;
@@ -39,4 +40,16 @@ class PropertyRepositoryImpl implements PropertyRepository {
   @override
   Future<List<PropertyModel>> getPropertiesByManager(String managerId) =>
       dataSource.getPropertiesByManager(managerId);
+
+  @override
+  Future<List<TenantSummary>> getCurrentTenantsByProperty(String propertyId) =>
+      dataSource.getCurrentTenantsByProperty(propertyId);
+
+  @override
+  Future<List<TenantSummary>> getPastTenantsByProperty(String propertyId) =>
+      dataSource.getPastTenantsByProperty(propertyId);
+
+  @override
+  Future<List<TenantSummary>> getTenantsByProperty(String propertyId) =>
+      dataSource.getTenantsByProperty(propertyId);
 }

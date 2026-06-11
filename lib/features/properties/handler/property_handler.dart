@@ -13,17 +13,65 @@ class PropertyHandler {
   PropertyHandler(this.propertyRepository);
 
   // GET /properties (my properties)
+  /// GET /properties - Get all properties belonging to the current user (Landowner/Manager)
+  /// Enriched with current and past tenants
   Future<Response> getMyProperties(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
-      if (userId == null || role == null) return _unauthorized();
+
+      if (userId == null || role == null) {
+        return _unauthorized();
+      }
+
+      if (!['landowner', 'manager'].contains(role)) {
+        return Response(
+          403,
+          body: jsonEncode({'message': 'Only landowners and managers can view properties'}),
+        );
+      }
 
       final properties = await propertyRepository.getMyProperties(userId, role);
-      return Response.ok(jsonEncode({'properties': properties.map((p) => p.toMap()).toList()}));
+
+      // Enrich each property with tenant information
+      final enrichedProperties = await Future.wait(
+        properties.map((property) async {
+          try {
+            final currentTenants = await propertyRepository.getCurrentTenantsByProperty(property.id);
+            final pastTenants = await propertyRepository.getPastTenantsByProperty(property.id);
+
+            return {
+              ...property.toMap(),
+              'currentTenants': currentTenants.map((t) => t.toMap()).toList(),
+              'pastTenants': pastTenants.map((t) => t.toMap()).toList(),
+              'totalCurrentTenants': currentTenants.length,
+              'totalPastTenants': pastTenants.length,
+            };
+          } catch (e) {
+            // Fallback if tenant fetching fails
+            return {
+              ...property.toMap(),
+              'currentTenants': [],
+              'pastTenants': [],
+              'totalCurrentTenants': 0,
+              'totalPastTenants': 0,
+            };
+          }
+        }),
+      );
+
+      return Response.ok(
+        jsonEncode({
+          'properties': enrichedProperties,
+          'message': 'Properties loaded successfully',
+          'totalProperties': enrichedProperties.length,
+        }),
+        headers: {'Content-Type': 'application/json'},
+      );
     } on AppException catch (e) {
       return Response(400, body: jsonEncode({'message': e.message, 'properties': []}));
-    } catch (e) {
+    } catch (e, stack) {
+      print('Get my properties error: $e\n$stack');
       return Response.internalServerError(body: jsonEncode({'message': 'Failed to load properties'}));
     }
   }
@@ -31,14 +79,27 @@ class PropertyHandler {
   // GET /properties/<id>
   Future<Response> getPropertyById(Request request) async {
     try {
-      final id = request.params['id'];
-      if (id == null) return Response(400, body: jsonEncode({'message': 'Missing property ID'}));
+      final propertyId = request.params['id'];
+      if (propertyId == null) {
+        return Response(400, body: jsonEncode({'message': 'Property ID required'}));
+      }
 
-      final property = await propertyRepository.getPropertyById(id);
-      return Response.ok(jsonEncode({'property': property.toMap()}));
-    } on NotFoundException catch (e) {
-      return Response(404, body: jsonEncode({'message': e.message, 'property': {}}));
-    } catch (e) {
+      final property = await propertyRepository.getPropertyById(propertyId);
+
+      final currentTenants = await propertyRepository.getCurrentTenantsByProperty(propertyId);
+      final pastTenants = await propertyRepository.getPastTenantsByProperty(propertyId);
+
+      final response = {
+        ...property.toMap(),
+        'currentTenants': currentTenants.map((t) => t.toMap()).toList(),
+        'pastTenants': pastTenants.map((t) => t.toMap()).toList(),
+        'totalCurrentTenants': currentTenants.length,
+        'totalPastTenants': pastTenants.length,
+      };
+
+      return Response.ok(jsonEncode({'property': response}), headers: {'Content-Type': 'application/json'});
+    } catch (e, stack) {
+      print('Get property error: $e');
       return Response.internalServerError();
     }
   }

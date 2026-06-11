@@ -17,6 +17,7 @@ import 'package:neztmate_backend/features/notifications/handler/handler.dart';
 import 'package:neztmate_backend/features/payments/handler/payment_handler.dart';
 import 'package:neztmate_backend/features/properties/handler/property_handler.dart';
 import 'package:neztmate_backend/features/tasks/handler/task_handler.dart';
+import 'package:neztmate_backend/features/tenants/handler/tenant_handler.dart';
 import 'package:neztmate_backend/features/units/handler/unit_handler.dart';
 import 'package:neztmate_backend/routes/applications_routes.dart';
 import 'package:neztmate_backend/routes/auth_routes.dart';
@@ -30,6 +31,7 @@ import 'package:neztmate_backend/routes/notifications_routes.dart';
 import 'package:neztmate_backend/routes/payment_routes.dart';
 import 'package:neztmate_backend/routes/property_routes.dart';
 import 'package:neztmate_backend/routes/task_route.dart';
+import 'package:neztmate_backend/routes/tenant_routes.dart';
 import 'package:neztmate_backend/routes/unit_routes.dart';
 import 'package:neztmate_backend/routes/user_routes.dart';
 import 'package:shelf/shelf.dart';
@@ -161,6 +163,13 @@ void main() async {
     Pipeline()
         .addMiddleware(authMiddleware(jwtService))
         .addHandler(paymentRoutes(injector<PaymentHandler>()).call),
+  );
+
+  router.mount(
+    '/tenants/',
+    Pipeline()
+        .addMiddleware(authMiddleware(jwtService))
+        .addHandler(tenantRoutes(injector<TenantHandler>()).call),
   );
 
   //  SWAGGER UI SETUP

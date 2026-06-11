@@ -1,4 +1,5 @@
 import 'package:neztmate_backend/features/properties/models/property_model.dart';
+import 'package:neztmate_backend/features/tenants/models/tenant_summary.dart';
 
 abstract class PropertyRemoteDataSource {
   Future<PropertyModel> createProperty(PropertyModel property);
@@ -8,4 +9,7 @@ abstract class PropertyRemoteDataSource {
   Future<List<PropertyModel>> getAllProperties(); // for tenants to browse
   Future<void> updateProperty(PropertyModel property);
   Future<void> deleteProperty(String id);
+  Future<List<TenantSummary>> getTenantsByProperty(String propertyId);
+  Future<List<TenantSummary>> getCurrentTenantsByProperty(String propertyId);
+  Future<List<TenantSummary>> getPastTenantsByProperty(String propertyId);
 }
