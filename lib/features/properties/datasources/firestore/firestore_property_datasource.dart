@@ -70,6 +70,11 @@ class FirestorePropertyDataSource implements PropertyRemoteDataSource {
         final tenantDoc = await firestore.collection('users').doc(tenantId).get();
         if (!tenantDoc.exists) continue;
 
+        final unitDoc = await firestore.collection('units').doc(leaseData['unitId']).get();
+        if (!unitDoc.exists) continue;
+
+        final unitData = unitDoc.data() as Map<String, dynamic>;
+
         final tenantData = tenantDoc.data() as Map<String, dynamic>;
 
         tenants.add(
@@ -80,7 +85,8 @@ class FirestorePropertyDataSource implements PropertyRemoteDataSource {
             phone: tenantData['phone'],
             profilePhotoUrl: tenantData['profilePhotoUrl'],
             unitId: leaseData['unitId'],
-            unitNumber: leaseData['unitNumber'] ?? 'N/A',
+            leaseId: leaseData['id'],
+            unitNumber: unitData['unitNumber'] ?? 'N/A',
             monthlyRent: (leaseData['yearlyRent'] as num?)?.toDouble() ?? 0.0,
             leaseStartDate: DateTime.parse(leaseData['startDate']),
             leaseEndDate: leaseData['endDate'] != null ? DateTime.parse(leaseData['endDate']) : null,

@@ -5,6 +5,7 @@ class TenantSummary {
   final String? phone;
   final String? profilePhotoUrl;
   final String unitId;
+  final String leaseId;
   final String unitNumber;
   final double monthlyRent;
   final DateTime leaseStartDate;
@@ -18,6 +19,7 @@ class TenantSummary {
     this.phone,
     this.profilePhotoUrl,
     required this.unitId,
+    required this.leaseId,
     required this.unitNumber,
     required this.monthlyRent,
     required this.leaseStartDate,
@@ -33,6 +35,7 @@ class TenantSummary {
       phone: map['phone'],
       profilePhotoUrl: map['profilePhotoUrl'],
       unitId: map['unitId'],
+      leaseId: map['leaseId'],
       unitNumber: map['unitNumber'],
       monthlyRent: (map['monthlyRent'] as num).toDouble(),
       leaseStartDate: DateTime.parse(map['leaseStartDate']),
@@ -48,6 +51,7 @@ class TenantSummary {
     'phone': phone,
     'profilePhotoUrl': profilePhotoUrl,
     'unitId': unitId,
+    'leaseId': leaseId,
     'unitNumber': unitNumber,
     'monthlyRent': monthlyRent,
     'leaseStartDate': leaseStartDate.toIso8601String(),
