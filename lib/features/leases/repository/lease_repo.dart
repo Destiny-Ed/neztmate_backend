@@ -4,6 +4,7 @@ abstract class LeaseRepository {
   Future<LeaseModel> createLease(LeaseModel lease);
   Future<LeaseModel> getLeaseById(String id);
   Future<List<LeaseModel>> getActiveLeasesByTenant(String tenantId);
+  Future<List<LeaseModel>> getLeasesByTenant(String tenantId);
   Future<List<LeaseModel>> getLeasesByLandowner(String landownerId);
   Future<List<LeaseModel>> getLeasesByUnit(String unitId);
   Future<void> updateLease(LeaseModel lease);

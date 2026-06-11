@@ -42,7 +42,8 @@ class LeaseHandler {
         return Response(403, body: jsonEncode({'message': 'Only tenants can view their leases'}));
       }
 
-      final leases = await leaseRepository.getActiveLeasesByTenant(userId);
+      // final leases = await leaseRepository.getActiveLeasesByTenant(userId);
+      final leases = await leaseRepository.getLeasesByTenant(userId);
 
       final enrichedLeases = await Future.wait(
         leases.map((lease) async {

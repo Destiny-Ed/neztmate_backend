@@ -34,6 +34,12 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   }
 
   @override
+  Future<List<LeaseModel>> getLeasesByTenant(String tenantId) async {
+    final snap = await _leases.where('tenantId', WhereFilter.equal, tenantId).get();
+    return snap.docs.map((d) => LeaseModel.fromMap(d.data())).toList();
+  }
+
+  @override
   Future<List<LeaseModel>> getLeasesByLandowner(String landownerId) async {
     final snap = await _leases.where('landownerId', WhereFilter.equal, landownerId).get();
     return snap.docs.map((d) => LeaseModel.fromMap(d.data())).toList();
@@ -101,7 +107,7 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
     final newEndDate = lease.endDate.add(const Duration(days: 365)); // 1 year renewal
 
     final renewedLease = lease.copyWith(
-      id: "", 
+      id: "",
       startDate: lease.endDate,
       endDate: newEndDate,
       nextDueDate: lease.endDate.add(const Duration(days: 30)), // next rent due in 30 days
