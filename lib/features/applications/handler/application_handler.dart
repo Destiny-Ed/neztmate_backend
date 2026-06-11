@@ -382,6 +382,7 @@ class ApplicationHandler {
       // 1. Approve the application
       final application = await applicationRepository.getApplicationById(appId);
       await applicationRepository.approveApplication(appId, approverId);
+      final unit = await unitRepository.getUnitById(application.unitId);
 
       // 2. Create Lease Record
       final leaseService = LeasePdfService();
@@ -395,8 +396,8 @@ class ApplicationHandler {
         managerId: role == 'manager' ? approverId : null,
         startDate: application.desiredStartDate ?? DateTime.now().add(const Duration(days: 7)),
         endDate: DateTime.now().add(const Duration(days: 365)), // 1 year default
-        yearlyRent: application.proposedRent ?? 0.0,
-        securityDeposit: null,
+        yearlyRent: application.proposedRent ?? unit.yearlyRent,
+        fees: unit.fees,
         status: 'Pending Signature',
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),

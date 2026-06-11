@@ -1,3 +1,5 @@
+import 'package:neztmate_backend/features/units/models/unit_model.dart';
+
 class LeaseModel {
   final String id;
   final String applicationId;
@@ -11,8 +13,8 @@ class LeaseModel {
   final DateTime? nextDueDate;
 
   final double yearlyRent;
-  final double? securityDeposit;
-  final double? totalRentForTerm;
+  final int? rentTermInMonths;
+  final List<UnitFee>? fees;
 
   final String
   status; // 'Pending Signature', 'Pending Payment', 'Inactive', 'Active', 'Expired', 'Terminated', 'Renew', 'Cancelled'
@@ -50,8 +52,8 @@ class LeaseModel {
     required this.endDate,
     this.nextDueDate,
     required this.yearlyRent,
-    this.securityDeposit,
-    this.totalRentForTerm,
+    this.fees,
+    this.rentTermInMonths,
     this.status = 'Pending Signature',
     this.generatedLeasePdfUrl,
     this.customLeasePdfUrl,
@@ -83,8 +85,9 @@ class LeaseModel {
       endDate: DateTime.parse(map['endDate'] as String),
       nextDueDate: map['nextDueDate'] != null ? DateTime.parse(map['nextDueDate'] as String) : null,
       yearlyRent: (map['yearlyRent'] as num).toDouble(),
-      securityDeposit: (map['securityDeposit'] as num?)?.toDouble(),
-      totalRentForTerm: (map['totalRentForTerm'] as num?)?.toDouble(),
+      rentTermInMonths: (map['rentTermInMonths'] as num?)?.toInt(),
+      fees: (map['fees'] as List?)?.map((e) => UnitFee.fromMap(e)).toList(),
+
       status: map['status'] as String? ?? 'Pending Signature',
       generatedLeasePdfUrl: map['generatedLeasePdfUrl'] as String?,
       customLeasePdfUrl: map['customLeasePdfUrl'] as String?,
@@ -116,8 +119,9 @@ class LeaseModel {
     'endDate': endDate.toIso8601String(),
     'nextDueDate': nextDueDate?.toIso8601String(),
     'yearlyRent': yearlyRent,
-    'securityDeposit': securityDeposit,
-    'totalRentForTerm': totalRentForTerm,
+    'fees': fees?.map((e) => e.toMap()).toList(),
+
+    'rentTermInMonths': rentTermInMonths,
     'status': status,
     'generatedLeasePdfUrl': generatedLeasePdfUrl,
     'customLeasePdfUrl': customLeasePdfUrl,
@@ -148,13 +152,13 @@ class LeaseModel {
     DateTime? endDate,
     DateTime? nextDueDate,
     double? yearlyRent,
-    double? securityDeposit,
-    double? totalRentForTerm,
+    int? rentTermInMonths,
     String? status,
     String? generatedLeasePdfUrl,
     String? customLeasePdfUrl,
     String? signedAgreementPdfUrl,
     String? terminationReason,
+    List<UnitFee>? fees,
     DateTime? terminatedAt,
     String? terminatedBy,
     bool? isCustomLease,
@@ -179,8 +183,8 @@ class LeaseModel {
       endDate: endDate ?? this.endDate,
       nextDueDate: nextDueDate ?? this.nextDueDate,
       yearlyRent: yearlyRent ?? this.yearlyRent,
-      securityDeposit: securityDeposit ?? this.securityDeposit,
-      totalRentForTerm: totalRentForTerm ?? this.totalRentForTerm,
+      fees: fees ?? this.fees,
+      rentTermInMonths: rentTermInMonths ?? this.rentTermInMonths,
       status: status ?? this.status,
       generatedLeasePdfUrl: generatedLeasePdfUrl ?? this.generatedLeasePdfUrl,
       customLeasePdfUrl: customLeasePdfUrl ?? this.customLeasePdfUrl,
@@ -194,7 +198,6 @@ class LeaseModel {
       terminationReason: terminationReason ?? this.terminationReason,
       terminatedAt: terminatedAt ?? this.terminatedAt,
       terminatedBy: terminatedBy ?? this.terminatedBy,
-
       isRenewed: isRenewed ?? this.isRenewed,
       previousLeaseId: previousLeaseId ?? this.previousLeaseId,
       renewalReason: renewalReason ?? this.renewalReason,

@@ -71,6 +71,11 @@ class LeasePdfService {
             '${tenant.fullName} ("Tenant").',
           ),
 
+          paragraph(
+            'Lease Reference Number: ${lease.id}\n'
+            'Agreement Date: ${formatDate(DateTime.now())}',
+          ),
+
           sectionTitle('2. PROPERTY'),
 
           paragraph(
@@ -87,21 +92,87 @@ class LeasePdfService {
             '${formatDate(lease.endDate)}.',
           ),
 
-          sectionTitle('4. RENT'),
+          // sectionTitle('4. RENT'),
+
+          // paragraph(
+          //   'Tenant agrees to pay yearly rent of '
+          //   '₦${unit.yearlyRent.toStringAsFixed(2)} '
+          //   'on or before the due date each month.',
+          // ),
+
+          // if (lease.securityDeposit != null)
+          //   paragraph(
+          //     'A refundable security deposit of '
+          //     '₦${lease.securityDeposit!.toStringAsFixed(2)} '
+          //     'shall be paid before move-in.',
+          //   ),
+          sectionTitle('4. RENT & FEES'),
 
           paragraph(
             'Tenant agrees to pay yearly rent of '
             '₦${unit.yearlyRent.toStringAsFixed(2)} '
-            'on or before the due date each month.',
+            'according to the agreed payment schedule outlined by the Landlord.',
           ),
 
-          if (lease.securityDeposit != null)
+          if (unit.fees != null && unit.fees!.isNotEmpty) ...[
             paragraph(
-              'A refundable security deposit of '
-              '₦${lease.securityDeposit!.toStringAsFixed(2)} '
-              'shall be paid before move-in.',
+              'In addition to the annual rent, the Tenant agrees to pay the following fees and charges where applicable. '
+              'These fees form part of this Lease Agreement and are legally enforceable.',
             ),
 
+            pw.Bullet(text: ''),
+
+            ...unit.fees!.map(
+              (fee) => pw.Padding(
+                padding: const pw.EdgeInsets.only(bottom: 6),
+                child: pw.Bullet(
+                  text:
+                      '${fee.name} - '
+                      '${fee.isPercentage ? '${fee.amount}%' : '₦${fee.amount.toStringAsFixed(2)}'} '
+                      '(${fee.isOneTime ? 'One-Time Fee' : 'Recurring Fee'})',
+                ),
+              ),
+            ),
+          ],
+
+          pw.SizedBox(height: 10),
+
+          paragraph(
+            'The Tenant acknowledges and accepts responsibility for all applicable fees listed above. '
+            'Failure to pay required recurring charges may constitute a breach of this Lease Agreement.',
+          ),
+
+          //table format
+          // if (unit.fees != null && unit.fees!.isNotEmpty) ...[
+          //   pw.SizedBox(height: 10),
+
+          //   pw.Table(
+          //     border: pw.TableBorder.all(),
+          //     columnWidths: {
+          //       0: const pw.FlexColumnWidth(3),
+          //       1: const pw.FlexColumnWidth(2),
+          //       2: const pw.FlexColumnWidth(2),
+          //     },
+          //     children: [
+          //       pw.TableRow(
+          //         decoration: const pw.BoxDecoration(color: PdfColors.grey300),
+          //         children: [_tableCell('Fee'), _tableCell('Amount'), _tableCell('Type')],
+          //       ),
+
+          //       ...unit.fees!.map(
+          //         (fee) => pw.TableRow(
+          //           children: [
+          //             _tableCell(fee.name),
+          //             _tableCell(fee.isPercentage ? '${fee.amount}%' : '₦${fee.amount.toStringAsFixed(2)}'),
+          //             _tableCell(fee.isOneTime ? 'One-Time' : 'Recurring'),
+          //           ],
+          //         ),
+          //       ),
+          //     ],
+          //   ),
+
+          //   pw.SizedBox(height: 20),
+          // ],
           sectionTitle('5. TENANT RESPONSIBILITIES'),
 
           paragraph(
@@ -138,7 +209,44 @@ class LeasePdfService {
             'within the jurisdiction where the property is located.',
           ),
 
+          sectionTitle('10. LANDLORD ACKNOWLEDGEMENT'),
+
+          paragraph(
+            'The Landlord confirms that they are the lawful owner or authorized representative '
+            'of the Property and agree to all terms contained within this Lease Agreement.',
+          ),
+
+          sectionTitle('11. ELECTRONIC SIGNATURE CONSENT'),
+
+          paragraph(
+            'The Parties agree that electronic signatures and records generated through '
+            'the NeztMate platform shall have the same legal force and effect as handwritten signatures. '
+            'The Parties further agree that this Agreement may be executed electronically '
+            'and stored digitally for evidentiary purposes.',
+          ),
+
           pw.SizedBox(height: 40),
+
+          pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Container(width: 180, child: pw.Divider()),
+                  pw.Text('Landlord Signature'),
+                ],
+              ),
+
+              pw.Column(
+                crossAxisAlignment: pw.CrossAxisAlignment.start,
+                children: [
+                  pw.Container(width: 180, child: pw.Divider()),
+                  pw.Text('Date'),
+                ],
+              ),
+            ],
+          ),
 
           pw.Container(
             padding: const pw.EdgeInsets.all(20),
@@ -173,7 +281,8 @@ class LeasePdfService {
                 pw.SizedBox(height: 10),
 
                 pw.Text(
-                  'This section will be completed automatically by NeztMate upon signing.',
+                  'Upon electronic execution, NeztMate will automatically insert the Tenant signature, '
+                  'signing date, Lease ID, verification details, and digital audit record into this section.',
                   style: pw.TextStyle(fontSize: 10, color: PdfColors.grey600),
                 ),
               ],
@@ -189,4 +298,11 @@ class LeasePdfService {
 
     return file.path;
   }
+
+  // pw.Widget _tableCell(String text) {
+  //   return pw.Padding(
+  //     padding: const pw.EdgeInsets.all(8),
+  //     child: pw.Text(text, style: const pw.TextStyle(fontSize: 10)),
+  //   );
+  // }
 }
