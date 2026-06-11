@@ -392,6 +392,7 @@ class ApplicationHandler {
         applicationId: appId,
         unitId: application.unitId,
         tenantId: application.tenantId,
+        propertyId: application.propertyId,
         landownerId: role == 'landowner' ? approverId : application.landownerId,
         managerId: role == 'manager' ? approverId : null,
         startDate: application.desiredStartDate ?? DateTime.now().add(const Duration(days: 7)),

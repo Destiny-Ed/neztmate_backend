@@ -113,6 +113,7 @@ class UnitRepositoryImpl implements UnitRepository {
           unitId: "",
           tenantId: "",
           landownerId: "",
+          propertyId: "",
           startDate: DateTime.now(),
           endDate: DateTime.now(),
           yearlyRent: 0,

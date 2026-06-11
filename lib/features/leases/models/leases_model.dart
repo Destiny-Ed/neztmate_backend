@@ -6,6 +6,7 @@ class LeaseModel {
   final String unitId;
   final String tenantId;
   final String landownerId;
+  final String propertyId;
   final String? managerId;
 
   final DateTime startDate;
@@ -47,6 +48,7 @@ class LeaseModel {
     required this.unitId,
     required this.tenantId,
     required this.landownerId,
+    required this.propertyId,
     this.managerId,
     required this.startDate,
     required this.endDate,
@@ -80,6 +82,7 @@ class LeaseModel {
       unitId: map['unitId'] as String,
       tenantId: map['tenantId'] as String,
       landownerId: map['landownerId'] as String,
+      propertyId: map['propertyId'] as String,
       managerId: map['managerId'] as String?,
       startDate: DateTime.parse(map['startDate'] as String),
       endDate: DateTime.parse(map['endDate'] as String),
@@ -114,6 +117,7 @@ class LeaseModel {
     'unitId': unitId,
     'tenantId': tenantId,
     'landownerId': landownerId,
+    'propertyId': propertyId,
     'managerId': managerId,
     'startDate': startDate.toIso8601String(),
     'endDate': endDate.toIso8601String(),
@@ -147,6 +151,7 @@ class LeaseModel {
     String? unitId,
     String? tenantId,
     String? landownerId,
+    String? propertyId,
     String? managerId,
     DateTime? startDate,
     DateTime? endDate,
@@ -179,6 +184,7 @@ class LeaseModel {
       tenantId: tenantId ?? this.tenantId,
       landownerId: landownerId ?? this.landownerId,
       managerId: managerId ?? this.managerId,
+      propertyId: propertyId ?? this.propertyId,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
       nextDueDate: nextDueDate ?? this.nextDueDate,
