@@ -35,13 +35,16 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
     final snap = await _units
         .where('propertyId', WhereFilter.equal, propertyId)
         .where('status', WhereFilter.equal, 'vacant')
+        .where('isListedForRent', WhereFilter.equal, true)
         .get();
     return snap.docs.map((d) => UnitModel.fromMap(d.data())).toList();
   }
 
   @override
   Future<List<UnitModel>> getAvailableUnits({String? propertyId, int? minBedrooms, double? maxRent}) async {
-    var query = _units.where('status', WhereFilter.equal, 'vacant');
+    var query = _units
+        .where('status', WhereFilter.equal, 'vacant')
+        .where('isListedForRent', WhereFilter.equal, true);
 
     if (propertyId != null) {
       query = query.where('propertyId', WhereFilter.equal, propertyId);
