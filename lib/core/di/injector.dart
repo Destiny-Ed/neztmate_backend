@@ -236,7 +236,9 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
   injector.registerLazySingleton<CommunityRepository>(
     () => CommunityRepositoryImpl(injector<CommunityRemoteDataSource>()),
   );
-  injector.registerLazySingleton<CommunityHandler>(() => CommunityHandler(injector<CommunityRepository>()));
+  injector.registerLazySingleton<CommunityHandler>(
+    () => CommunityHandler(injector<CommunityRepository>(), injector<UserRepository>()),
+  );
 
   ///messages
   injector.registerLazySingleton<MessageRemoteDataSource>(
