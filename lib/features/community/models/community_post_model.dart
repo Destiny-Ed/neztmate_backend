@@ -27,9 +27,9 @@ class CommunityPostModel {
     this.updatedAt,
   });
 
-  factory CommunityPostModel.fromMap(Map<String, dynamic> map, String id) {
+  factory CommunityPostModel.fromMap(Map<String, dynamic> map) {
     return CommunityPostModel(
-      id: id,
+      id: map['id'] as String,
       propertyId: map['propertyId'] as String,
       authorId: map['authorId'] as String,
       title: map['title'] as String,
@@ -45,6 +45,7 @@ class CommunityPostModel {
   }
 
   Map<String, dynamic> toMap() => {
+    'id': id,
     'propertyId': propertyId,
     'authorId': authorId,
     'title': title,

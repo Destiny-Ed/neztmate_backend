@@ -19,9 +19,9 @@ class CommentModel {
     this.likes = 0,
   });
 
-  factory CommentModel.fromMap(Map<String, dynamic> map, String id) {
+  factory CommentModel.fromMap(Map<String, dynamic> map) {
     return CommentModel(
-      id: id,
+      id: map['id'] as String,
       postId: map['postId'] as String,
       authorId: map['authorId'] as String,
       content: map['content'] as String,
@@ -33,6 +33,7 @@ class CommentModel {
   }
 
   Map<String, dynamic> toMap() => {
+    'id': id,
     'postId': postId,
     'authorId': authorId,
     'content': content,

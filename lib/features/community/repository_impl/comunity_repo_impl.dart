@@ -25,14 +25,77 @@ class CommunityRepositoryImpl implements CommunityRepository {
   Future<void> deletePost(String id) => dataSource.deletePost(id);
 
   @override
-  Future<void> likePost(String postId) => dataSource.incrementLikes(postId);
-
-  @override
   Future<CommentModel> createComment(CommentModel comment) => dataSource.createComment(comment);
 
   @override
   Future<List<CommentModel>> getCommentsByPost(String postId) => dataSource.getCommentsByPost(postId);
 
   @override
-  Future<void> deleteComment(String id) => dataSource.deleteComment(id);
+  Future<int> getCommentCount(String postId) => dataSource.getCommentCount(postId);
+  @override
+  Future<List<CommunityPostModel>> getFeed({required List<String> propertyIds, int limit = 20}) =>
+      dataSource.getFeed(propertyIds: propertyIds);
+
+  @override
+  Future<int> getPostLikeCount(String postId) => dataSource.getPostLikeCount(postId);
+
+  @override
+  Future<bool> hasLikedPost({required String postId, required String userId}) =>
+      dataSource.hasLikedPost(postId: postId, userId: userId);
+
+  @override
+  Future<void> pinPost(String postId) => dataSource.pinPost(postId);
+
+  @override
+  Future<void> toggleLikePost({required String postId, required String userId}) =>
+      dataSource.toggleLikePost(postId: postId, userId: userId);
+
+  @override
+  Future<void> unpinPost(String postId) => dataSource.unpinPost(postId);
+
+  @override
+  Future<void> deleteComment({required String postId, required String commentId}) =>
+      dataSource.deleteComment(postId: postId, commentId: commentId);
+
+  @override
+  Future<void> createEvent(Map<dynamic, dynamic> data) {
+    // TODO: implement createEvent
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> createPoll(String postId, Map<dynamic, dynamic> data) {
+    // TODO: implement createPoll
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> markAnnouncementRead(String announcementId, String userId) {
+    // TODO: implement markAnnouncementRead
+    throw UnimplementedError();
+  }
+
+  // @override
+  // Future<void> reportComment(String commentId, Map<dynamic, dynamic> data) {
+  //   // TODO: implement reportComment
+  //   throw UnimplementedError();
+  // }
+
+  // @override
+  // Future<void> reportPost(String postId, Map<dynamic, dynamic> data) {
+  //   // TODO: implement reportPost
+  //   throw UnimplementedError();
+  // }
+
+  @override
+  Future<void> rsvpEvent(String eventId, String userId) {
+    // TODO: implement rsvpEvent
+    throw UnimplementedError();
+  }
+
+  @override
+  Future<void> votePoll(String pollId, Map<dynamic, dynamic> data) {
+    // TODO: implement votePoll
+    throw UnimplementedError();
+  }
 }
