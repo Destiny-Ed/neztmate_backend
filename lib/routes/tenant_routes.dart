@@ -5,6 +5,7 @@ Router tenantRoutes(TenantHandler handler) {
   final router = Router();
 
   router.get('/search', handler.searchTenants);
+  router.get('/neighbors/<propertyId>/<tenantId>', handler.searchTenants);
 
   return router;
 }

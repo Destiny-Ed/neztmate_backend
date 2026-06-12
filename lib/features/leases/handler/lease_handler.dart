@@ -1,11 +1,11 @@
 import 'dart:convert';
-import 'package:neztmate_backend/features/auth_user/models/user_model.dart';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
 import 'package:neztmate_backend/features/history/model/user_history_model.dart';
 import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
+import 'package:neztmate_backend/features/tenants/repository/tenant_respository.dart';
 import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
 import 'package:shelf/shelf.dart';
 import 'package:neztmate_backend/core/error.dart';
@@ -18,6 +18,7 @@ class LeaseHandler {
   final NotificationRepository notificationRepository;
   final UnitRepository unitRepository;
   final PropertyRepository propertyRepository;
+  final TenantRepository tenantRepository;
   final UserRepository userRepository;
 
   LeaseHandler({
@@ -27,6 +28,7 @@ class LeaseHandler {
     required this.unitRepository,
     required this.propertyRepository,
     required this.userRepository,
+    required this.tenantRepository,
   });
 
   //  TENANT ENDPOINTS
@@ -53,6 +55,7 @@ class LeaseHandler {
 
           final unit = await unitRepository.getUnitById(lease.unitId);
           final property = await propertyRepository.getPropertyById(unit.propertyId);
+          final tenantNeighbors = await tenantRepository.getTenantNeighbors(lease.propertyId, lease.tenantId);
 
           return {
             ...lease.toMap(),
@@ -63,6 +66,7 @@ class LeaseHandler {
               'phone': tenant.phone,
               "profilePhotoUrl": tenant.profilePhotoUrl,
             },
+            'neighbors': tenantNeighbors.map((e) => e.toMap()).toList(),
             'manager': {
               'id': manager.id,
               'fullName': manager.fullName,
@@ -123,9 +127,8 @@ class LeaseHandler {
           final manager = await userRepository.getUserById(lease.managerId ?? lease.landownerId);
 
           final unit = await unitRepository.getUnitById(lease.unitId);
-          final property = await propertyRepository.getPropertyById(
-            unit.propertyId,
-          ); // assuming you have propertyId in lease, adjust if needed
+          final property = await propertyRepository.getPropertyById(unit.propertyId);
+          final tenantNeighbors = await tenantRepository.getTenantNeighbors(lease.propertyId, lease.tenantId);
 
           return {
             ...lease.toMap(),
@@ -136,6 +139,8 @@ class LeaseHandler {
               'phone': tenant.phone,
               "profilePhotoUrl": tenant.profilePhotoUrl,
             },
+            'neighbors': tenantNeighbors.map((e) => e.toMap()).toList(),
+
             'manager': {
               'id': manager.id,
               'fullName': manager.fullName,
@@ -197,9 +202,8 @@ class LeaseHandler {
           final unit = await unitRepository.getUnitById(lease.unitId);
           final manager = await userRepository.getUserById(lease.managerId ?? lease.landownerId);
 
-          final property = await propertyRepository.getPropertyById(
-            unit.propertyId,
-          ); // assuming you have propertyId in lease, adjust if needed
+          final property = await propertyRepository.getPropertyById(unit.propertyId);
+          final tenantNeighbors = await tenantRepository.getTenantNeighbors(lease.propertyId, lease.tenantId);
 
           return {
             ...lease.toMap(),
@@ -210,6 +214,8 @@ class LeaseHandler {
               'phone': tenant.phone,
               "profilePhotoUrl": tenant.profilePhotoUrl,
             },
+            'neighbors': tenantNeighbors.map((e) => e.toMap()).toList(),
+
             'manager': {
               'id': manager.id,
               'fullName': manager.fullName,
@@ -271,9 +277,8 @@ class LeaseHandler {
           final unit = await unitRepository.getUnitById(lease.unitId);
           final manager = await userRepository.getUserById(lease.managerId ?? lease.landownerId);
 
-          final property = await propertyRepository.getPropertyById(
-            unit.propertyId,
-          ); // assuming you have propertyId in lease, adjust if needed
+          final property = await propertyRepository.getPropertyById(unit.propertyId);
+          final tenantNeighbors = await tenantRepository.getTenantNeighbors(lease.propertyId, lease.tenantId);
 
           return {
             ...lease.toMap(),
@@ -284,6 +289,8 @@ class LeaseHandler {
               'phone': tenant.phone,
               "profilePhotoUrl": tenant.profilePhotoUrl,
             },
+            'neighbors': tenantNeighbors.map((e) => e.toMap()).toList(),
+
             'manager': {
               'id': manager.id,
               'fullName': manager.fullName,
@@ -453,6 +460,8 @@ class LeaseHandler {
               'phone': tenant.phone,
               "profilePhotoUrl": tenant.profilePhotoUrl,
             },
+            'neighbors': tenantNeighbors.map((e) => e.toMap()).toList(),
+
             'manager': {
               'id': manager.id,
               'fullName': manager.fullName,
@@ -516,6 +525,8 @@ class LeaseHandler {
               'phone': tenant.phone,
               "profilePhotoUrl": tenant.profilePhotoUrl,
             },
+            'neighbors': tenantNeighbors.map((e) => e.toMap()).toList(),
+
             'manager': {
               'id': manager.id,
               'fullName': manager.fullName,
@@ -576,7 +587,7 @@ class LeaseHandler {
         return Response(
           400,
           body: jsonEncode({
-            'message': 'Cannot set to Pending Payment or Renew Lease. Current lease has not yet expired.',
+            'message': 'Cannot Terminate this Lease at this time. Current lease has not yet expired.',
           }),
         );
       }

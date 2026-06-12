@@ -155,6 +155,16 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
     ),
   );
 
+  //Tenant
+  //Tenant
+  injector.registerLazySingleton<TenantRemoteDataSource>(
+    () => FirestoreTenantDataSource(injector<Firestore>()),
+  );
+  injector.registerLazySingleton<TenantRepository>(
+    () => TenantRepositoryImpl(injector<TenantRemoteDataSource>()),
+  );
+  injector.registerLazySingleton<TenantHandler>(() => TenantHandler(injector<TenantRepository>()));
+
   //Leases
   injector.registerLazySingleton<LeaseRemoteDataSource>(
     () => FirestoreLeaseDataSource(injector<Firestore>()),
@@ -170,6 +180,7 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
       unitRepository: injector<UnitRepository>(),
       propertyRepository: injector<PropertyRepository>(),
       userRepository: injector<UserRepository>(),
+      tenantRepository: injector<TenantRepository>(),
     ),
   );
 
@@ -263,13 +274,4 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
       injector<UnitRepository>(),
     ),
   );
-
-  //Tenant
-  injector.registerLazySingleton<TenantRemoteDataSource>(
-    () => FirestoreTenantDataSource(injector<Firestore>()),
-  );
-  injector.registerLazySingleton<TenantRepository>(
-    () => TenantRepositoryImpl(injector<TenantRemoteDataSource>()),
-  );
-  injector.registerLazySingleton<TenantHandler>(() => TenantHandler(injector<TenantRepository>()));
 }

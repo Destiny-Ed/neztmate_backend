@@ -1,5 +1,7 @@
 import 'package:dart_firebase_admin/firestore.dart';
+import 'package:neztmate_backend/features/leases/models/leases_model.dart';
 import 'package:neztmate_backend/features/tenants/datasources/tenant_remote_datasource.dart';
+import 'package:neztmate_backend/features/tenants/models/tenant_neightbor.dart';
 import 'package:neztmate_backend/features/tenants/models/tenant_summary.dart';
 
 class FirestoreTenantDataSource implements TenantRemoteDataSource {
@@ -40,7 +42,7 @@ class FirestoreTenantDataSource implements TenantRemoteDataSource {
         if (!tenantDoc.exists) continue;
 
         final tenantData = tenantDoc.data() as Map<String, dynamic>;
-        final fullName = (tenantData['full_name'] as String? ?? '').toLowerCase();
+        final fullName = (tenantData['fullName'] as String? ?? '').toLowerCase();
         final email = (tenantData['email'] as String? ?? '').toLowerCase();
 
         // Search by name or email
@@ -68,5 +70,44 @@ class FirestoreTenantDataSource implements TenantRemoteDataSource {
       print('Tenant search error: $e');
       return [];
     }
+  }
+
+  @override
+  Future<List<NeighborModel>> getTenantNeighbors(String propertyId, String tenantId) async {
+    final snapshot = await firestore
+        .collection('leases')
+        .where('propertyId', WhereFilter.equal, propertyId)
+        .where('status', WhereFilter.equal, 'Active')
+        .get();
+
+    final neighbors = <NeighborModel>[];
+
+    for (final doc in snapshot.docs) {
+      final lease = LeaseModel.fromMap(doc.data());
+
+      if (lease.tenantId == tenantId) continue;
+
+      final tenantDoc = await firestore.collection('users').doc(lease.tenantId).get();
+
+      final unitDoc = await firestore.collection('units').doc(lease.unitId).get();
+
+      if (!tenantDoc.exists || !unitDoc.exists) continue;
+
+      final tenantData = tenantDoc.data() as Map<String, dynamic>;
+
+      final unitData = unitDoc.data() as Map<String, dynamic>;
+
+      neighbors.add(
+        NeighborModel(
+          userId: lease.tenantId,
+          fullName: tenantData['fullName'] ?? '',
+          profileImage: tenantData['profileImageUrl'],
+          unitNumber: unitData['unitNumber'] ?? '',
+          leaseId: lease.id,
+        ),
+      );
+    }
+
+    return neighbors;
   }
 }

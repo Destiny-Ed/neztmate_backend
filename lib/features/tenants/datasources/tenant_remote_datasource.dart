@@ -1,3 +1,4 @@
+import 'package:neztmate_backend/features/tenants/models/tenant_neightbor.dart';
 import 'package:neztmate_backend/features/tenants/models/tenant_summary.dart';
 
 abstract class TenantRemoteDataSource {
@@ -6,4 +7,6 @@ abstract class TenantRemoteDataSource {
     required String userId,
     required String role,
   });
+
+  Future<List<NeighborModel>> getTenantNeighbors(String propertyId, String tenantId);
 }
