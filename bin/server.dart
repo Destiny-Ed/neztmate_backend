@@ -38,7 +38,6 @@ import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'package:shelf_swagger_ui/shelf_swagger_ui.dart';
-import 'package:shelf_static/shelf_static.dart';
 
 void main() async {
   final env = DotEnv()..load();

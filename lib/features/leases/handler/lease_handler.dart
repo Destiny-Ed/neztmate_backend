@@ -72,6 +72,7 @@ class LeaseHandler {
               'fullName': manager.fullName,
               'email': manager.email,
               'phone': manager.phone,
+              'role': manager.role,
               "profilePhotoUrl": manager.profilePhotoUrl,
             },
             'unit': unit.toMap(),
@@ -145,6 +146,7 @@ class LeaseHandler {
               'fullName': manager.fullName,
               'email': manager.email,
               'phone': manager.phone,
+              'role': manager.role,
               "profilePhotoUrl": manager.profilePhotoUrl,
             },
             'unit': unit.toMap(),
@@ -221,6 +223,7 @@ class LeaseHandler {
               'email': manager.email,
               'phone': manager.phone,
               "profilePhotoUrl": manager.profilePhotoUrl,
+              'role': manager.role,
             },
             'unit': unit.toMap(),
             'property': {
@@ -296,6 +299,7 @@ class LeaseHandler {
               'email': manager.email,
               'phone': manager.phone,
               "profilePhotoUrl": manager.profilePhotoUrl,
+              'role': manager.role,
             },
             'unit': unit.toMap(),
             'property': {
@@ -466,6 +470,7 @@ class LeaseHandler {
               'email': manager.email,
               'phone': manager.phone,
               "profilePhotoUrl": manager.profilePhotoUrl,
+              'role': manager.role,
             },
             'unit': unit.toMap(),
 
@@ -530,6 +535,7 @@ class LeaseHandler {
               'email': manager.email,
               'phone': manager.phone,
               "profilePhotoUrl": manager.profilePhotoUrl,
+              'role': manager.role,
             },
             'unit': unit.toMap(),
             'property': {
