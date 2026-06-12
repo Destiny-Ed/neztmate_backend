@@ -54,7 +54,7 @@ class LeaseHandler {
           final manager = await userRepository.getUserById(lease.managerId ?? lease.landownerId);
 
           final unit = await unitRepository.getUnitById(lease.unitId);
-          final property = await propertyRepository.getPropertyById(unit.propertyId);
+          final property = await propertyRepository.getPropertyById(lease.propertyId);
           final tenantNeighbors = await tenantRepository.getTenantNeighbors(lease.propertyId, lease.tenantId);
 
           return {
@@ -127,7 +127,7 @@ class LeaseHandler {
           final manager = await userRepository.getUserById(lease.managerId ?? lease.landownerId);
 
           final unit = await unitRepository.getUnitById(lease.unitId);
-          final property = await propertyRepository.getPropertyById(unit.propertyId);
+          final property = await propertyRepository.getPropertyById(lease.propertyId);
           final tenantNeighbors = await tenantRepository.getTenantNeighbors(lease.propertyId, lease.tenantId);
 
           return {
@@ -140,7 +140,6 @@ class LeaseHandler {
               "profilePhotoUrl": tenant.profilePhotoUrl,
             },
             'neighbors': tenantNeighbors.map((e) => e.toMap()).toList(),
-
             'manager': {
               'id': manager.id,
               'fullName': manager.fullName,
@@ -202,7 +201,7 @@ class LeaseHandler {
           final unit = await unitRepository.getUnitById(lease.unitId);
           final manager = await userRepository.getUserById(lease.managerId ?? lease.landownerId);
 
-          final property = await propertyRepository.getPropertyById(unit.propertyId);
+          final property = await propertyRepository.getPropertyById(lease.propertyId);
           final tenantNeighbors = await tenantRepository.getTenantNeighbors(lease.propertyId, lease.tenantId);
 
           return {
@@ -277,7 +276,7 @@ class LeaseHandler {
           final unit = await unitRepository.getUnitById(lease.unitId);
           final manager = await userRepository.getUserById(lease.managerId ?? lease.landownerId);
 
-          final property = await propertyRepository.getPropertyById(unit.propertyId);
+          final property = await propertyRepository.getPropertyById(lease.propertyId);
           final tenantNeighbors = await tenantRepository.getTenantNeighbors(lease.propertyId, lease.tenantId);
 
           return {
@@ -447,9 +446,8 @@ class LeaseHandler {
           final unit = await unitRepository.getUnitById(lease.unitId);
           final manager = await userRepository.getUserById(lease.managerId ?? lease.landownerId);
 
-          final property = await propertyRepository.getPropertyById(
-            lease.unitId,
-          ); // assuming you have propertyId in lease, adjust if needed
+          final property = await propertyRepository.getPropertyById(lease.unitId);
+          final tenantNeighbors = await tenantRepository.getTenantNeighbors(lease.propertyId, lease.tenantId);
 
           return {
             ...lease.toMap(),
@@ -512,9 +510,8 @@ class LeaseHandler {
           final unit = await unitRepository.getUnitById(lease.unitId);
           final manager = await userRepository.getUserById(lease.managerId ?? lease.landownerId);
 
-          final property = await propertyRepository.getPropertyById(
-            lease.unitId,
-          ); // assuming you have propertyId in lease, adjust if needed
+          final property = await propertyRepository.getPropertyById(lease.unitId);
+          final tenantNeighbors = await tenantRepository.getTenantNeighbors(lease.propertyId, lease.tenantId);
 
           return {
             ...lease.toMap(),

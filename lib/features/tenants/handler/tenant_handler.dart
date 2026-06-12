@@ -47,6 +47,7 @@ class TenantHandler {
     }
   }
 
+  /// GET /tenants/neighbors?propertyId=id?tenantId=id - Get tenants Neighbors
   Future<Response> getTenantNeighbors(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
