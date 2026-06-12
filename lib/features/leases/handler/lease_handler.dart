@@ -572,6 +572,15 @@ class LeaseHandler {
 
       final lease = await leaseRepository.getLeaseById(leaseId);
 
+      if (lease.endDate.isAfter(DateTime.now())) {
+        return Response(
+          400,
+          body: jsonEncode({
+            'message': 'Cannot set to Pending Payment or Renew Lease. Current lease has not yet expired.',
+          }),
+        );
+      }
+
       // 1. Terminate the lease
       await leaseRepository.terminateLease(leaseId, reason, userId);
 
