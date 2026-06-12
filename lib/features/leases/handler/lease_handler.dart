@@ -694,6 +694,59 @@ class LeaseHandler {
         isListedForRent: false,
       );
 
+      await historyRepository.createHistoryEntry(
+        HistoryEntryModel(
+          id: '',
+          userId: oldLease.tenantId,
+          type: 'lease_renewed',
+          title: 'Lease Renewed',
+          description: 'Your lease has been renewed until ${newEndDate.toIso8601String().split('T').first}.',
+          relatedId: newLease.id,
+          relatedCollection: 'leases',
+          timestamp: DateTime.now(),
+        ),
+      );
+
+      await historyRepository.createHistoryEntry(
+        HistoryEntryModel(
+          id: '',
+          userId: userId,
+          type: 'lease_renewed',
+          title: 'Lease Renewed',
+          description: 'Lease for Unit ${oldLease.unitId} was renewed successfully.',
+          relatedId: newLease.id,
+          relatedCollection: 'leases',
+          timestamp: DateTime.now(),
+        ),
+      );
+
+      await notificationRepository.create(
+        NotificationModel(
+          id: '',
+          userId: oldLease.tenantId,
+          type: 'lease_renewed',
+          title: 'Lease Renewed',
+          body:
+              'Your lease has been renewed and remains active until ${newEndDate.toIso8601String().split('T').first}.',
+          relatedId: newLease.id,
+          relatedCollection: 'leases',
+          createdAt: DateTime.now(),
+        ),
+      );
+
+      await notificationRepository.create(
+        NotificationModel(
+          id: '',
+          userId: userId,
+          type: 'lease_renewed',
+          title: 'Lease Renewal Successful',
+          body: 'Lease renewal completed successfully.',
+          relatedId: newLease.id,
+          relatedCollection: 'leases',
+          createdAt: DateTime.now(),
+        ),
+      );
+
       return Response.ok(
         jsonEncode({
           'message': 'Lease renewed successfully',
@@ -707,33 +760,204 @@ class LeaseHandler {
     }
   }
 
-  //Patch /leases/<id>/status - Update lease status (e.g. set to Inactive after renewal payment)
+  /// PATCH /leases/<id>/status - Update lease status (Landowner/Manager only)
   Future<Response> updateLeaseStatus(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
       final leaseId = request.params['id'];
 
-      if (userId == null || leaseId == null) return _unauthorized();
+      if (userId == null || leaseId == null) {
+        return _unauthorized();
+      }
 
       if (!['landowner', 'manager'].contains(role)) {
         return Response(
           403,
-          body: jsonEncode({'message': 'Only landowners/managers can update lease status'}),
+          body: jsonEncode({'message': 'Only landowners or managers can update lease status'}),
         );
       }
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
-      final status = body['status'] as String?;
+      final newStatus = (body['status'] as String?)?.trim().toLowerCase();
 
-      if (status == null) {
+      if (newStatus == null || newStatus.isEmpty) {
         return Response(400, body: jsonEncode({'message': 'Status is required'}));
       }
 
-      await leaseRepository.updateLeaseStatus(leaseId, status);
+      // Fetch current lease
+      final lease = await leaseRepository.getLeaseById(leaseId);
+
+      // === BUSINESS RULE VALIDATIONS ===
+
+      // 1. Cannot change a terminated lease
+      if (lease.status.toLowerCase() == 'terminated') {
+        return Response(400, body: jsonEncode({'message': 'Terminated leases cannot be modified'}));
+      }
+
+      // 2. Cannot set to Pending Payment if current lease hasn't expired
+      if (newStatus.toLowerCase() == 'pending payment') {
+        if (lease.endDate.isAfter(DateTime.now())) {
+          return Response(
+            400,
+            body: jsonEncode({
+              'message': 'Cannot set to Pending Payment or Renew Lease. Current lease has not yet expired.',
+            }),
+          );
+        }
+      }
+
+      // 3. Can only set to Active after signing
+      if (newStatus.toLowerCase() == 'active') {
+        if (lease.status.toLowerCase() != 'pending payment' &&
+            lease.status.toLowerCase() != 'pending signature') {
+          return Response(
+            400,
+            body: jsonEncode({
+              'message': 'Lease must be signed and payment made before it can be marked Active',
+            }),
+          );
+        }
+      }
+
+      // 4. Cannot set back to Pending Signature after signing
+      if (newStatus.toLowerCase() == 'pending signature' &&
+          ['active', 'pending Payment', 'terminated'].contains(lease.status.toLowerCase())) {
+        return Response(
+          400,
+          body: jsonEncode({'message': 'Cannot revert to Pending Signature after signing'}),
+        );
+      }
+
+      // 5. Validate status is allowed
+      const allowedStatuses = ['pending signature', 'pending payment', 'active', 'inactive', 'terminated'];
+      if (!allowedStatuses.contains(newStatus.toLowerCase())) {
+        return Response(
+          400,
+          body: jsonEncode({'message': 'Invalid status. Allowed: ${allowedStatuses.join(', ')}'}),
+        );
+      }
+
+      // Perform the update
+      await leaseRepository.updateLeaseStatus(leaseId, newStatus);
+
+      String title;
+      String description;
+      String notificationBody;
+
+      switch (newStatus) {
+        case 'pending signature':
+          title = 'Lease Awaiting Signature';
+          description = 'Lease is awaiting tenant signature.';
+          notificationBody = 'Please review and sign your lease agreement.';
+          break;
+
+        case 'pending payment':
+          title = 'Lease Awaiting Payment';
+          description = 'Lease has moved to payment stage.';
+          notificationBody = 'Your lease agreement is awaiting payment.';
+          break;
+
+        case 'active':
+          title = 'Lease Activated';
+          description = 'Lease is now active.';
+          notificationBody = 'Your lease is now active.';
+          break;
+
+        case 'inactive':
+          title = 'Lease Inactive';
+          description = 'Lease has been marked inactive.';
+          notificationBody = 'Your lease has been marked inactive.';
+          break;
+
+        case 'terminated':
+          title = 'Lease Terminated';
+          description = 'Lease has been terminated.';
+          notificationBody = 'Your lease agreement has been terminated.';
+          break;
+
+        default:
+          title = 'Lease Updated';
+          description = 'Lease status updated.';
+          notificationBody = 'Lease status changed.';
+      }
+
+      // Optional: Update unit status if lease becomes active or terminated
+      if (newStatus == 'active') {
+        await unitRepository.updateUnitStatus(
+          unitId: lease.unitId,
+          status: 'occupied',
+          currentTenantId: lease.tenantId,
+          isListedForRent: false,
+        );
+      } else if (newStatus == 'terminated') {
+        await unitRepository.updateUnitStatus(
+          unitId: lease.unitId,
+          status: 'vacant',
+          currentTenantId: null,
+          isListedForRent: true,
+        );
+      }
+
+      await historyRepository.createHistoryEntry(
+        HistoryEntryModel(
+          id: '',
+          userId: lease.tenantId,
+          type: 'lease_status_changed',
+          title: title,
+          description: description,
+          relatedId: leaseId,
+          relatedCollection: 'leases',
+          timestamp: DateTime.now(),
+        ),
+      );
+
+      await historyRepository.createHistoryEntry(
+        HistoryEntryModel(
+          id: '',
+          userId: userId,
+          type: 'lease_status_changed',
+          title: title,
+          description: 'Lease status updated to ${newStatus.toUpperCase()}.',
+          relatedId: leaseId,
+          relatedCollection: 'leases',
+          timestamp: DateTime.now(),
+        ),
+      );
+
+      await notificationRepository.create(
+        NotificationModel(
+          id: '',
+          userId: lease.tenantId,
+          type: 'lease_status_changed',
+          title: title,
+          body: notificationBody,
+          relatedId: leaseId,
+          relatedCollection: 'leases',
+          createdAt: DateTime.now(),
+        ),
+      );
+
+      await notificationRepository.create(
+        NotificationModel(
+          id: '',
+          userId: userId,
+          type: 'lease_status_changed',
+          title: 'Lease Updated',
+          body: 'Lease status changed to ${newStatus.toUpperCase()}.',
+          relatedId: leaseId,
+          relatedCollection: 'leases',
+          createdAt: DateTime.now(),
+        ),
+      );
 
       return Response.ok(
-        jsonEncode({'message': 'Lease status updated successfully', 'leaseId': leaseId, 'status': status}),
+        jsonEncode({
+          'message': 'Lease status updated successfully',
+          'leaseId': leaseId,
+          'newStatus': newStatus,
+        }),
+        headers: {'Content-Type': 'application/json'},
       );
     } catch (e, stack) {
       print('Update lease status error: $e\n$stack');
