@@ -72,7 +72,7 @@ class FirestoreCommunityDataSource implements CommunityRemoteDataSource {
   // LIKES
 
   @override
-  Future<void> toggleLikePost({required String postId, required String userId}) async {
+  Future<bool> toggleLikePost({required String postId, required String userId}) async {
     final likeRef = _posts.doc(postId).collection('likes').doc(userId);
     final likeDoc = await likeRef.get();
 
@@ -80,10 +80,12 @@ class FirestoreCommunityDataSource implements CommunityRemoteDataSource {
       await likeRef.delete();
 
       await _posts.doc(postId).update({'likesCount': FieldValue.increment(-1)});
+      return false;
     } else {
       await likeRef.set({'userId': userId, 'createdAt': DateTime.now()});
 
       await _posts.doc(postId).update({'likesCount': FieldValue.increment(1)});
+      return true;
     }
   }
 

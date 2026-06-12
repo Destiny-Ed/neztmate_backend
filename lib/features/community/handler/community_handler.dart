@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:neztmate_backend/core/error.dart';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
 import 'package:neztmate_backend/features/community/repository/community_post_repo.dart';
 import 'package:shelf/shelf.dart';
@@ -15,8 +16,8 @@ class CommunityHandler {
 
   // POSTS
 
-  /// POST /community/posts - Create post
-  Future createPost(Request request) async {
+  /// POST /community/posts - Create a new community post
+  Future<Response> createPost(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
@@ -25,7 +26,22 @@ class CommunityHandler {
         return Response.forbidden(jsonEncode({'message': 'Only managers or landowners can create posts'}));
       }
 
-      final body = jsonDecode(await request.readAsString());
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+
+      if (body['propertyId'] == null) {
+        return Response.badRequest(body: jsonEncode({'message': 'PropertyId is required'}));
+      }
+
+      if (body['title'] == null) {
+        return Response.badRequest(body: jsonEncode({'message': 'Post title is required'}));
+      }
+      if (body['content'] == null) {
+        return Response.badRequest(body: jsonEncode({'message': 'Post Content is required'}));
+      }
+
+      if (body['type'] == null) {
+        return Response.badRequest(body: jsonEncode({'message': 'Post Type is required'}));
+      }
 
       final post = CommunityPostModel.fromMap(
         body,
@@ -34,65 +50,75 @@ class CommunityHandler {
       final created = await communityRepository.createPost(post);
 
       return Response.ok(
-        jsonEncode({'message': 'Post created', 'post': created.toMap()}),
+        jsonEncode({'message': 'Post created successfully', 'post': created.toMap()}),
         headers: {'Content-Type': 'application/json'},
       );
-    } catch (e) {
-      return Response.internalServerError(body: jsonEncode({'error': e.toString()}));
+    } on AppException catch (e) {
+      return Response.badRequest(body: jsonEncode({'message': e.message}));
+    } catch (e, stack) {
+      print('Create post error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to create post'}));
     }
   }
 
   /// GET /community/posts/<postId>
-  Future getPostById(Request request) async {
+  Future<Response> getPostById(Request request) async {
     try {
       final postId = request.params['postId'];
-
       if (postId == null) {
-        return Response.badRequest(body: jsonEncode({'message': 'postId required'}));
+        return Response.badRequest(body: jsonEncode({'message': 'postId is required'}));
       }
 
       final post = await communityRepository.getPostById(postId);
 
-      return Response.ok(jsonEncode(post.toMap()));
-    } catch (e) {
-      return Response.internalServerError(body: jsonEncode({'error': e.toString()}));
+      return Response.ok(jsonEncode({'post': post.toMap()}), headers: {'Content-Type': 'application/json'});
+    } catch (e, stack) {
+      print('Get post error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to fetch post'}));
     }
   }
 
   /// GET /community/posts/property/<propertyId>
-  Future getPostsByProperty(Request request) async {
+  Future<Response> getPostsByProperty(Request request) async {
     try {
       final propertyId = request.params['propertyId'];
-
       if (propertyId == null) {
-        return Response.badRequest(body: jsonEncode({'message': 'propertyId required'}));
+        return Response.badRequest(body: jsonEncode({'message': 'propertyId is required'}));
       }
 
       final posts = await communityRepository.getPostsByProperty(propertyId);
 
-      return Response.ok(jsonEncode({'posts': posts.map((e) => e.toMap()).toList()}));
-    } catch (e) {
-      return Response.internalServerError(body: jsonEncode({'error': e.toString()}));
+      return Response.ok(
+        jsonEncode({'posts': posts.map((e) => e.toMap()).toList()}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, stack) {
+      print('Get posts by property error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to fetch posts'}));
     }
   }
 
-  /// GET /community/feed?propertyIds=a,b,c
-  Future getFeed(Request request) async {
+  /// GET /community/feed?propertyIds=prop1,prop2
+  Future<Response> getFeed(Request request) async {
     try {
       final ids = request.url.queryParameters['propertyIds'];
+      final propertyIds =
+          ids?.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList() ?? <String>[];
 
-      final propertyIds = ids == null ? [] : ids.split(',').map((e) => e.trim()).toList();
+      final posts = await communityRepository.getFeed(propertyIds: propertyIds);
 
-      final posts = await communityRepository.getFeed(propertyIds: propertyIds.cast());
-
-      return Response.ok(jsonEncode({'posts': posts.map((e) => e.toMap()).toList()}));
-    } catch (e) {
-      return Response.internalServerError(body: jsonEncode({'error': e.toString()}));
+      return Response.ok(
+        jsonEncode({'posts': posts.map((e) => e.toMap()).toList()}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, stack) {
+      print('Get feed error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to load feed'}));
     }
   }
 
   /// PATCH /community/posts/<postId>
-  Future updatePost(Request request) async {
+  Future<Response> updatePost(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
@@ -102,16 +128,16 @@ class CommunityHandler {
         return Response.unauthorized(jsonEncode({'message': 'Unauthorized'}));
       }
 
-      if (!['manager', 'landowner'].contains(role)) {
-        return Response.forbidden(jsonEncode({'message': 'No permission'}));
+      if (!['Manager', 'Landowner'].contains(role)) {
+        return Response.forbidden(jsonEncode({'message': 'Insufficient permissions'}));
       }
 
       final existing = await communityRepository.getPostById(postId);
       if (existing.authorId != userId) {
-        return Response.forbidden(jsonEncode({'message': 'Not post owner'}));
+        return Response.forbidden(jsonEncode({'message': 'You can only edit your own posts'}));
       }
 
-      final body = jsonDecode(await request.readAsString());
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
 
       final updated = existing.copyWith(
         title: body['title'],
@@ -121,14 +147,15 @@ class CommunityHandler {
 
       await communityRepository.updatePost(updated);
 
-      return Response.ok(jsonEncode({'message': 'Updated'}));
-    } catch (e) {
-      return Response.internalServerError(body: jsonEncode({'error': e.toString()}));
+      return Response.ok(jsonEncode({'message': 'Post updated successfully'}));
+    } catch (e, stack) {
+      print('Update post error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to update post'}));
     }
   }
 
   /// DELETE /community/posts/<postId>
-  Future deletePost(Request request) async {
+  Future<Response> deletePost(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
@@ -140,24 +167,26 @@ class CommunityHandler {
 
       final post = await communityRepository.getPostById(postId);
 
-      final canDelete = post.authorId == userId || ['manager', 'landowner'].contains(role);
+      final isAuthor = post.authorId == userId;
+      final isAdmin = ['Manager', 'Landowner'].contains(role);
 
-      if (!canDelete) {
-        return Response.forbidden(jsonEncode({'message': 'Not allowed'}));
+      if (!isAuthor && !isAdmin) {
+        return Response.forbidden(jsonEncode({'message': 'You do not have permission to delete this post'}));
       }
 
       await communityRepository.deletePost(postId);
 
-      return Response.ok(jsonEncode({'message': 'Deleted'}));
-    } catch (e) {
-      return Response.internalServerError(body: jsonEncode({'error': e.toString()}));
+      return Response.ok(jsonEncode({'message': 'Post deleted successfully'}));
+    } catch (e, stack) {
+      print('Delete post error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to delete post'}));
     }
   }
 
   // LIKES
 
   /// POST /community/posts/<postId>/like
-  Future likePost(Request request) async {
+  Future<Response> likePost(Request request) async {
     try {
       final postId = request.params['postId'];
       final userId = request.context['userId'] as String?;
@@ -166,27 +195,28 @@ class CommunityHandler {
         return Response.unauthorized(jsonEncode({'message': 'Unauthorized'}));
       }
 
-      await communityRepository.toggleLikePost(postId: postId, userId: userId);
+      final liked = await communityRepository.toggleLikePost(postId: postId, userId: userId);
 
-      return Response.ok(jsonEncode({'message': 'Toggled like'}));
-    } catch (e) {
-      return Response.internalServerError(body: jsonEncode({'error': e.toString()}));
+      return Response.ok(jsonEncode({'message': liked ? 'Post liked' : 'Post unliked', 'liked': liked}));
+    } catch (e, stack) {
+      print('Like post error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to toggle like'}));
     }
   }
 
   // COMMENTS
 
   /// POST /community/posts/<postId>/comments
-  Future addComment(Request request) async {
+  Future<Response> addComment(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
       final postId = request.params['postId'];
 
       if (userId == null || postId == null) {
-        return Response.badRequest(body: jsonEncode({'message': 'Missing data'}));
+        return Response.badRequest(body: jsonEncode({'message': 'Missing userId or postId'}));
       }
 
-      final body = jsonDecode(await request.readAsString());
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
 
       final comment = CommentModel.fromMap(
         body,
@@ -194,19 +224,22 @@ class CommunityHandler {
 
       final created = await communityRepository.createComment(comment);
 
-      return Response.ok(jsonEncode({'comment': created.toMap()}));
-    } catch (e) {
-      return Response.internalServerError(body: jsonEncode({'error': e.toString()}));
+      return Response.ok(
+        jsonEncode({'message': 'Comment added', 'comment': created.toMap()}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, stack) {
+      print('Add comment error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to add comment'}));
     }
   }
 
   /// GET /community/posts/<postId>/comments
-  Future getComments(Request request) async {
+  Future<Response> getComments(Request request) async {
     try {
       final postId = request.params['postId'];
-
       if (postId == null) {
-        return Response.badRequest(body: jsonEncode({'message': 'Missing PostId'}));
+        return Response.badRequest(body: jsonEncode({'message': 'postId is required'}));
       }
 
       final comments = await communityRepository.getCommentsByPost(postId);
@@ -214,90 +247,82 @@ class CommunityHandler {
       final enrichedComments = await Future.wait(
         comments.map((comment) async {
           final user = await userRepository.getUserById(comment.authorId);
-          return {'profilePhotoUrl': user.profilePhotoUrl, ...comment.toMap()};
+          return {
+            ...comment.toMap(),
+            'author': {'id': user.id, 'fullName': user.fullName, 'profilePhotoUrl': user.profilePhotoUrl},
+          };
         }),
       );
 
       return Response.ok(
-        jsonEncode({'comments': enrichedComments, 'message': 'Post Comments'}),
+        jsonEncode({'comments': enrichedComments}),
         headers: {'Content-Type': 'application/json'},
       );
-    } catch (e) {
-      return Response.internalServerError(body: jsonEncode({'error': e.toString()}));
+    } catch (e, stack) {
+      print('Get comments error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to load comments'}));
     }
   }
 
   /// DELETE /community/posts/<postId>/comments/<commentId>
-  Future deleteComment(Request request) async {
+  Future<Response> deleteComment(Request request) async {
     try {
       final postId = request.params['postId'];
       final commentId = request.params['commentId'];
+      final userId = request.context['userId'] as String?;
 
-      await communityRepository.deleteComment(postId: postId!, commentId: commentId!);
+      if (postId == null || commentId == null || userId == null) {
+        return Response.badRequest(body: jsonEncode({'message': 'Missing required parameters'}));
+      }
 
-      return Response.ok(jsonEncode({'message': 'Deleted'}));
-    } catch (e) {
-      return Response.internalServerError(body: jsonEncode({'error': e.toString()}));
+      await communityRepository.deleteComment(postId: postId, commentId: commentId);
+
+      return Response.ok(jsonEncode({'message': 'Comment deleted successfully'}));
+    } catch (e, stack) {
+      print('Delete comment error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to delete comment'}));
     }
   }
 
   // POLLS
 
   /// POST /community/posts/<postId>/poll
-  Future createPoll(Request request) async {
+  Future<Response> createPoll(Request request) async {
     try {
       final postId = request.params['postId'];
-      final body = jsonDecode(await request.readAsString());
+      if (postId == null) {
+        return Response.badRequest(body: jsonEncode({'message': 'postId is required'}));
+      }
 
-      await communityRepository.createPoll(postId!, body);
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
 
-      return Response.ok(jsonEncode({'message': 'Poll created'}));
-    } catch (e) {
-      return Response.internalServerError(body: jsonEncode({'error': e.toString()}));
+      await communityRepository.createPoll(postId, body);
+
+      return Response.ok(jsonEncode({'message': 'Poll created successfully'}));
+    } catch (e, stack) {
+      print('Create poll error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to create poll'}));
     }
   }
 
   /// POST /community/polls/<pollId>/vote
-  Future votePoll(Request request) async {
+  Future<Response> votePoll(Request request) async {
     try {
       final pollId = request.params['pollId'];
-      final body = jsonDecode(await request.readAsString());
+      final userId = request.context['userId'] as String?;
 
-      await communityRepository.votePoll(pollId!, body);
+      if (pollId == null || userId == null) {
+        return Response.unauthorized(jsonEncode({'message': 'Unauthorized'}));
+      }
 
-      return Response.ok(jsonEncode({'message': 'Vote recorded'}));
-    } catch (e) {
-      return Response.internalServerError(body: jsonEncode({'error': e.toString()}));
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+
+      await communityRepository.votePoll(pollId, body);
+
+      return Response.ok(jsonEncode({'message': 'Vote recorded successfully'}));
+    } catch (e, stack) {
+      print('Vote poll error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to record vote'}));
     }
   }
-
-  // REPORTS
-
-  /// POST /community/posts/<postId>/report
-  // Future reportPost(Request request) async {
-  //   final postId = request.params['postId'];
-  //   final userId = request.context['userId'] as String?;
-  //   final body = jsonDecode(await request.readAsString());
-
-  //   await communityRepository.reportPost(postId: postId!, userId: userId!, reason: body['reason']);
-
-  //   return Response.ok(jsonEncode({'message': 'Reported'}));
-  // }
-
-  /// POST /community/comments/<commentId>/report
-  // Future reportComment(Request request) async {
-  //   final commentId = request.params['commentId'];
-  //   final postId = request.params['postId'];
-  //   final userId = request.context['userId'] as String?;
-  //   final body = jsonDecode(await request.readAsString());
-
-  //   await communityRepository.reportComment(
-  //     postId: postId!,
-  //     commentId: commentId!,
-  //     userId: userId!,
-  //     reason: body['reason'],
-  //   );
-
-  //   return Response.ok(jsonEncode({'message': 'Reported'}));
-  // }
 }

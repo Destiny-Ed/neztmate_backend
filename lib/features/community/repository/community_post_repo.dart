@@ -12,7 +12,7 @@ abstract class CommunityRepository {
 
   Future<void> unpinPost(String postId);
 
-  Future<void> toggleLikePost({required String postId, required String userId});
+  Future<bool> toggleLikePost({required String postId, required String userId});
 
   Future<bool> hasLikedPost({required String postId, required String userId});
 

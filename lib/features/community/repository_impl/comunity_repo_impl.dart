@@ -47,7 +47,7 @@ class CommunityRepositoryImpl implements CommunityRepository {
   Future<void> pinPost(String postId) => dataSource.pinPost(postId);
 
   @override
-  Future<void> toggleLikePost({required String postId, required String userId}) =>
+  Future<bool> toggleLikePost({required String postId, required String userId}) =>
       dataSource.toggleLikePost(postId: postId, userId: userId);
 
   @override
