@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
 import 'package:neztmate_backend/core/services/chat/chat_connection_manager.dart';
+import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
 import 'package:neztmate_backend/features/messages/models/messages_model.dart';
 import 'package:neztmate_backend/features/messages/repository/message_repo.dart';
 import 'package:shelf/shelf.dart';
@@ -11,11 +12,12 @@ import 'package:web_socket_channel/web_socket_channel.dart';
 
 class MessageHandler {
   final MessageRepository repository;
+  final UserRepository userRepository;
   final JwtService jwtService;
 
   final ChatConnectionManager _connectionManager = ChatConnectionManager();
 
-  MessageHandler(this.repository, this.jwtService);
+  MessageHandler(this.repository, this.jwtService, this.userRepository);
 
   /// POST /messages - Send a new message
   Future<Response> sendMessage(Request request) async {
@@ -101,8 +103,15 @@ class MessageHandler {
 
       final chats = await repository.getUserChats(userId, limit: int.parse(limit ?? "20"));
 
+      final enrichedChat = await Future.wait(
+        chats.map((chat) async {
+          final user = await userRepository.getUserById(chat.otherUserId);
+          return chat.copyWith(otherUserName: user.fullName, otherUserPhotoUrl: user.profilePhotoUrl);
+        }),
+      );
+
       return Response.ok(
-        jsonEncode({'chats': chats.map((c) => c.toMap()).toList(), 'message': 'Chat list loaded'}),
+        jsonEncode({'chats': enrichedChat.map((c) => c.toMap()).toList(), 'message': 'Chat list loaded'}),
         headers: {'Content-Type': 'application/json'},
       );
     } catch (e, stack) {

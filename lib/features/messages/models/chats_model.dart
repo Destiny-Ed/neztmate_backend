@@ -32,4 +32,28 @@ class ChatSummaryModel {
     'unreadCount': unreadCount,
     'propertyId': propertyId,
   };
+
+  ChatSummaryModel copyWith({
+    String? chatId,
+    String? otherUserId,
+    String? otherUserName,
+    String? otherUserPhotoUrl,
+    String? lastMessage,
+    DateTime? lastMessageTime,
+    bool? isUnread,
+    int? unreadCount,
+    String? propertyId,
+  }) {
+    return ChatSummaryModel(
+      chatId: chatId ?? this.chatId,
+      otherUserId: otherUserId ?? this.otherUserId,
+      otherUserName: otherUserName ?? this.otherUserName,
+      otherUserPhotoUrl: otherUserPhotoUrl ?? this.otherUserPhotoUrl,
+      lastMessage: lastMessage ?? this.lastMessage,
+      lastMessageTime: lastMessageTime ?? this.lastMessageTime,
+      isUnread: isUnread ?? this.isUnread,
+      unreadCount: unreadCount ?? this.unreadCount,
+      propertyId: propertyId ?? this.propertyId,
+    );
+  }
 }
