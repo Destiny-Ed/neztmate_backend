@@ -148,7 +148,7 @@ void main() async {
   );
 
   // WebSocket Route PUBLIC
-  router.get('/ws', injector<MessageHandler>().getWebSocketHandler);
+  router.get('/ws/chat', injector<MessageHandler>().getWebSocketHandler);
 
   router.mount(
     '/notifications/',

@@ -3,6 +3,7 @@ class ChatSummaryModel {
   final String otherUserId;
   final String otherUserName;
   final String? otherUserPhotoUrl;
+  final String? otherPhone;
   final String lastMessage;
   final DateTime lastMessageTime;
   final bool isUnread;
@@ -14,6 +15,7 @@ class ChatSummaryModel {
     required this.otherUserId,
     required this.otherUserName,
     this.otherUserPhotoUrl,
+    this.otherPhone,
     required this.lastMessage,
     required this.lastMessageTime,
     this.isUnread = false,
@@ -26,6 +28,7 @@ class ChatSummaryModel {
     'otherUserId': otherUserId,
     'otherUserName': otherUserName,
     'otherUserPhotoUrl': otherUserPhotoUrl,
+    'otherPhone': otherPhone,
     'lastMessage': lastMessage,
     'lastMessageTime': lastMessageTime.toIso8601String(),
     'isUnread': isUnread,
@@ -38,6 +41,7 @@ class ChatSummaryModel {
     String? otherUserId,
     String? otherUserName,
     String? otherUserPhotoUrl,
+    String? otherPhone,
     String? lastMessage,
     DateTime? lastMessageTime,
     bool? isUnread,
@@ -49,6 +53,7 @@ class ChatSummaryModel {
       otherUserId: otherUserId ?? this.otherUserId,
       otherUserName: otherUserName ?? this.otherUserName,
       otherUserPhotoUrl: otherUserPhotoUrl ?? this.otherUserPhotoUrl,
+      otherPhone: otherPhone ?? this.otherPhone,
       lastMessage: lastMessage ?? this.lastMessage,
       lastMessageTime: lastMessageTime ?? this.lastMessageTime,
       isUnread: isUnread ?? this.isUnread,

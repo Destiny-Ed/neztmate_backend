@@ -19,7 +19,7 @@ class FirebaseService {
 
     try {
       // final serviceAccountPath =
-      // Platform.environment['FIREBASE_SERVICE_ACCOUNT_PATH'] ?? env['FIREBASE_SERVICE_ACCOUNT_PATH'];
+      //     Platform.environment['FIREBASE_SERVICE_ACCOUNT_PATH'] ?? env['FIREBASE_SERVICE_ACCOUNT_PATH'];
 
       final serviceAccountJson = Platform.environment['FIREBASE_SERVICE_ACCOUNT_PATH'];
 
@@ -27,7 +27,7 @@ class FirebaseService {
 
       final params = jsonDecode(serviceAccountJson) as Map<String, dynamic>;
 
-      // final credential = Credential.fromServiceAccount(File(serviceAccountPath));
+      // final credential = Credential.fromServiceAccount(File(serviceAccountPath!));
       final credential = Credential.fromServiceAccountParams(
         clientId: params['client_id'],
         privateKey: params['private_key'],

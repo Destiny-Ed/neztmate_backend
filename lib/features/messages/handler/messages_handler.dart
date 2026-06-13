@@ -105,7 +105,11 @@ class MessageHandler {
       final enrichedChat = await Future.wait(
         chats.map((chat) async {
           final user = await userRepository.getUserById(chat.otherUserId);
-          return chat.copyWith(otherUserName: user.fullName, otherUserPhotoUrl: user.profilePhotoUrl);
+          return chat.copyWith(
+            otherUserName: user.fullName,
+            otherUserPhotoUrl: user.profilePhotoUrl,
+            otherPhone: user.phone,
+          );
         }),
       );
 
@@ -122,53 +126,7 @@ class MessageHandler {
   ///Websocket
   /// WebSocket: /messages/ws?userId=xxx&token=yyy
   FutureOr<Response> getWebSocketHandler(Request request) async {
-    return webSocketHandler((webSocket, _) async {
-      final token = request.params['token'];
-      final userIdFromQuery = request.params['userId'];
-
-      // AUTHENTICATION
-      if (token == null || token.isEmpty) {
-        webSocket.sink.add(jsonEncode({'error': 'Authentication token is required'}));
-        webSocket.sink.close(4001, 'Missing token');
-        return;
-      }
-
-      String? authenticatedUserId;
-      try {
-        final jwt = jwtService.verify(token);
-        authenticatedUserId = jwt.payload['sub'] as String?;
-
-        if (authenticatedUserId == null) {
-          print('Invalid token payload: ${jwt.payload}');
-
-          throw Exception('Invalid token payload');
-        }
-
-        // Optional: Validate userId from query matches token
-        if (userIdFromQuery != null && userIdFromQuery != authenticatedUserId) {
-          webSocket.sink.add(jsonEncode({'error': 'User ID mismatch'}));
-          webSocket.sink.close(4003, 'Unauthorized');
-          print("User ID mismatch $userIdFromQuery ---- $authenticatedUserId");
-          return;
-        }
-      } catch (e) {
-        webSocket.sink.add(jsonEncode({'error': 'Invalid or expired token'}));
-        webSocket.sink.close(4001, 'Authentication failed');
-        print('Invalid or expired token');
-
-        return;
-      }
-
-      final userId = authenticatedUserId;
-      _connectionManager.addConnection(userId, webSocket);
-
-      print('WebSocket authenticated for user: $userId');
-
-      // Send connection success
-      webSocket.sink.add(
-        jsonEncode({'type': 'connected', 'userId': userId, 'timestamp': DateTime.now().toIso8601String()}),
-      );
-
+    return webSocketHandler((webSocket, protocol) {
       // HEARTBEAT (Ping/Pong)
       Timer? heartbeatTimer;
 
@@ -184,7 +142,7 @@ class MessageHandler {
         });
       }
 
-      startHeartbeat();
+      String userId = '';
 
       // Handle incoming messages
       webSocket.stream.listen(
@@ -192,6 +150,60 @@ class MessageHandler {
           try {
             final data = jsonDecode(message as String) as Map<String, dynamic>;
             final type = data['type'] as String?;
+
+            if (type == 'auth') {
+              final token = data['token'];
+              final userIdFromQuery = data['userId'];
+
+              // AUTHENTICATION
+              if (token == null || token.isEmpty) {
+                webSocket.sink.add(jsonEncode({'error': 'Authentication token is required'}));
+                webSocket.sink.close(4001, 'Missing token');
+                return;
+              }
+
+              String? authenticatedUserId;
+              try {
+                final jwt = jwtService.verify(token ?? "");
+                authenticatedUserId = jwt.payload['sub'] as String?;
+
+                if (authenticatedUserId == null) {
+                  print('Invalid token payload: ${jwt.payload}');
+
+                  throw Exception('Invalid token payload');
+                }
+
+                // Optional: Validate userId from query matches token
+                if (userIdFromQuery != null && userIdFromQuery != authenticatedUserId) {
+                  webSocket.sink.add(jsonEncode({'error': 'User ID mismatch'}));
+                  webSocket.sink.close(4003, 'Unauthorized');
+                  print("User ID mismatch $userIdFromQuery ---- $authenticatedUserId");
+                  return;
+                }
+              } catch (e) {
+                webSocket.sink.add(jsonEncode({'error': 'Invalid or expired token'}));
+                webSocket.sink.close(4001, 'Authentication failed');
+                print('Invalid or expired token');
+
+                return;
+              }
+
+              userId = authenticatedUserId;
+              _connectionManager.addConnection(userId, webSocket);
+
+              print('WebSocket authenticated for user: $userId');
+
+              // Send connection success
+              webSocket.sink.add(
+                jsonEncode({
+                  'type': 'connected',
+                  'userId': userId,
+                  'timestamp': DateTime.now().toIso8601String(),
+                }),
+              );
+            }
+
+            startHeartbeat();
 
             // Handle pong response
             if (type == 'pong') {

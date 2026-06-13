@@ -103,6 +103,7 @@ class FirestoreTenantDataSource implements TenantRemoteDataSource {
           fullName: tenantData['fullName'] ?? '',
           profileImage: tenantData['profileImageUrl'],
           unitNumber: unitData['unitNumber'] ?? '',
+          phone: tenantData["phone"] ?? '',
           leaseId: lease.id,
         ),
       );
