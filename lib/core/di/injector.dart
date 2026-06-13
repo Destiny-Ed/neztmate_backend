@@ -247,7 +247,9 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
   injector.registerLazySingleton<MessageRepository>(
     () => MessageRepositoryImpl(injector<MessageRemoteDataSource>()),
   );
-  injector.registerLazySingleton<MessageHandler>(() => MessageHandler(injector<MessageRepository>()));
+  injector.registerLazySingleton<MessageHandler>(
+    () => MessageHandler(injector<MessageRepository>(), injector<JwtService>()),
+  );
 
   //notifications
   injector.registerLazySingleton<NotificationRemoteDataSource>(
