@@ -71,10 +71,30 @@ class CommunityHandler {
       if (postId == null) {
         return Response.badRequest(body: jsonEncode({'message': 'postId is required'}));
       }
-
       final post = await communityRepository.getPostById(postId);
 
-      return Response.ok(jsonEncode({'post': post.toMap()}), headers: {'Content-Type': 'application/json'});
+      final enrichedPost = await Future.wait(
+        [post].map((e) async {
+          final author = await userRepository.getUserById(e.authorId);
+
+          return {
+            "author": {
+              'id': author.id,
+              'fullName': author.fullName,
+              'email': author.email,
+              'phone': author.phone,
+              "profilePhotoUrl": author.profilePhotoUrl,
+              'role': author.role,
+            },
+            ...e.toMap(),
+          };
+        }),
+      );
+
+      return Response.ok(
+        jsonEncode({'post': enrichedPost.first}),
+        headers: {'Content-Type': 'application/json'},
+      );
     } catch (e, stack) {
       print('Get post error: $e\n$stack');
       return Response.internalServerError(body: jsonEncode({'message': 'Failed to fetch post'}));
@@ -91,10 +111,25 @@ class CommunityHandler {
 
       final posts = await communityRepository.getPostsByProperty(propertyId);
 
-      return Response.ok(
-        jsonEncode({'posts': posts.map((e) => e.toMap()).toList()}),
-        headers: {'Content-Type': 'application/json'},
+      final enrichedPosts = await Future.wait(
+        posts.map((e) async {
+          final author = await userRepository.getUserById(e.authorId);
+
+          return {
+            "author": {
+              'id': author.id,
+              'fullName': author.fullName,
+              'email': author.email,
+              'phone': author.phone,
+              "profilePhotoUrl": author.profilePhotoUrl,
+              'role': author.role,
+            },
+            ...e.toMap(),
+          };
+        }),
       );
+
+      return Response.ok(jsonEncode({'posts': enrichedPosts}), headers: {'Content-Type': 'application/json'});
     } catch (e, stack) {
       print('Get posts by property error: $e\n$stack');
       return Response.internalServerError(body: jsonEncode({'message': 'Failed to fetch posts'}));
