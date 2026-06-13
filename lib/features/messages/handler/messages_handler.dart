@@ -139,6 +139,8 @@ class MessageHandler {
         authenticatedUserId = jwt.payload['sub'] as String?;
 
         if (authenticatedUserId == null) {
+          print('Invalid token payload: ${jwt.payload}');
+
           throw Exception('Invalid token payload');
         }
 
@@ -146,11 +148,14 @@ class MessageHandler {
         if (userIdFromQuery != null && userIdFromQuery != authenticatedUserId) {
           webSocket.sink.add(jsonEncode({'error': 'User ID mismatch'}));
           webSocket.sink.close(4003, 'Unauthorized');
+          print("User ID mismatch $userIdFromQuery ---- $authenticatedUserId");
           return;
         }
       } catch (e) {
         webSocket.sink.add(jsonEncode({'error': 'Invalid or expired token'}));
         webSocket.sink.close(4001, 'Authentication failed');
+        print('Invalid or expired token');
+
         return;
       }
 
@@ -226,6 +231,7 @@ class MessageHandler {
         },
         onError: (error) => print('WebSocket error for $userId: $error'),
         onDone: () {
+          print('WebSocket onDone ');
           heartbeatTimer?.cancel();
           _connectionManager.removeConnection(webSocket);
         },
