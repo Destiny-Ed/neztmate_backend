@@ -43,10 +43,15 @@ class CommunityHandler {
         return Response.badRequest(body: jsonEncode({'message': 'Post Type is required'}));
       }
 
-      final post = CommunityPostModel.fromMap(
-        body,
-      ).copyWith(authorId: userId, createdAt: DateTime.now(), updatedAt: DateTime.now());
-
+      final post = CommunityPostModel(
+        propertyId: body['propertyId'],
+        authorId: userId,
+        title: body['title'],
+        content: body['content'],
+        type: body['type'],
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
       final created = await communityRepository.createPost(post);
 
       return Response.ok(
@@ -126,7 +131,7 @@ class CommunityHandler {
         return Response.unauthorized(jsonEncode({'message': 'Unauthorized'}));
       }
 
-      if (!['Manager', 'Landowner'].contains(role)) {
+      if (!['manager', 'landowner'].contains(role)) {
         return Response.forbidden(jsonEncode({'message': 'Insufficient permissions'}));
       }
 
@@ -137,6 +142,20 @@ class CommunityHandler {
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
 
+      if (body['propertyId'] == null) {
+        return Response.badRequest(body: jsonEncode({'message': 'PropertyId is required'}));
+      }
+
+      if (body['title'] == null) {
+        return Response.badRequest(body: jsonEncode({'message': 'Post title is required'}));
+      }
+      if (body['content'] == null) {
+        return Response.badRequest(body: jsonEncode({'message': 'Post Content is required'}));
+      }
+
+      if (body['type'] == null) {
+        return Response.badRequest(body: jsonEncode({'message': 'Post Type is required'}));
+      }
       final updated = existing.copyWith(
         title: body['title'],
         content: body['content'],
@@ -166,7 +185,7 @@ class CommunityHandler {
       final post = await communityRepository.getPostById(postId);
 
       final isAuthor = post.authorId == userId;
-      final isAdmin = ['Manager', 'Landowner'].contains(role);
+      final isAdmin = ['manager', 'landowner'].contains(role);
 
       if (!isAuthor && !isAdmin) {
         return Response.forbidden(jsonEncode({'message': 'You do not have permission to delete this post'}));
@@ -216,9 +235,18 @@ class CommunityHandler {
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
 
-      final comment = CommentModel.fromMap(
-        body,
-      ).copyWith(authorId: userId, postId: postId, createdAt: DateTime.now());
+      if (body['content'] == null) {
+        return Response.badRequest(body: jsonEncode({'message': 'Comment content is required'}));
+      }
+
+      final comment = CommentModel(
+        id: "",
+        postId: postId,
+        authorId: userId,
+        content: body['content'],
+        createdAt: DateTime.now(),
+        updatedAt: DateTime.now(),
+      );
 
       final created = await communityRepository.createComment(comment);
 

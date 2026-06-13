@@ -9,7 +9,7 @@ class CommentModel {
   final int likes;
 
   CommentModel({
-    this.id = "",
+    required this.id,
     required this.postId,
     required this.authorId,
     required this.content,
