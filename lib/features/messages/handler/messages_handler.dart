@@ -8,7 +8,6 @@ import 'package:neztmate_backend/features/messages/repository/message_repo.dart'
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'package:shelf_web_socket/shelf_web_socket.dart';
-import 'package:web_socket_channel/web_socket_channel.dart';
 
 class MessageHandler {
   final MessageRepository repository;
@@ -122,8 +121,8 @@ class MessageHandler {
 
   ///Websocket
   /// WebSocket: /messages/ws?userId=xxx&token=yyy
-  Handler getWebSocketHandler(Request request) {
-    return webSocketHandler((WebSocketChannel webSocket, _) async {
+  FutureOr<Response> getWebSocketHandler(Request request) async {
+    return webSocketHandler((webSocket, _) async {
       final token = request.params['token'];
       final userIdFromQuery = request.params['userId'];
 
@@ -231,6 +230,6 @@ class MessageHandler {
           _connectionManager.removeConnection(webSocket);
         },
       );
-    });
+    })(request);
   }
 }
