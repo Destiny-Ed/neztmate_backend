@@ -9,8 +9,5 @@ Router messageRoutes(MessageHandler handler) {
   router.patch('/<id>/read', handler.markAsRead);
   router.get('/chats', handler.getUserChats);
 
-  // WebSocket Route
-  router.get('/ws', handler.getWebSocketHandler);
-
   return router;
 }

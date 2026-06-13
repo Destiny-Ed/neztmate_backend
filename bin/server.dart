@@ -147,6 +147,9 @@ void main() async {
         .addHandler(messageRoutes(injector<MessageHandler>()).call),
   );
 
+  // WebSocket Route PUBLIC
+  router.get('/ws', injector<MessageHandler>().getWebSocketHandler);
+
   router.mount(
     '/notifications/',
     Pipeline()

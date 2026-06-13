@@ -121,9 +121,9 @@ class MessageHandler {
   }
 
   ///Websocket
-  /// WebSocket: /messages/ws?userId=xxx&receiverId=yyy
+  /// WebSocket: /messages/ws?userId=xxx&token=yyy
   Handler getWebSocketHandler(Request request) {
-    return webSocketHandler((WebSocketChannel webSocket, String? protocol) async {
+    return webSocketHandler((WebSocketChannel webSocket, _) async {
       final token = request.params['token'];
       final userIdFromQuery = request.params['userId'];
 
