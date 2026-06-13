@@ -1,5 +1,4 @@
 import 'dart:convert';
-import 'package:dotenv/dotenv.dart';
 import 'package:neztmate_backend/core/error.dart';
 import 'package:neztmate_backend/core/services/payment/paystack_service.dart';
 import 'package:neztmate_backend/features/history/model/user_history_model.dart';
@@ -39,25 +38,18 @@ class PaymentHandler {
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final leaseId = body['leaseId'] as String?;
+      final propertyId = body['propertyId'] as String?;
+      final unitId = body['unitId'] as String?;
       final amount = (body['amount'] as num).toDouble();
       final email = (body['email'] as String?);
       final paymentType = (body['paymentType'] as String?);
 
-      if (leaseId == null) {
-        return badRequest('leaseId is required');
+      if (leaseId == null || email == null || propertyId == null || unitId == null || amount <= 0) {
+        return badRequest('leaseId, propertyId, unitId, email and valid amount are required');
       }
 
-      if (email == null) {
-        return badRequest('email is required');
-      }
-
-      if (amount <= 0) {
-        return badRequest('amount must be greater than zero');
-      }
-
-      //payment-types: rent(first payment), task(payment for a task), rent-renewal(renewal payment for a lease)
-      if (paymentType != 'rent' && paymentType != 'task' && paymentType != 'rent-renewal') {
-        return badRequest('Invalid payment type');
+      if (!['rent', 'task', 'rent-renewal'].contains(paymentType)) {
+        return badRequest('Invalid paymentType');
       }
 
       final reference = 'nm_${DateTime.now().millisecondsSinceEpoch}';
@@ -66,7 +58,13 @@ class PaymentHandler {
         email: email,
         amount: amount,
         reference: reference,
-        metadata: {'userId': userId, 'leaseId': leaseId, 'type': paymentType},
+        metadata: {
+          'userId': userId,
+          'leaseId': leaseId,
+          'unitId': unitId,
+          'propertyId': propertyId,
+          'type': paymentType,
+        },
       );
 
       // Save pending payment
@@ -74,6 +72,8 @@ class PaymentHandler {
         id: '',
         leaseId: leaseId,
         payerId: userId,
+        propertyId: propertyId,
+        unitId: unitId,
         amount: amount,
         status: 'Pending',
         method: 'Paystack',
@@ -121,7 +121,7 @@ class PaymentHandler {
         // === IDEMPOTENCY CHECK ===
         final alreadyProcessed = await paymentRepository.isPaymentAlreadyProcessed(reference);
         if (alreadyProcessed) {
-          print('⚠️ Payment already processed (idempotency): $reference');
+          print('Payment already processed (idempotency): $reference');
           return Response.ok('Already processed');
         }
 
@@ -137,9 +137,9 @@ class PaymentHandler {
 
         if (payment.leaseId != null) {
           // 3. Update Lease status to Active (since payment was made)
-          if (payment.type == 'rent-renewal') {
+          if (payment.type?.toLowerCase() == 'rent-renewal') {
             await leaseRepository.renewLeaseAfterPayment(payment.leaseId!);
-          } else if (payment.type == 'rent') {
+          } else if (payment.type?.toLowerCase() == 'rent') {
             //Set as 'Active' if it's a first rent payment, but for task payments we don't change lease status
             await leaseRepository.updateLeaseStatus(payment.leaseId!, "Active");
           } else {
@@ -244,7 +244,8 @@ class PaymentHandler {
   Future<Response> getMyPayments(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
-      if (userId == null) return Response(401, body: jsonEncode({'message': 'Unauthorized'}));
+
+      if (userId == null) return unauthorized('Unauthorized');
 
       final payments = await paymentRepository.getPaymentsByUser(userId);
 
@@ -252,6 +253,115 @@ class PaymentHandler {
         jsonEncode({'payments': payments.map((p) => p.toMap()).toList()}),
         headers: {'Content-Type': 'application/json'},
       );
+    } catch (e) {
+      return Response.internalServerError();
+    }
+  }
+
+  /// GET /payments/property/<propertyId>
+  Future<Response> getPaymentsByProperty(Request request) async {
+    try {
+      final propertyId = request.params['propertyId'];
+      if (propertyId == null) return badRequest('propertyId required');
+
+      final payments = await paymentRepository.getPaymentsByProperty(propertyId);
+
+      return Response.ok(
+        jsonEncode({'payments': payments.map((p) => p.toMap()).toList()}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e) {
+      return Response.internalServerError();
+    }
+  }
+
+  /// GET /payments/unit/<unitId>
+  Future<Response> getPaymentsByUnit(Request request) async {
+    try {
+      final unitId = request.params['unitId'];
+      if (unitId == null) return badRequest('unitId required');
+
+      final payments = await paymentRepository.getPaymentsByUnit(unitId);
+
+      return Response.ok(jsonEncode({'payments': payments.map((p) => p.toMap()).toList()}));
+    } catch (e) {
+      return Response.internalServerError();
+    }
+  }
+
+  /// GET /payments/lease/<leaseId>
+  Future<Response> getPaymentsByLease(Request request) async {
+    try {
+      final leaseId = request.params['leaseId'];
+      if (leaseId == null) return badRequest('leaseId required');
+
+      final payments = await paymentRepository.getPaymentsByLease(leaseId);
+
+      return Response.ok(jsonEncode({'payments': payments.map((p) => p.toMap()).toList()}));
+    } catch (e) {
+      return Response.internalServerError();
+    }
+  }
+
+  /// GET /payments/summary - Dashboard summary for current user
+  Future<Response> getPaymentSummary(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+
+      if (userId == null || role == null) return unauthorized("unauthorized");
+
+      final summary = await paymentRepository.getPaymentSummary(userId, role);
+
+      return Response.ok(jsonEncode({'summary': summary}), headers: {'Content-Type': 'application/json'});
+    } catch (e) {
+      return Response.internalServerError();
+    }
+  }
+
+  /// GET /payments/property/<propertyId>/summary
+  Future<Response> getPropertyPaymentSummary(Request request) async {
+    try {
+      final propertyId = request.params['propertyId'];
+      if (propertyId == null) return badRequest('propertyId required');
+
+      final summary = await paymentRepository.getPropertyPaymentSummary(propertyId);
+
+      return Response.ok(jsonEncode({'summary': summary}));
+    } catch (e) {
+      return Response.internalServerError();
+    }
+  }
+
+  /// PATCH /withdrawals/<id>/approve
+  Future<Response> approveWithdrawal(Request request) async {
+    try {
+      final withdrawalId = request.params['id'];
+      final processedBy = request.context['userId'] as String?;
+
+      if (withdrawalId == null || processedBy == null) return badRequest("Withdrawal Id is required");
+
+      await paymentRepository.approveWithdrawal(withdrawalId, processedBy);
+
+      return Response.ok(jsonEncode({'message': 'Withdrawal approved and funds released'}));
+    } catch (e) {
+      return Response.internalServerError();
+    }
+  }
+
+  /// PATCH /withdrawals/<id>/reject
+  Future<Response> rejectWithdrawal(Request request) async {
+    try {
+      final withdrawalId = request.params['id'];
+      final processedBy = request.context['userId'] as String?;
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final reason = body['reason'] as String?;
+
+      if (withdrawalId == null || processedBy == null) return badRequest("Withdrawal Id is required");
+
+      await paymentRepository.rejectWithdrawal(withdrawalId, processedBy, reason);
+
+      return Response.ok(jsonEncode({'message': 'Withdrawal rejected'}));
     } catch (e) {
       return Response.internalServerError();
     }

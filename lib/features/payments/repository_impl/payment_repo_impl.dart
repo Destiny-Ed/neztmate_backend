@@ -57,4 +57,26 @@ class PaymentRepositoryImpl implements PaymentRepository {
 
   @override
   Future<void> markPaymentAsProcessed(String reference) => dataSource.markPaymentAsProcessed(reference);
+
+  @override
+  Future<void> approveWithdrawal(String withdrawalId, String processedBy) =>
+      dataSource.approveWithdrawal(withdrawalId, processedBy);
+
+  @override
+  Future<Map<String, dynamic>> getPaymentSummary(String userId, String role) =>
+      dataSource.getPaymentSummary(userId, role);
+
+  @override
+  Future<List<PaymentModel>> getPaymentsByProperty(String propertyId) =>
+      dataSource.getPaymentsByProperty(propertyId);
+
+  @override
+  Future<List<PaymentModel>> getPaymentsByUnit(String unitId) => dataSource.getPaymentsByUnit(unitId);
+
+  @override
+  Future<Map<String, dynamic>> getPropertyPaymentSummary(String propertyId) =>
+      dataSource.getPropertyPaymentSummary(propertyId);
+  @override
+  Future<void> rejectWithdrawal(String withdrawalId, String processedBy, String? reason) =>
+      dataSource.rejectWithdrawal(withdrawalId, processedBy, reason);
 }

@@ -4,6 +4,8 @@ class PaymentModel {
   final String? taskId; // For repair/task payments
   final String payerId; // Tenant or Landowner
   final String? receiverId; // Usually the landowner
+  final String? unitId;
+  final String? propertyId;
   final double amount;
   final String currency; // 'NGN'
   final String status; // 'Pending', 'Paid', 'Overdue', 'Refunded', 'Failed'
@@ -20,6 +22,8 @@ class PaymentModel {
     required this.id,
     this.leaseId,
     this.taskId,
+    this.propertyId,
+    this.unitId,
     required this.payerId,
     this.receiverId,
     required this.amount,
@@ -41,6 +45,8 @@ class PaymentModel {
       leaseId: map['leaseId'] as String?,
       taskId: map['taskId'] as String?,
       payerId: map['payerId'] as String,
+      propertyId: map['propertyId'] as String?,
+      unitId: map['unitId'] as String?,
       receiverId: map['receiverId'] as String?,
       amount: (map['amount'] as num).toDouble(),
       currency: map['currency'] as String? ?? 'NGN',
@@ -61,6 +67,8 @@ class PaymentModel {
     'taskId': taskId,
     'payerId': payerId,
     'receiverId': receiverId,
+    'propertyId': propertyId,
+    'unitId': unitId,
     'amount': amount,
     'currency': currency,
     'status': status,
@@ -80,6 +88,8 @@ class PaymentModel {
     String? taskId,
     String? payerId,
     String? receiverId,
+    String? propertyId,
+    String? unitId,
     double? amount,
     String? currency,
     String? status,
@@ -98,6 +108,8 @@ class PaymentModel {
       taskId: taskId ?? this.taskId,
       payerId: payerId ?? this.payerId,
       receiverId: receiverId ?? this.receiverId,
+      propertyId: propertyId ?? this.propertyId,
+      unitId: unitId ?? this.unitId,
       amount: amount ?? this.amount,
       currency: currency ?? this.currency,
       status: status ?? this.status,

@@ -10,6 +10,17 @@ abstract class PaymentRemoteDataSource {
   Future<List<PaymentModel>> getPaymentsByLease(String leaseId);
   Future<List<PaymentModel>> getPaymentsByUser(String userId);
   Future<List<PaymentModel>> getPaymentsByTask(String taskId);
+  Future<List<PaymentModel>> getPaymentsByProperty(String propertyId);
+  Future<List<PaymentModel>> getPaymentsByUnit(String unitId);
+
+  // Summary & Analytics
+  Future<Map<String, dynamic>> getPaymentSummary(String userId, String role);
+  Future<Map<String, dynamic>> getPropertyPaymentSummary(String propertyId);
+
+  // Withdrawal / Release Funds
+  Future<void> approveWithdrawal(String withdrawalId, String processedBy);
+  Future<void> rejectWithdrawal(String withdrawalId, String processedBy, String? reason);
+
   Future<void> markAsPaid(String id, String receiptUrl, String? transactionRef);
 
   Future<void> markAsPaidByReference(String reference, String receiptUrl, String? transactionRef);
