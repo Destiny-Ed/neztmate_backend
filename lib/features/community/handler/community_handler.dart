@@ -53,8 +53,6 @@ class CommunityHandler {
         jsonEncode({'message': 'Post created successfully', 'post': created.toMap()}),
         headers: {'Content-Type': 'application/json'},
       );
-    } on AppException catch (e) {
-      return Response.badRequest(body: jsonEncode({'message': e.message}));
     } catch (e, stack) {
       print('Create post error: $e\n$stack');
       return Response.internalServerError(body: jsonEncode({'message': 'Failed to create post'}));

@@ -13,7 +13,7 @@ class CommunityPostModel {
   final DateTime? updatedAt;
 
   CommunityPostModel({
-    required this.id,
+    this.id = "",
     required this.propertyId,
     required this.authorId,
     required this.title,
