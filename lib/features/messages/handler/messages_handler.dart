@@ -21,7 +21,13 @@ class MessageHandler {
         return Response(400, body: jsonEncode({'message': 'receiverId and content are required'}));
       }
 
-      final message = MessageModel.fromMap(body, '').copyWith(senderId: senderId, createdAt: DateTime.now());
+      final message = MessageModel(
+        id: "",
+        senderId: senderId,
+        receiverId: body['receiverId'],
+        content: body['content'],
+        createdAt: DateTime.now(),
+      );
 
       final sent = await repository.sendMessage(message);
 
@@ -79,11 +85,13 @@ class MessageHandler {
   Future<Response> getUserChats(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
+      final limit = request.params['limit'];
+
       if (userId == null) {
         return Response(401, body: jsonEncode({'message': 'Unauthorized'}));
       }
 
-      final chats = await repository.getUserChats(userId, limit: 20);
+      final chats = await repository.getUserChats(userId, limit: int.parse(limit ?? "20"));
 
       return Response.ok(
         jsonEncode({'chats': chats.map((c) => c.toMap()).toList(), 'message': 'Chat list loaded'}),

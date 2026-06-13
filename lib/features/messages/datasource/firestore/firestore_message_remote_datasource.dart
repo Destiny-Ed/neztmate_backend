@@ -56,7 +56,7 @@ class FirestoreMessageDataSource implements MessageRemoteDataSource {
     allMessages.sort((a, b) => (b.data()['createdAt'] as String).compareTo(a.data()['createdAt'] as String));
 
     return allMessages.take(limit).map((doc) {
-      return MessageModel.fromMap(doc.data(), doc.id);
+      return MessageModel.fromMap(doc.data());
     }).toList();
   }
 
@@ -64,7 +64,7 @@ class FirestoreMessageDataSource implements MessageRemoteDataSource {
   Future<MessageModel> getMessageById(String id) async {
     final doc = await firestore.collection('messages').doc(id).get();
     if (!doc.exists) throw NotFoundException('Message', id);
-    return MessageModel.fromMap(doc.data() as Map<String, dynamic>, id);
+    return MessageModel.fromMap(doc.data() as Map<String, dynamic>);
   }
 
   @override

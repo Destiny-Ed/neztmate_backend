@@ -4,7 +4,7 @@ import 'package:shelf_router/shelf_router.dart';
 Router messageRoutes(MessageHandler handler) {
   final router = Router();
 
-  router.post('/', handler.sendMessage);
+  router.post('/send', handler.sendMessage);
   router.get('/conversation/<receiverId>', handler.getConversation);
   router.patch('/<id>/read', handler.markAsRead);
   router.get('/chats', handler.getUserChats);
