@@ -10,7 +10,7 @@ Router messageRoutes(MessageHandler handler) {
   router.get('/chats', handler.getUserChats);
 
   // WebSocket Route
-  router.get('/ws', handler.getWebSocketHandler());
+  router.get('/ws', handler.getWebSocketHandler);
 
   return router;
 }

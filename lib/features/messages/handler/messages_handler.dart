@@ -122,13 +122,10 @@ class MessageHandler {
 
   ///Websocket
   /// WebSocket: /messages/ws?userId=xxx&receiverId=yyy
-  Handler getWebSocketHandler() {
+  Handler getWebSocketHandler(Request request) {
     return webSocketHandler((WebSocketChannel webSocket, String? protocol) async {
-      // final uri = webSocket.connectingUrl ?? Uri.parse('/');
-      final request = webSocket.cast<Object?>() as dynamic; // Access underlying request
-      final uri = request?.url ?? Uri.parse('/');
-      final token = uri.queryParameters['token'];
-      final userIdFromQuery = uri.queryParameters['userId'];
+      final token = request.params['token'];
+      final userIdFromQuery = request.params['userId'];
 
       // AUTHENTICATION
       if (token == null || token.isEmpty) {
