@@ -6,7 +6,7 @@ class CommunityPostModel {
   final String content;
   final String type; // 'Announcement', 'Event', 'Alert'
   final List<String>? photoUrls;
-  final int likes;
+  final int likesCount;
   final int commentsCount;
   final DateTime? eventTime;
   final DateTime createdAt;
@@ -20,7 +20,7 @@ class CommunityPostModel {
     required this.content,
     required this.type,
     this.photoUrls,
-    this.likes = 0,
+    this.likesCount = 0,
     this.commentsCount = 0,
     this.eventTime,
     required this.createdAt,
@@ -36,7 +36,7 @@ class CommunityPostModel {
       content: map['content'] as String,
       type: map['type'] as String,
       photoUrls: (map['photoUrls'] as List?)?.cast<String>(),
-      likes: map['likes'] as int? ?? 0,
+      likesCount: map['likesCount'] as int? ?? 0,
       commentsCount: map['commentsCount'] as int? ?? 0,
       eventTime: map['eventTime'] != null ? DateTime.parse(map['eventTime'] as String) : null,
       createdAt: DateTime.parse(map['createdAt'] as String),
@@ -52,7 +52,7 @@ class CommunityPostModel {
     'content': content,
     'type': type,
     'photoUrls': photoUrls,
-    'likes': likes,
+    'likesCount': likesCount,
     'commentsCount': commentsCount,
     'eventTime': eventTime?.toIso8601String(),
     'createdAt': createdAt.toIso8601String(),
@@ -67,7 +67,7 @@ class CommunityPostModel {
     String? content,
     String? type,
     List<String>? photoUrls,
-    int? likes,
+    int? likesCount,
     int? commentsCount,
     DateTime? eventTime,
     DateTime? createdAt,
@@ -81,7 +81,7 @@ class CommunityPostModel {
       content: content ?? this.content,
       type: type ?? this.type,
       photoUrls: photoUrls ?? this.photoUrls,
-      likes: likes ?? this.likes,
+      likesCount: likesCount ?? this.likesCount,
       commentsCount: commentsCount ?? this.commentsCount,
       eventTime: eventTime ?? this.eventTime,
       createdAt: createdAt ?? this.createdAt,

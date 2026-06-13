@@ -54,8 +54,26 @@ class CommunityHandler {
       );
       final created = await communityRepository.createPost(post);
 
+      final enrichedPost = await Future.wait(
+        [created].map((e) async {
+          final author = await userRepository.getUserById(e.authorId);
+
+          return {
+            "author": {
+              'id': author.id,
+              'fullName': author.fullName,
+              'email': author.email,
+              'phone': author.phone,
+              "profilePhotoUrl": author.profilePhotoUrl,
+              'role': author.role,
+            },
+            ...e.toMap(),
+          };
+        }),
+      );
+
       return Response.ok(
-        jsonEncode({'message': 'Post created successfully', 'post': created.toMap()}),
+        jsonEncode({'message': 'Post created successfully', 'post': enrichedPost.first}),
         headers: {'Content-Type': 'application/json'},
       );
     } catch (e, stack) {
@@ -285,8 +303,23 @@ class CommunityHandler {
 
       final created = await communityRepository.createComment(comment);
 
+      final enrichedComment = await Future.wait(
+        [created].map((comment) async {
+          final user = await userRepository.getUserById(comment.authorId);
+          return {
+            ...comment.toMap(),
+            'author': {
+              'id': user.id,
+              'fullName': user.fullName,
+              'profilePhotoUrl': user.profilePhotoUrl,
+              'role': user.role,
+            },
+          };
+        }),
+      );
+
       return Response.ok(
-        jsonEncode({'message': 'Comment added', 'comment': created.toMap()}),
+        jsonEncode({'message': 'Comment added', 'comment': enrichedComment.first}),
         headers: {'Content-Type': 'application/json'},
       );
     } catch (e, stack) {
@@ -310,7 +343,12 @@ class CommunityHandler {
           final user = await userRepository.getUserById(comment.authorId);
           return {
             ...comment.toMap(),
-            'author': {'id': user.id, 'fullName': user.fullName, 'profilePhotoUrl': user.profilePhotoUrl},
+            'author': {
+              'id': user.id,
+              'fullName': user.fullName,
+              'profilePhotoUrl': user.profilePhotoUrl,
+              'role': user.role,
+            },
           };
         }),
       );
