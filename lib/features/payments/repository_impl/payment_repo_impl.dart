@@ -96,7 +96,8 @@ class PaymentRepositoryImpl implements PaymentRepository {
   Future<void> removePayoutAccount(String accountId) => dataSource.removePayoutAccount(accountId);
 
   @override
-  Future<void> setDefaultPayoutAccount(String accountId) => dataSource.setDefaultPayoutAccount(accountId);
+  Future<void> setDefaultPayoutAccount(String accountId, String userId) =>
+      dataSource.setDefaultPayoutAccount(accountId, userId);
 
   @override
   Future<PayoutAccountModel> savePayoutAccount(PayoutAccountModel account) =>

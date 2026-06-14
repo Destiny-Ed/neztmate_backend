@@ -366,7 +366,23 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
   }
 
   @override
-  Future<void> setDefaultPayoutAccount(String accountId) async {
-    await firestore.collection('payout_accounts').doc(accountId).update({'isDefault': true});
+  Future<void> setDefaultPayoutAccount(String accountId, String userId) async {
+    final snap = await firestore
+        .collection('payout_accounts')
+        .where('userId', WhereFilter.equal, userId)
+        .get();
+
+    if (snap.docs.isEmpty) return;
+
+    // Update all accounts
+    final updateFutures = snap.docs.map((doc) {
+      final isDefault = doc.id == accountId;
+      return firestore.collection('payout_accounts').doc(doc.id).update({
+        'isDefault': isDefault,
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+    }).toList();
+
+    await Future.wait(updateFutures);
   }
 }

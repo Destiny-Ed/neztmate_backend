@@ -41,5 +41,5 @@ abstract class PaymentRemoteDataSource {
   Future<void> removePayoutAccount(String accountId);
   Future<List<PayoutAccountModel>> getPayoutAccounts(String userId, {String? propertyId});
   Future<PayoutAccountModel?> getDefaultPayoutAccount(String userId, {String? propertyId});
-  Future<void> setDefaultPayoutAccount(String accountId);
+  Future<void> setDefaultPayoutAccount(String accountId, String userId);
 }

@@ -35,7 +35,7 @@ abstract class PaymentRepository {
 
   Future<PayoutAccountModel> savePayoutAccount(PayoutAccountModel account);
   Future<void> removePayoutAccount(String accountId);
-  Future<void> setDefaultPayoutAccount(String accountId);
+  Future<void> setDefaultPayoutAccount(String accountId, String userId);
   Future<List<PayoutAccountModel>> getPayoutAccounts(String userId, {String? propertyId});
   Future<PayoutAccountModel?> getDefaultPayoutAccount(String userId, {String? propertyId});
 }

@@ -446,6 +446,20 @@ class PaymentHandler {
         return badRequest('Valid amount is required');
       }
 
+      //  CHECK IF USER HAS AT LEAST ONE PAYOUT ACCOUNT
+      final payoutAccounts = await paymentRepository.getPayoutAccounts(userId);
+
+      if (payoutAccounts.isEmpty) {
+        return Response(
+          400,
+          body: jsonEncode({
+            'message':
+                'No payout account found. Please add a bank account first before requesting withdrawal.',
+            'action': 'add_payout_account',
+          }),
+        );
+      }
+
       final payments = await paymentRepository.getPaymentsByProperty(propertyId);
 
       final summary = await _calculatePropertySummary(payments, propertyId);
@@ -723,7 +737,7 @@ class PaymentHandler {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
 
-      if (userId == null || !['Landowner', 'Manager'].contains(role)) {
+      if (userId == null || !['landowner', 'manager'].contains(role)) {
         return Response(
           403,
           body: jsonEncode({'message': 'Only landowners/managers can save payout accounts'}),
@@ -741,6 +755,12 @@ class PaymentHandler {
 
       if (accountName == null || accountNumber == null || bankName == null || bankCode == null) {
         return badRequest('accountName, accountNumber, bankName and bankCode are required');
+      }
+
+      final accounts = await paymentRepository.getPayoutAccounts(userId);
+
+      if (accounts.length == 5) {
+        return badRequest('You can only add a total of 5 accounts');
       }
 
       final account = PayoutAccountModel(
@@ -786,7 +806,7 @@ class PaymentHandler {
     }
   }
 
-  /// PATCH /payout-accounts/<id>
+  /// PATCH /payout-accounts/<id>/default - Set an account as default
   Future<Response> setDefaultPayoutAccount(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
@@ -796,12 +816,27 @@ class PaymentHandler {
         return badRequest('Account ID is required');
       }
 
-      await paymentRepository.setDefaultPayoutAccount(accountId);
+      // Verify the account belongs to the user
+      final accounts = await paymentRepository.getPayoutAccounts(userId);
+      final targetAccount = accounts.where((a) => a.id == accountId).firstOrNull;
 
-      return Response.ok(jsonEncode({'message': 'Payout account updated successfully'}));
+      if (targetAccount == null) {
+        return Response(
+          404,
+          body: jsonEncode({'message': 'Payout account not found or does not belong to you'}),
+        );
+      }
+
+      // Set the selected account as default and unset others
+      await paymentRepository.setDefaultPayoutAccount(accountId, userId);
+
+      return Response.ok(
+        jsonEncode({'message': 'Account set as default successfully', 'accountId': accountId}),
+        headers: {'Content-Type': 'application/json'},
+      );
     } catch (e, stack) {
-      print('Remove payout account error: $e\n$stack');
-      return Response.internalServerError();
+      print('Set default payout account error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to set default account'}));
     }
   }
 
@@ -817,7 +852,9 @@ class PaymentHandler {
         jsonEncode({'accounts': accounts.map((a) => a.toMap()).toList()}),
         headers: {'Content-Type': 'application/json'},
       );
-    } catch (e) {
+    } catch (e, stack) {
+      print('Get payout account error: $e\n$stack');
+
       return Response.internalServerError();
     }
   }
