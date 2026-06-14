@@ -23,7 +23,8 @@ class MessageRepositoryImpl implements MessageRepository {
   Future<MessageModel> getMessageById(String id) => dataSource.getMessageById(id);
 
   @override
-  Future<void> markAsRead(String messageId, String readerId) => dataSource.markAsRead(messageId, readerId);
+  Future<void> markAsRead(String messageId, String readerId) =>
+      dataSource.markChatAsRead(messageId, readerId);
 
   @override
   Future<void> deleteMessage(String id) => dataSource.deleteMessage(id);

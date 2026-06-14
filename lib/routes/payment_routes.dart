@@ -28,6 +28,8 @@ Router paymentRoutes(PaymentHandler handler) {
   router.get('/summary', handler.getPaymentSummary);
 
   router.get('/property/<propertyId>/summary', handler.getPropertyPaymentSummary);
+  router.get('/unit/<propertyId>/summary', handler.getUnitPaymentSummary);
+  router.get('/lease/<propertyId>/summary', handler.getLeasePaymentSummary);
 
   // WITHDRAWALS
 

@@ -6,6 +6,7 @@ import 'package:neztmate_backend/features/history/repository/user_history_repo.d
 import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
+import 'package:neztmate_backend/features/payments/models/payment_summary_model.dart';
 import 'package:neztmate_backend/features/payments/models/payments.dart';
 import 'package:neztmate_backend/features/payments/models/withdrawal_model.dart';
 import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
@@ -224,21 +225,21 @@ class PaymentHandler {
   }
 
   /// POST /payments - Record a new payment (rent or task)
-  Future<Response> recordPayment(Request request) async {
-    try {
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
-      final payment = PaymentModel.fromMap(body, '');
+  // Future<Response> recordPayment(Request request) async {
+  //   try {
+  //     final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+  //     final payment = PaymentModel.fromMap(body);
 
-      final created = await paymentRepository.createPayment(payment);
+  //     final created = await paymentRepository.createPayment(payment);
 
-      return Response.ok(
-        jsonEncode({'message': 'Payment recorded successfully', 'payment': created.toMap()}),
-        headers: {'Content-Type': 'application/json'},
-      );
-    } catch (e) {
-      return Response.internalServerError(body: jsonEncode({'message': 'Failed to record payment'}));
-    }
-  }
+  //     return Response.ok(
+  //       jsonEncode({'message': 'Payment recorded successfully', 'payment': created.toMap()}),
+  //       headers: {'Content-Type': 'application/json'},
+  //     );
+  //   } catch (e) {
+  //     return Response.internalServerError(body: jsonEncode({'message': 'Failed to record payment'}));
+  //   }
+  // }
 
   /// GET /payments/me - User views their payment history
   Future<Response> getMyPayments(Request request) async {
@@ -267,7 +268,10 @@ class PaymentHandler {
       final payments = await paymentRepository.getPaymentsByProperty(propertyId);
 
       return Response.ok(
-        jsonEncode({'payments': payments.map((p) => p.toMap()).toList()}),
+        jsonEncode({
+          'payments': payments.map((p) => p.toMap()).toList(),
+          "message": "Payments fetched successfully",
+        }),
         headers: {'Content-Type': 'application/json'},
       );
     } catch (e) {
@@ -303,48 +307,52 @@ class PaymentHandler {
     }
   }
 
-  /// GET /payments/summary - Dashboard summary for current user
-  Future<Response> getPaymentSummary(Request request) async {
-    try {
-      final userId = request.context['userId'] as String?;
-      final role = request.context['role'] as String?;
-
-      if (userId == null || role == null) return unauthorized("unauthorized");
-
-      final summary = await paymentRepository.getPaymentSummary(userId, role);
-
-      return Response.ok(jsonEncode({'summary': summary}), headers: {'Content-Type': 'application/json'});
-    } catch (e) {
-      return Response.internalServerError();
-    }
-  }
-
-  /// GET /payments/property/<propertyId>/summary
-  Future<Response> getPropertyPaymentSummary(Request request) async {
-    try {
-      final propertyId = request.params['propertyId'];
-      if (propertyId == null) return badRequest('propertyId required');
-
-      final summary = await paymentRepository.getPropertyPaymentSummary(propertyId);
-
-      return Response.ok(jsonEncode({'summary': summary}));
-    } catch (e) {
-      return Response.internalServerError();
-    }
-  }
-
   /// PATCH /withdrawals/<id>/approve
   Future<Response> approveWithdrawal(Request request) async {
     try {
       final withdrawalId = request.params['id'];
       final processedBy = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
 
-      if (withdrawalId == null || processedBy == null) return badRequest("Withdrawal Id is required");
+      if (withdrawalId == null || processedBy == null) {
+        return badRequest('Withdrawal ID is required');
+      }
+
+      if (!['landowner', 'manager'].contains(role)) {
+        return Response(403, body: jsonEncode({'message': 'Insufficient permission'}));
+      }
+
+      final withdrawal = await paymentRepository.getWithdrawalById(withdrawalId);
+
+      // Check if already processed
+      if (withdrawal.status != 'Pending') {
+        return Response(400, body: jsonEncode({'message': 'This withdrawal has already been processed'}));
+      }
 
       await paymentRepository.approveWithdrawal(withdrawalId, processedBy);
 
-      return Response.ok(jsonEncode({'message': 'Withdrawal approved and funds released'}));
-    } catch (e) {
+      // Log history
+      await historyRepository.createHistoryEntry(
+        HistoryEntryModel(
+          userId: withdrawal.userId,
+          type: 'withdrawal_approved',
+          title: 'Withdrawal Approved',
+          description: '₦${withdrawal.amount} withdrawal request approved',
+          relatedId: withdrawalId,
+          relatedCollection: 'withdrawals',
+          timestamp: DateTime.now(),
+          id: '',
+        ),
+      );
+
+      return Response.ok(
+        jsonEncode({
+          'message': 'Withdrawal approved and funds released successfully',
+          'withdrawalId': withdrawalId,
+        }),
+      );
+    } catch (e, stack) {
+      print('Approve withdrawal error: $e\n$stack');
       return Response.internalServerError();
     }
   }
@@ -357,12 +365,36 @@ class PaymentHandler {
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final reason = body['reason'] as String?;
 
-      if (withdrawalId == null || processedBy == null) return badRequest("Withdrawal Id is required");
+      if (withdrawalId == null || processedBy == null) {
+        return badRequest('Withdrawal ID is required');
+      }
+
+      final withdrawal = await paymentRepository.getWithdrawalById(withdrawalId);
+
+      if (withdrawal.status != 'Pending') {
+        return Response(400, body: jsonEncode({'message': 'This withdrawal has already been processed'}));
+      }
 
       await paymentRepository.rejectWithdrawal(withdrawalId, processedBy, reason);
 
-      return Response.ok(jsonEncode({'message': 'Withdrawal rejected'}));
-    } catch (e) {
+      await historyRepository.createHistoryEntry(
+        HistoryEntryModel(
+          userId: withdrawal.userId,
+          type: 'withdrawal_rejected',
+          title: 'Withdrawal Rejected',
+          description: reason ?? 'Withdrawal request rejected',
+          relatedId: withdrawalId,
+          relatedCollection: 'withdrawals',
+          timestamp: DateTime.now(),
+          id: '',
+        ),
+      );
+
+      return Response.ok(
+        jsonEncode({'message': 'Withdrawal request rejected', 'withdrawalId': withdrawalId}),
+      );
+    } catch (e, stack) {
+      print('Reject withdrawal error: $e\n$stack');
       return Response.internalServerError();
     }
   }
@@ -385,29 +417,70 @@ class PaymentHandler {
     }
   }
 
-  /// POST /withdrawals - Landowner requests withdrawal
+  /// POST /withdrawals - Landowner/Manager requests withdrawal from a specific property
   Future<Response> requestWithdrawal(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
 
       if (userId == null || !['landowner', 'manager'].contains(role)) {
-        return Response(403, body: jsonEncode({'message': 'Only landowners can request withdrawals'}));
+        return Response(
+          403,
+          body: jsonEncode({'message': 'Only landowners and managers can request withdrawals'}),
+        );
       }
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
-      final withdrawal = WithdrawalModel.fromMap(
-        body,
-        '',
-      ).copyWith(userId: userId, requestedAt: DateTime.now());
+
+      final propertyId = body['propertyId'] as String?;
+      final amount = (body['amount'] as num?)?.toDouble();
+      final method = body['method'] as String?;
+      final notes = body['notes'] as String?;
+
+      if (propertyId == null) {
+        return badRequest('propertyId is required');
+      }
+
+      if (amount == null || amount <= 0) {
+        return badRequest('Valid amount is required');
+      }
+
+      final payments = await paymentRepository.getPaymentsByProperty(propertyId);
+
+      final summary = await _calculatePropertySummary(payments, propertyId);
+
+      if (amount > summary.withdrawableAmount) {
+        return Response(
+          400,
+          body: jsonEncode({
+            'message': 'Insufficient balance. Available: ₦${summary.withdrawableAmount.toStringAsFixed(0)}',
+          }),
+        );
+      }
+
+      final withdrawal = WithdrawalModel(
+        id: '',
+        userId: userId,
+        propertyId: propertyId,
+        amount: amount,
+        currency: 'NGN',
+        status: 'Pending',
+        method: method ?? 'Bank Transfer',
+        requestedAt: DateTime.now(),
+        notes: notes,
+      );
 
       final created = await paymentRepository.createWithdrawal(withdrawal);
 
       return Response.ok(
-        jsonEncode({'message': 'Withdrawal request submitted', 'withdrawal': created.toMap()}),
+        jsonEncode({'message': 'Withdrawal request submitted successfully', 'withdrawal': created.toMap()}),
+        headers: {'Content-Type': 'application/json'},
       );
-    } catch (e) {
-      return Response.internalServerError();
+    } catch (e, stack) {
+      print('Request withdrawal error: $e\n$stack');
+      return Response.internalServerError(
+        body: jsonEncode({'message': 'Failed to submit withdrawal request'}),
+      );
     }
   }
 
@@ -423,5 +496,206 @@ class PaymentHandler {
     } catch (e) {
       return Response.internalServerError();
     }
+  }
+
+  /// GET /payments/summary - User dashboard (Tenant or Landowner/Manager)
+  Future<Response> getPaymentSummary(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+
+      if (userId == null || role == null) return unauthorized('Unauthorized');
+
+      final payments = await paymentRepository.getPaymentsByUser(userId);
+      final withdrawals = await paymentRepository.getWithdrawalsByUser(userId);
+
+      final summary = _calculateUserSummary(payments, withdrawals, role, userId);
+
+      return Response.ok(
+        jsonEncode({'summary': summary.toMap(), 'message': 'Payment summary fetched successfully'}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, stack) {
+      print('Get user payment summary error: $e\n$stack');
+      return Response.internalServerError();
+    }
+  }
+
+  /// GET /payments/property/<propertyId>/summary
+  Future<Response> getPropertyPaymentSummary(Request request) async {
+    try {
+      final propertyId = request.params['propertyId'];
+      if (propertyId == null) return badRequest('propertyId is required');
+
+      final payments = await paymentRepository.getPaymentsByProperty(propertyId);
+
+      final summary = await _calculatePropertySummary(payments, propertyId);
+
+      return Response.ok(
+        jsonEncode({'summary': summary.toMap(), 'message': 'Property summary fetched successfully'}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e) {
+      return Response.internalServerError();
+    }
+  }
+
+  /// GET /payments/lease/<leaseId>/summary
+  Future<Response> getLeasePaymentSummary(Request request) async {
+    try {
+      final leaseId = request.params['leaseId'];
+      if (leaseId == null) return badRequest('leaseId is required');
+
+      final payments = await paymentRepository.getPaymentsByLease(leaseId);
+      final summary = await _calculateLeaseSummary(payments, leaseId);
+
+      return Response.ok(
+        jsonEncode({'summary': summary.toMap(), 'message': 'Lease summary fetched successfully'}),
+      );
+    } catch (e) {
+      return Response.internalServerError();
+    }
+  }
+
+  /// GET /payments/unit/<unitId>/summary
+  Future<Response> getUnitPaymentSummary(Request request) async {
+    try {
+      final unitId = request.params['unitId'];
+      if (unitId == null) return badRequest('unitId is required');
+
+      final payments = await paymentRepository.getPaymentsByUnit(unitId);
+      final summary = await _calculateUnitSummary(payments, unitId);
+
+      return Response.ok(
+        jsonEncode({'summary': summary.toMap(), 'message': 'Unit summary fetched successfully'}),
+      );
+    } catch (e) {
+      return Response.internalServerError();
+    }
+  }
+
+  PaymentSummaryModel _calculateUserSummary(
+    List<PaymentModel> payments,
+    List<WithdrawalModel> withdrawals,
+    String role,
+    String userId,
+  ) {
+    double totalReceived = 0.0;
+    double totalPaid = 0.0;
+    double totalWithdrawn = 0.0;
+    int totalTransactions = 0;
+    int pendingPayments = 0;
+    int rentPaymentsCount = 0;
+    double totalRentPaid = 0.0;
+
+    for (var p in payments) {
+      final lwStatus = p.status.toLowerCase();
+      if (lwStatus == 'paid') {
+        totalTransactions++;
+
+        if (p.payerId == userId) {
+          totalPaid += p.amount;
+
+          if (p.type == 'rent' || p.type == 'rent-renewal') {
+            rentPaymentsCount++;
+            totalRentPaid += p.amount;
+          }
+        } else if (['landowner', 'manager'].contains(role)) {
+          // We consider it received if it's a rent payment for properties they manage/own
+          // (We'll improve this further when we have property ownership checks)
+          totalReceived += p.amount;
+        }
+      } else if (lwStatus == 'pending payment') {
+        pendingPayments++;
+      }
+    }
+
+    for (var w in withdrawals) {
+      if (w.status.toLowerCase() == 'completed') {
+        totalWithdrawn += w.amount;
+      }
+    }
+
+    return PaymentSummaryModel(
+      totalReceived: totalReceived,
+      totalPaid: totalPaid,
+      totalWithdrawn: totalWithdrawn,
+      balance: totalReceived - totalWithdrawn,
+      totalTransactions: totalTransactions,
+      pendingPayments: pendingPayments,
+      avgRent: rentPaymentsCount > 0 ? totalRentPaid / rentPaymentsCount : 0.0,
+      withdrawableAmount: totalReceived - totalWithdrawn,
+      rentPaymentsCount: rentPaymentsCount,
+      totalRentPaid: totalRentPaid,
+      entityType: 'user',
+      entityId: userId,
+    );
+  }
+
+  Future<PaymentSummaryModel> _calculatePropertySummary(
+    List<PaymentModel> payments,
+    String propertyId,
+  ) async {
+    double totalRevenue = 0.0;
+    double totalTaskPayments = 0.0;
+    double totalWithdrawn = 0.0;
+    int totalPayments = 0;
+    int pendingCount = 0;
+    int rentPaymentsCount = 0;
+
+    for (var p in payments) {
+      final status = p.status.toLowerCase();
+      final amount = p.amount;
+
+      if (status == 'paid') {
+        totalPayments++;
+
+        if (p.type == 'rent' || p.type == 'rent-renewal') {
+          totalRevenue += amount;
+          rentPaymentsCount++;
+        } else if (p.type == 'task') {
+          totalTaskPayments += amount;
+        }
+      } else if (status == 'pending' || status == 'pending payment') {
+        pendingCount++;
+      }
+    }
+
+    // Get withdrawals linked to this property
+    final withdrawals = await paymentRepository.getWithdrawalsByProperty(propertyId);
+
+    totalWithdrawn = withdrawals.fold(0.0, (sum, w) {
+      if (w.status.toLowerCase() == 'completed') {
+        return sum + w.amount;
+      }
+      return sum;
+    });
+
+    return PaymentSummaryModel(
+      totalReceived: totalRevenue,
+      totalPaid: totalTaskPayments,
+      totalWithdrawn: totalWithdrawn,
+      balance: totalRevenue - totalWithdrawn,
+      totalTransactions: totalPayments,
+      pendingPayments: pendingCount,
+      avgRent: rentPaymentsCount > 0 ? totalRevenue / rentPaymentsCount : 0.0,
+      withdrawableAmount: totalRevenue - totalWithdrawn,
+      rentPaymentsCount: rentPaymentsCount,
+      totalRentPaid: totalRevenue,
+      entityType: 'property',
+      entityId: propertyId,
+    );
+  }
+
+  Future<PaymentSummaryModel> _calculateLeaseSummary(List<PaymentModel> payments, String leaseId) async {
+    final summary = await _calculatePropertySummary(payments, leaseId);
+
+    return summary.copyWith(entityType: 'lease');
+  }
+
+  Future<PaymentSummaryModel> _calculateUnitSummary(List<PaymentModel> payments, String unitId) async {
+    final summary = await _calculatePropertySummary(payments, unitId);
+
+    return summary.copyWith(entityType: 'unit');
   }
 }

@@ -39,9 +39,9 @@ class PaymentModel {
     this.type,
   });
 
-  factory PaymentModel.fromMap(Map<String, dynamic> map, String id) {
+  factory PaymentModel.fromMap(Map<String, dynamic> map) {
     return PaymentModel(
-      id: id,
+      id: map['id'] as String,
       leaseId: map['leaseId'] as String?,
       taskId: map['taskId'] as String?,
       payerId: map['payerId'] as String,
@@ -63,6 +63,7 @@ class PaymentModel {
   }
 
   Map<String, dynamic> toMap() => {
+    'id': id,
     'leaseId': leaseId,
     'taskId': taskId,
     'payerId': payerId,

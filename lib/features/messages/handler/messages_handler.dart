@@ -108,6 +108,7 @@ class MessageHandler {
           return chat.copyWith(
             otherUserName: user.fullName,
             otherUserPhotoUrl: user.profilePhotoUrl,
+            otherRole: user.role,
             otherPhone: user.phone,
           );
         }),

@@ -13,8 +13,8 @@ abstract class PaymentRepository {
   Future<List<PaymentModel>> getPaymentsByUnit(String unitId);
 
   // Summary & Analytics
-  Future<Map<String, dynamic>> getPaymentSummary(String userId, String role);
-  Future<Map<String, dynamic>> getPropertyPaymentSummary(String propertyId);
+  // Future<Map<String, dynamic>> getPaymentSummary(String userId, String role);
+  // Future<Map<String, dynamic>> getPropertyPaymentSummary(String propertyId);
 
   // Withdrawal / Release Funds
   Future<void> approveWithdrawal(String withdrawalId, String processedBy);
@@ -27,6 +27,7 @@ abstract class PaymentRepository {
   Future<WithdrawalModel> createWithdrawal(WithdrawalModel withdrawal);
   Future<WithdrawalModel> getWithdrawalById(String id);
   Future<List<WithdrawalModel>> getWithdrawalsByUser(String userId);
+  Future<List<WithdrawalModel>> getWithdrawalsByProperty(String propertyId);
   Future<void> updateWithdrawalStatus(String id, String status, String? processedBy);
   Future<bool> isPaymentAlreadyProcessed(String reference);
   Future<void> markPaymentAsProcessed(String reference);

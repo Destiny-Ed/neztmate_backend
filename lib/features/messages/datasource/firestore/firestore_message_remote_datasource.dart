@@ -68,13 +68,6 @@ class FirestoreMessageDataSource implements MessageRemoteDataSource {
   }
 
   @override
-  Future<void> markAsRead(String messageId, String readerId) async {
-    await firestore.collection('messages').doc(messageId).update({
-      'readAt': DateTime.now().toIso8601String(),
-    });
-  }
-
-  @override
   Future<void> deleteMessage(String id) async {
     await firestore.collection('messages').doc(id).delete();
   }
@@ -154,5 +147,19 @@ class FirestoreMessageDataSource implements MessageRemoteDataSource {
     summaries.sort((a, b) => b.lastMessageTime.compareTo(a.lastMessageTime));
 
     return summaries.take(limit).toList();
+  }
+
+  @override
+  Future<void> markChatAsRead(String chatId, String readerId) async {
+    await firestore.collection('messages').doc(chatId).update({
+      'readAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  @override
+  Future<void> markConversationAsRead(String conversationId, String readerId) async {
+    await firestore.collection('messages').doc(conversationId).update({
+      'readAt': DateTime.now().toIso8601String(),
+    });
   }
 }
