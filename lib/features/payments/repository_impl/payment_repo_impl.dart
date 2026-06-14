@@ -1,5 +1,6 @@
 import 'package:neztmate_backend/features/payments/datasource/remote_datasource.dart';
 import 'package:neztmate_backend/features/payments/models/payments.dart';
+import 'package:neztmate_backend/features/payments/models/payout_account_model.dart';
 import 'package:neztmate_backend/features/payments/models/withdrawal_model.dart';
 import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
 
@@ -83,4 +84,21 @@ class PaymentRepositoryImpl implements PaymentRepository {
   @override
   Future<List<WithdrawalModel>> getWithdrawalsByProperty(String propertyId) =>
       dataSource.getWithdrawalsByProperty(propertyId);
+
+  @override
+  Future<PayoutAccountModel?> getDefaultPayoutAccount(String userId, {String? propertyId}) =>
+      dataSource.getDefaultPayoutAccount(userId);
+
+  @override
+  Future<List<PayoutAccountModel>> getPayoutAccounts(String userId, {String? propertyId}) =>
+      dataSource.getPayoutAccounts(userId);
+  @override
+  Future<void> removePayoutAccount(String accountId) => dataSource.removePayoutAccount(accountId);
+
+  @override
+  Future<void> setDefaultPayoutAccount(String accountId) => dataSource.setDefaultPayoutAccount(accountId);
+
+  @override
+  Future<PayoutAccountModel> savePayoutAccount(PayoutAccountModel account) =>
+      dataSource.savePayoutAccount(account);
 }

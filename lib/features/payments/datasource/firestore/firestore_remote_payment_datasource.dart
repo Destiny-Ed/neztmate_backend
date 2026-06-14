@@ -2,6 +2,7 @@ import 'package:dart_firebase_admin/firestore.dart';
 import 'package:neztmate_backend/core/error.dart';
 import 'package:neztmate_backend/features/payments/datasource/remote_datasource.dart';
 import 'package:neztmate_backend/features/payments/models/payments.dart';
+import 'package:neztmate_backend/features/payments/models/payout_account_model.dart';
 import 'package:neztmate_backend/features/payments/models/withdrawal_model.dart';
 
 class FirestorePaymentDataSource implements PaymentRemoteDataSource {
@@ -319,5 +320,53 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
         .get();
 
     return snap.docs.map((d) => WithdrawalModel.fromMap(d.data() as Map<String, dynamic>)).toList();
+  }
+
+  @override
+  Future<PayoutAccountModel> savePayoutAccount(PayoutAccountModel account) async {
+    final docRef = firestore.collection('payout_accounts').doc();
+    final newAccount = account.copyWith(id: docRef.id);
+    await docRef.set(newAccount.toMap());
+    return newAccount;
+  }
+
+  @override
+  Future<void> removePayoutAccount(String accountId) async {
+    await firestore.collection('payout_accounts').doc(accountId).delete();
+  }
+
+  @override
+  Future<List<PayoutAccountModel>> getPayoutAccounts(String userId, {String? propertyId}) async {
+    var query = firestore.collection('payout_accounts').where('userId', WhereFilter.equal, userId);
+
+    if (propertyId != null) {
+      query = query.where('propertyId', WhereFilter.equal, propertyId);
+    }
+
+    final snap = await query.orderBy('createdAt', descending: true).get();
+
+    return snap.docs.map((d) => PayoutAccountModel.fromMap(d.data() as Map<String, dynamic>)).toList();
+  }
+
+  @override
+  Future<PayoutAccountModel?> getDefaultPayoutAccount(String userId, {String? propertyId}) async {
+    var query = firestore
+        .collection('payout_accounts')
+        .where('userId', WhereFilter.equal, userId)
+        .where('isDefault', WhereFilter.equal, true);
+
+    if (propertyId != null) {
+      query = query.where('propertyId', WhereFilter.equal, propertyId);
+    }
+
+    final snap = await query.limit(1).get();
+
+    if (snap.docs.isEmpty) return null;
+    return PayoutAccountModel.fromMap(snap.docs.first.data() as Map<String, dynamic>);
+  }
+
+  @override
+  Future<void> setDefaultPayoutAccount(String accountId) async {
+    await firestore.collection('payout_accounts').doc(accountId).update({'isDefault': true});
   }
 }

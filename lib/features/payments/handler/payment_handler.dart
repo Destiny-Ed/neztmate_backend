@@ -8,6 +8,7 @@ import 'package:neztmate_backend/features/notifications/models/notification_mode
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
 import 'package:neztmate_backend/features/payments/models/payment_summary_model.dart';
 import 'package:neztmate_backend/features/payments/models/payments.dart';
+import 'package:neztmate_backend/features/payments/models/payout_account_model.dart';
 import 'package:neztmate_backend/features/payments/models/withdrawal_model.dart';
 import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
 import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
@@ -532,10 +533,16 @@ class PaymentHandler {
       final summary = await _calculatePropertySummary(payments, propertyId);
 
       return Response.ok(
-        jsonEncode({'summary': summary.toMap(), 'message': 'Property summary fetched successfully'}),
+        jsonEncode({
+          'summary': summary.toMap(),
+          'payments': payments.map((e) => e.toMap()).toList(),
+          'message': 'Property summary fetched successfully',
+        }),
         headers: {'Content-Type': 'application/json'},
       );
-    } catch (e) {
+    } catch (e, stack) {
+      print('Get property payment summary error: $e\n$stack');
+
       return Response.internalServerError();
     }
   }
@@ -550,9 +557,15 @@ class PaymentHandler {
       final summary = await _calculateLeaseSummary(payments, leaseId);
 
       return Response.ok(
-        jsonEncode({'summary': summary.toMap(), 'message': 'Lease summary fetched successfully'}),
+        jsonEncode({
+          'summary': summary.toMap(),
+          'payments': payments.map((e) => e.toMap()),
+
+          'message': 'Lease summary fetched successfully',
+        }),
       );
-    } catch (e) {
+    } catch (e, stack) {
+      print('Get lease payment summary error: $e\n$stack');
       return Response.internalServerError();
     }
   }
@@ -567,9 +580,14 @@ class PaymentHandler {
       final summary = await _calculateUnitSummary(payments, unitId);
 
       return Response.ok(
-        jsonEncode({'summary': summary.toMap(), 'message': 'Unit summary fetched successfully'}),
+        jsonEncode({
+          'summary': summary.toMap(),
+          'payments': payments.map((e) => e.toMap()),
+          'message': 'Unit summary fetched successfully',
+        }),
       );
-    } catch (e) {
+    } catch (e, stack) {
+      print('Get lease payment summary error: $e\n$stack');
       return Response.internalServerError();
     }
   }
@@ -697,5 +715,127 @@ class PaymentHandler {
     final summary = await _calculatePropertySummary(payments, unitId);
 
     return summary.copyWith(entityType: 'unit');
+  }
+
+  /// POST /payout-accounts - Save bank account for withdrawals
+  Future<Response> savePayoutAccount(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+
+      if (userId == null || !['Landowner', 'Manager'].contains(role)) {
+        return Response(
+          403,
+          body: jsonEncode({'message': 'Only landowners/managers can save payout accounts'}),
+        );
+      }
+
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+
+      final propertyId = body['propertyId'] as String?;
+      final accountName = body['accountName'] as String?;
+      final accountNumber = body['accountNumber'] as String?;
+      final bankName = body['bankName'] as String?;
+      final bankCode = body['bankCode'] as String?;
+      final isDefault = body['isDefault'] as bool? ?? false;
+
+      if (accountName == null || accountNumber == null || bankName == null || bankCode == null) {
+        return badRequest('accountName, accountNumber, bankName and bankCode are required');
+      }
+
+      final account = PayoutAccountModel(
+        id: '',
+        userId: userId,
+        propertyId: propertyId,
+        accountName: accountName,
+        accountNumber: accountNumber,
+        bankName: bankName,
+        bankCode: bankCode,
+        isDefault: isDefault,
+        createdAt: DateTime.now(),
+      );
+
+      final saved = await paymentRepository.savePayoutAccount(account);
+
+      return Response.ok(
+        jsonEncode({'message': 'Payout account saved successfully', 'account': saved.toMap()}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, stack) {
+      print('Save payout account error: $e\n$stack');
+      return Response.internalServerError();
+    }
+  }
+
+  /// DELETE /payout-accounts/<id>
+  Future<Response> removePayoutAccount(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final accountId = request.params['id'];
+
+      if (userId == null || accountId == null) {
+        return badRequest('Account ID is required');
+      }
+
+      await paymentRepository.removePayoutAccount(accountId);
+
+      return Response.ok(jsonEncode({'message': 'Payout account removed successfully'}));
+    } catch (e, stack) {
+      print('Remove payout account error: $e\n$stack');
+      return Response.internalServerError();
+    }
+  }
+
+  /// PATCH /payout-accounts/<id>
+  Future<Response> setDefaultPayoutAccount(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final accountId = request.params['id'];
+
+      if (userId == null || accountId == null) {
+        return badRequest('Account ID is required');
+      }
+
+      await paymentRepository.setDefaultPayoutAccount(accountId);
+
+      return Response.ok(jsonEncode({'message': 'Payout account updated successfully'}));
+    } catch (e, stack) {
+      print('Remove payout account error: $e\n$stack');
+      return Response.internalServerError();
+    }
+  }
+
+  /// GET /payout-accounts - Get all payout accounts for current user
+  Future<Response> getPayoutAccounts(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      if (userId == null) return unauthorized("Unauthorized");
+
+      final accounts = await paymentRepository.getPayoutAccounts(userId);
+
+      return Response.ok(
+        jsonEncode({'accounts': accounts.map((a) => a.toMap()).toList()}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e) {
+      return Response.internalServerError();
+    }
+  }
+
+  /// GET /payout-accounts/property/<propertyId>
+  Future<Response> getPayoutAccountsByProperty(Request request) async {
+    try {
+      final propertyId = request.params['propertyId'];
+      if (propertyId == null) return badRequest('propertyId required');
+
+      final accounts = await paymentRepository.getPayoutAccounts(
+        request.context['userId'] as String,
+        propertyId: propertyId,
+      );
+
+      return Response.ok(jsonEncode({'accounts': accounts.map((a) => a.toMap()).toList()}));
+    } catch (e) {
+      return Response.internalServerError();
+    }
   }
 }

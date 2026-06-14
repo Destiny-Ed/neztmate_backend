@@ -14,25 +14,34 @@ class FirebaseService {
 
   final env = DotEnv()..load();
 
+  final _isLocalTest = true;
+
   Future<void> init() async {
     if (_isInitialized) return;
 
     try {
-      // final serviceAccountPath =
-      //     Platform.environment['FIREBASE_SERVICE_ACCOUNT_PATH'] ?? env['FIREBASE_SERVICE_ACCOUNT_PATH'];
+      Credential? credential;
 
-      final serviceAccountJson = Platform.environment['FIREBASE_SERVICE_ACCOUNT_PATH'];
+      if (_isLocalTest) {
+        final serviceAccountPath =
+            Platform.environment['FIREBASE_SERVICE_ACCOUNT_PATH'] ?? env['FIREBASE_SERVICE_ACCOUNT_PATH'];
 
-      if (serviceAccountJson == null) throw 'Firebase service account not found';
+        if (serviceAccountPath == null) throw 'Firebase service account not found';
 
-      final params = jsonDecode(serviceAccountJson) as Map<String, dynamic>;
+        credential = Credential.fromServiceAccount(File(serviceAccountPath));
+      } else {
+        final serviceAccountJson = Platform.environment['FIREBASE_SERVICE_ACCOUNT_PATH'];
 
-      // final credential = Credential.fromServiceAccount(File(serviceAccountPath!));
-      final credential = Credential.fromServiceAccountParams(
-        clientId: params['client_id'],
-        privateKey: params['private_key'],
-        email: params['client_email'],
-      );
+        if (serviceAccountJson == null) throw 'Firebase service account not found';
+
+        final params = jsonDecode(serviceAccountJson) as Map<String, dynamic>;
+
+        credential = Credential.fromServiceAccountParams(
+          clientId: params['client_id'],
+          privateKey: params['private_key'],
+          email: params['client_email'],
+        );
+      }
 
       app = FirebaseAdminApp.initializeApp('next-mate', credential);
 

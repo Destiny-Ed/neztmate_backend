@@ -1,4 +1,5 @@
 import 'package:neztmate_backend/features/payments/models/payments.dart';
+import 'package:neztmate_backend/features/payments/models/payout_account_model.dart';
 import 'package:neztmate_backend/features/payments/models/withdrawal_model.dart';
 
 abstract class PaymentRepository {
@@ -31,4 +32,10 @@ abstract class PaymentRepository {
   Future<void> updateWithdrawalStatus(String id, String status, String? processedBy);
   Future<bool> isPaymentAlreadyProcessed(String reference);
   Future<void> markPaymentAsProcessed(String reference);
+
+  Future<PayoutAccountModel> savePayoutAccount(PayoutAccountModel account);
+  Future<void> removePayoutAccount(String accountId);
+  Future<void> setDefaultPayoutAccount(String accountId);
+  Future<List<PayoutAccountModel>> getPayoutAccounts(String userId, {String? propertyId});
+  Future<PayoutAccountModel?> getDefaultPayoutAccount(String userId, {String? propertyId});
 }

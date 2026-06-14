@@ -41,5 +41,19 @@ Router paymentRoutes(PaymentHandler handler) {
 
   router.patch('/withdrawals/<id>/reject', handler.rejectWithdrawal);
 
+  router.post('/payout-accounts/save', handler.savePayoutAccount);
+
+  /// Get all payout accounts for current user
+  router.get('/payout-accounts', handler.getPayoutAccounts);
+
+  /// Get payout accounts for a specific property
+  router.get('/payout-accounts/property/<propertyId>', handler.getPayoutAccountsByProperty);
+
+  /// Remove a payout account
+  router.delete('/payout-accounts/<id>/remove', handler.removePayoutAccount);
+
+  //Set default payout account
+  router.patch('/payout-accounts/<id>/default', handler.setDefaultPayoutAccount);
+
   return router;
 }
