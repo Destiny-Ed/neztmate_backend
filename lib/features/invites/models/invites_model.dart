@@ -2,7 +2,6 @@ class InviteModel {
   final String id;
   final String inviterId;
   final String inviteeEmail;
-  final String? inviteePhone;
   final String role;
   final List<String>? propertyIds;
   final String? message;
@@ -16,7 +15,6 @@ class InviteModel {
     required this.id,
     required this.inviterId,
     required this.inviteeEmail,
-    this.inviteePhone,
     required this.role,
     this.propertyIds,
     this.message,
@@ -32,7 +30,6 @@ class InviteModel {
       id: map['id'] ?? '',
       inviterId: map['inviterId'] as String,
       inviteeEmail: map['inviteeEmail'] as String,
-      inviteePhone: map['inviteePhone'] as String?,
       role: map['role'] as String,
       propertyIds: (map['propertyIds'] as List<dynamic>?)?.cast<String>(),
       message: map['message'] as String?,
@@ -50,7 +47,6 @@ class InviteModel {
     'id': id,
     'inviterId': inviterId,
     'inviteeEmail': inviteeEmail.toLowerCase(),
-    'inviteePhone': inviteePhone,
     'role': role,
     'propertyIds': propertyIds,
     'message': message,
@@ -79,7 +75,6 @@ class InviteModel {
       id: id ?? this.id,
       inviterId: inviterId ?? this.inviterId,
       inviteeEmail: inviteeEmail ?? this.inviteeEmail,
-      inviteePhone: inviteePhone ?? this.inviteePhone,
       role: role ?? this.role,
       propertyIds: propertyIds ?? this.propertyIds,
       message: message ?? this.message,

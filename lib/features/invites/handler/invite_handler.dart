@@ -4,6 +4,7 @@ import 'package:neztmate_backend/features/invites/models/invites_model.dart';
 import 'package:neztmate_backend/features/invites/repository/invite_repo.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
+import 'package:neztmate_backend/features/properties/models/property_model.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
@@ -30,10 +31,15 @@ class InviteHandler {
 
       final propertyIds = (body['propertyIds'] as List?)?.cast<String>();
       final inviteeEmail = body['inviteeEmail'] as String?;
-      final inviteeRole = body['role'] as String?;
+      final inviteeRole = body['inviteeRole'] as String?;
+      final message = body['message'] as String?;
 
       if (inviteeEmail == null || inviteeRole == null) {
-        return badRequest('inviteeEmail and role are required');
+        return badRequest('inviteeEmail and inviteeRole are required');
+      }
+
+      if (message == null) {
+        return badRequest("Invite message is required");
       }
 
       if (propertyIds == null || propertyIds.isEmpty) {
@@ -46,10 +52,9 @@ class InviteHandler {
         id: '',
         inviterId: userId,
         inviteeEmail: inviteeEmail,
-        inviteePhone: body['inviteePhone'] as String?,
         role: inviteeRole,
         propertyIds: propertyIds,
-        message: body['message'] as String?,
+        message: message,
         status: 'Pending',
         createdAt: DateTime.now(),
         expiresAt: expiresAt,
@@ -209,20 +214,27 @@ class InviteHandler {
     for (var invite in invites) {
       final inviter = await userRepository.getUserById(invite.inviterId);
 
-      List<Map<String, dynamic>> properties = [];
+      List<PropertyModel> properties = [];
       if (invite.propertyIds != null) {
         for (var pid in invite.propertyIds!) {
           final prop = await propertyRepository.getPropertyById(pid);
-          if (prop != null) {
-            properties.add({'id': prop.id, 'name': prop.name, 'address': prop.address});
+          if (prop.id.isNotEmpty) {
+            properties.add(prop);
           }
         }
       }
 
       enriched.add({
         ...invite.toMap(),
-        'inviter': {'id': inviter.id, 'fullName': inviter.fullName},
-        'properties': properties,
+        'inviter': {
+          'id': inviter.id,
+          'fullName': inviter.fullName,
+          'role': inviter.role,
+          'profilePhotoUrl': inviter.profilePhotoUrl,
+          'phone': inviter.phone,
+          'email': inviter.email,
+        },
+        'properties': properties.map((e) => e.toMap()).toList(),
         'isExpired': invite.isExpired,
       });
     }
