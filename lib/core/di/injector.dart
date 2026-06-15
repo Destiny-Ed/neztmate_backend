@@ -220,7 +220,7 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
   injector.registerLazySingleton<FirestoreInviteDataSource>(
     () => FirestoreInviteDataSource(injector<Firestore>()),
   );
-  injector.registerLazySingleton<InviteRepositoryImpl>(
+  injector.registerLazySingleton<InviteRepository>(
     () => InviteRepositoryImpl(injector<FirestoreInviteDataSource>()),
   );
   injector.registerLazySingleton<InviteHandler>(
