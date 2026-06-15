@@ -48,4 +48,12 @@ class LeaseRepositoryImpl implements LeaseRepository {
 
   @override
   Future<LeaseModel> renewLeaseAfterPayment(String leaseId) => dataSource.renewLeaseAfterPayment(leaseId);
+
+  @override
+  Future<List<LeaseModel>> getAllActiveLeases() => dataSource.getAllActiveLeases();
+  @override
+  Future<List<LeaseModel>> getExpiringLeases({int withinDays = 5}) =>
+      dataSource.getExpiringLeases(withinDays: withinDays);
+  @override
+  Future<int> updateExpiredLeasesToInactive() => dataSource.updateExpiredLeasesToInactive();
 }

@@ -120,4 +120,67 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
 
     return await createLease(renewedLease);
   }
+
+  @override
+  Future<List<LeaseModel>> getAllActiveLeases() async {
+    try {
+      final snap = await firestore
+          .collection('leases')
+          .where('status', WhereFilter.equal, 'Active')
+          .orderBy('endDate', descending: false) // Earliest ending first
+          .get();
+
+      return snap.docs.map((doc) => LeaseModel.fromMap(doc.data() as Map<String, dynamic>)).toList();
+    } catch (e) {
+      print('Error fetching all active leases: $e');
+      return [];
+    }
+  }
+
+  @override
+  Future<List<LeaseModel>> getExpiringLeases({int withinDays = 5}) async {
+    try {
+      final thresholdDate = DateTime.now().add(Duration(days: withinDays));
+
+      final snap = await firestore
+          .collection('leases')
+          .where('status', WhereFilter.equal, 'Active')
+          .where('endDate', WhereFilter.lessThanOrEqual, thresholdDate.toIso8601String())
+          .orderBy('endDate', descending: false)
+          .get();
+
+      return snap.docs.map((doc) => LeaseModel.fromMap(doc.data() as Map<String, dynamic>)).toList();
+    } catch (e) {
+      print('Error fetching expiring leases: $e');
+      return [];
+    }
+  }
+
+  @override
+  Future<int> updateExpiredLeasesToInactive() async {
+    try {
+      final now = DateTime.now().toIso8601String();
+      final snap = await firestore
+          .collection('leases')
+          .where('status', WhereFilter.equal, 'Active')
+          .where('endDate', WhereFilter.lessThan, now)
+          .get();
+
+      int updatedCount = 0;
+
+      for (var doc in snap.docs) {
+        await firestore.collection('leases').doc(doc.id).update({
+          'status': 'Inactive',
+          'updatedAt': DateTime.now().toIso8601String(),
+        });
+        updatedCount++;
+      }
+
+      print('Updated $updatedCount leases to Inactive');
+      return updatedCount;
+    } catch (e) {
+      print('Error updating expired leases: $e');
+      return 0;
+    }
+  }
 }

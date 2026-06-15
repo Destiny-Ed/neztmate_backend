@@ -13,4 +13,15 @@ abstract class PropertyRepository {
   Future<List<TenantSummary>> getTenantsByProperty(String propertyId);
   Future<List<TenantSummary>> getCurrentTenantsByProperty(String propertyId);
   Future<List<TenantSummary>> getPastTenantsByProperty(String propertyId);
+  Future<void> assignUserToProperty({
+    required String propertyId,
+    required String userId,
+    required String role, // Manager or Artisan
+  });
+
+  Future<void> removeUserFromProperty({
+    required String propertyId,
+    required String userId,
+    required String removedBy, // Who performed the removal
+  });
 }

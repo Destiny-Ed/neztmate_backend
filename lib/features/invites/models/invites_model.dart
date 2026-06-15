@@ -3,13 +3,14 @@ class InviteModel {
   final String inviterId;
   final String inviteeEmail;
   final String? inviteePhone;
-  final String role; // Tenant, Landowner, Manager, Artisan
-  final List<String>? propertyIds; // properties they will manage/own
+  final String role;
+  final List<String>? propertyIds;
   final String? message;
-  final String status; // Pending, Accepted, Declined, Expired
-  final String? inviteLink; // unique shareable link
+  final String status;
+  final String? inviteLink;
   final DateTime createdAt;
-  final DateTime? expiresAt;
+  final DateTime updatedAt;
+  final DateTime expiresAt;
 
   InviteModel({
     required this.id,
@@ -22,12 +23,13 @@ class InviteModel {
     this.status = 'Pending',
     this.inviteLink,
     required this.createdAt,
-    this.expiresAt,
+    required this.updatedAt,
+    required this.expiresAt,
   });
 
-  factory InviteModel.fromMap(Map<String, dynamic> map, String id) {
+  factory InviteModel.fromMap(Map<String, dynamic> map) {
     return InviteModel(
-      id: id,
+      id: map['id'] ?? '',
       inviterId: map['inviterId'] as String,
       inviteeEmail: map['inviteeEmail'] as String,
       inviteePhone: map['inviteePhone'] as String?,
@@ -37,13 +39,17 @@ class InviteModel {
       status: map['status'] as String? ?? 'Pending',
       inviteLink: map['inviteLink'] as String?,
       createdAt: DateTime.parse(map['createdAt'] as String),
-      expiresAt: map['expiresAt'] != null ? DateTime.parse(map['expiresAt'] as String) : null,
+      updatedAt: DateTime.parse(map['updatedAt'] as String),
+      expiresAt: DateTime.parse(map['expiresAt'] as String),
     );
   }
 
+  bool get isExpired => DateTime.now().isAfter(expiresAt);
+
   Map<String, dynamic> toMap() => {
+    'id': id,
     'inviterId': inviterId,
-    'inviteeEmail': inviteeEmail,
+    'inviteeEmail': inviteeEmail.toLowerCase(),
     'inviteePhone': inviteePhone,
     'role': role,
     'propertyIds': propertyIds,
@@ -51,7 +57,8 @@ class InviteModel {
     'status': status,
     'inviteLink': inviteLink,
     'createdAt': createdAt.toIso8601String(),
-    'expiresAt': expiresAt?.toIso8601String(),
+    'updatedAt': createdAt.toIso8601String(),
+    'expiresAt': expiresAt.toIso8601String(),
   };
 
   InviteModel copyWith({
@@ -65,6 +72,7 @@ class InviteModel {
     String? status,
     String? inviteLink,
     DateTime? createdAt,
+    DateTime? updatedAt,
     DateTime? expiresAt,
   }) {
     return InviteModel(
@@ -78,6 +86,7 @@ class InviteModel {
       status: status ?? this.status,
       inviteLink: inviteLink ?? this.inviteLink,
       createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
       expiresAt: expiresAt ?? this.expiresAt,
     );
   }

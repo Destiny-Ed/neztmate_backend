@@ -13,4 +13,12 @@ abstract class LeaseRemoteDataSource {
   Future<void> markLeaseAsSigned(String leaseId, String signedPdfUrl, String signedBy);
   Future<LeaseModel> renewLeaseAfterPayment(String leaseId);
   Future<void> updateLeaseStatus(String leaseId, String status);
+
+  /// Get all active leases across the system (for cron jobs, reminders, etc.)
+  Future<List<LeaseModel>> getAllActiveLeases();
+
+  // Optional: Get active leases expiring soon
+  Future<List<LeaseModel>> getExpiringLeases({int withinDays = 5});
+
+  Future<int> updateExpiredLeasesToInactive();
 }

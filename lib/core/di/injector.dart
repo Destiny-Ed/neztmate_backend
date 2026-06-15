@@ -23,6 +23,7 @@ import 'package:neztmate_backend/features/history/repository_impl/history_repo_i
 import 'package:neztmate_backend/features/invites/datasource/firestore/invite_firestore_datasource.dart';
 import 'package:neztmate_backend/features/invites/handler/invite_handler.dart';
 import 'package:neztmate_backend/features/invites/invite_repository_impl/invite_repo_impl.dart';
+import 'package:neztmate_backend/features/invites/repository/invite_repo.dart';
 import 'package:neztmate_backend/features/leases/datasource/firestore/firestore_lease_datasource.dart';
 import 'package:neztmate_backend/features/leases/datasource/lease_remote_datasource.dart';
 import 'package:neztmate_backend/features/leases/handler/lease_handler.dart';
@@ -112,7 +113,9 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
     () => FirestorePropertyDataSource(injector<Firestore>()),
   );
   injector.registerLazySingleton<PropertyRepository>(() => PropertyRepositoryImpl(injector()));
-  injector.registerLazySingleton<PropertyHandler>(() => PropertyHandler(injector()));
+  injector.registerLazySingleton<PropertyHandler>(
+    () => PropertyHandler(injector<PropertyRepository>(), injector<NotificationRepository>()),
+  );
 
   //units
   injector.registerLazySingleton<UnitRemoteDataSource>(() => FirestoreUnitDataSource(injector<Firestore>()));
@@ -220,7 +223,14 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
   injector.registerLazySingleton<InviteRepositoryImpl>(
     () => InviteRepositoryImpl(injector<FirestoreInviteDataSource>()),
   );
-  injector.registerLazySingleton<InviteHandler>(() => InviteHandler(injector<InviteRepositoryImpl>()));
+  injector.registerLazySingleton<InviteHandler>(
+    () => InviteHandler(
+      injector<InviteRepository>(),
+      injector<UserRepository>(),
+      injector<PropertyRepository>(),
+      injector<NotificationRepository>(),
+    ),
+  );
 
   //Task
   injector.registerLazySingleton<TaskRemoteDataSource>(() => FirestoreTaskDataSource(injector<Firestore>()));

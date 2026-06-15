@@ -101,7 +101,7 @@ class FirestoreTenantDataSource implements TenantRemoteDataSource {
         NeighborModel(
           userId: lease.tenantId,
           fullName: tenantData['fullName'] ?? '',
-          profileImage: tenantData['profileImageUrl'],
+          profileImage: tenantData['profilePhotoUrl'],
           unitNumber: unitData['unitNumber'] ?? '',
           phone: tenantData["phone"] ?? '',
           leaseId: lease.id,

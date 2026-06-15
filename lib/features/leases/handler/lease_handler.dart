@@ -528,7 +528,6 @@ class LeaseHandler {
               "profilePhotoUrl": tenant.profilePhotoUrl,
             },
             'neighbors': tenantNeighbors.map((e) => e.toMap()).toList(),
-
             'manager': {
               'id': manager.id,
               'fullName': manager.fullName,

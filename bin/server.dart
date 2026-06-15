@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:dotenv/dotenv.dart';
 import 'package:neztmate_backend/core/di/injector.dart';
 import 'package:neztmate_backend/core/middleware/auth_middleware.dart';
+import 'package:neztmate_backend/core/scheduler/schedule_service.dart';
 import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
 import 'package:neztmate_backend/core/services/database/firebase/firebase.dart';
 import 'package:neztmate_backend/features/applications/handler/application_handler.dart';
@@ -10,10 +11,14 @@ import 'package:neztmate_backend/features/auth_user/handler/auth_handler.dart';
 import 'package:neztmate_backend/features/auth_user/handler/user_handler.dart';
 import 'package:neztmate_backend/features/community/handler/community_handler.dart';
 import 'package:neztmate_backend/features/history/handler/history_handler.dart';
+import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
 import 'package:neztmate_backend/features/invites/handler/invite_handler.dart';
+import 'package:neztmate_backend/features/invites/repository/invite_repo.dart';
 import 'package:neztmate_backend/features/leases/handler/lease_handler.dart';
+import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
 import 'package:neztmate_backend/features/messages/handler/messages_handler.dart';
 import 'package:neztmate_backend/features/notifications/handler/handler.dart';
+import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
 import 'package:neztmate_backend/features/payments/handler/payment_handler.dart';
 import 'package:neztmate_backend/features/properties/handler/property_handler.dart';
 import 'package:neztmate_backend/features/tasks/handler/task_handler.dart';
@@ -52,6 +57,16 @@ void main() async {
   }
 
   await setupDependencies(jwtSecret: jwtSecret);
+
+  // After server starts
+  // final scheduler = SchedulerService(
+  //   inviteRepository: injector<InviteRepository>(),
+  //   leaseRepository: injector<LeaseRepository>(),
+  //   notificationRepository: injector<NotificationRepository>(),
+  //   historyRepository: injector<HistoryRepository>(),
+  // );
+
+  // scheduler.start();
 
   final authHandler = injector<AuthHandler>();
   final userHandler = injector<UserHandler>();

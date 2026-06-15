@@ -9,6 +9,8 @@ Router propertyRoutes(PropertyHandler handler) {
   router.post('/create', handler.createProperty);
   router.patch('/<id>/update', handler.updateProperty);
   router.delete('/<id>/delete', handler.deleteProperty);
+  router.post('/<propertyId>/remove-user', handler.removeUserFromProperty);
+
   // router.get('/<id>/tenants', handler.getTenantsByProperty);
   // router.get('/<id>/current-tenants', handler.getCurrentTenantsByProperty);
   // router.get('/<id>/past-tenants', handler.getPastTenantsByProperty);

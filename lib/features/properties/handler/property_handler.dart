@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
+import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
 import 'package:neztmate_backend/features/properties/models/property_model.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
 import 'package:shelf/shelf.dart';
@@ -8,8 +10,9 @@ import 'package:uuid/uuid.dart';
 
 class PropertyHandler {
   final PropertyRepository propertyRepository;
+  final NotificationRepository notificationRepository;
 
-  PropertyHandler(this.propertyRepository);
+  PropertyHandler(this.propertyRepository, this.notificationRepository);
 
   // GET /properties (my properties)
   /// GET /properties - Get all properties belonging to the current user (Landowner/Manager)
@@ -216,6 +219,50 @@ class PropertyHandler {
       }
 
       return Response.internalServerError(body: jsonEncode({'message': 'Failed to update property'}));
+    }
+  }
+
+  /// POST /properties/<propertyId>/remove-user
+  Future<Response> removeUserFromProperty(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+      final propertyId = request.params['propertyId'];
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final targetUserId = body['userId'] as String?;
+
+      if (userId == null || propertyId == null || targetUserId == null) {
+        return badRequest('Missing required fields');
+      }
+
+      if (!['landowner', 'manager'].contains(role)) {
+        return Response(403, body: jsonEncode({'message': 'Insufficient permission'}));
+      }
+
+      await propertyRepository.removeUserFromProperty(
+        propertyId: propertyId,
+        userId: targetUserId,
+        removedBy: userId,
+      );
+
+      // Send notifications
+      await notificationRepository.create(
+        NotificationModel(
+          userId: targetUserId,
+          type: 'removed_from_property',
+          title: 'Removed from Property',
+          body: 'You have been removed from this property.',
+          relatedId: propertyId,
+          relatedCollection: 'properties',
+          createdAt: DateTime.now(),
+          id: '',
+        ),
+      );
+
+      return Response.ok(jsonEncode({'message': 'User removed from property successfully'}));
+    } catch (e, stack) {
+      print('Remove user from property error: $e\n$stack');
+      return Response.internalServerError();
     }
   }
 

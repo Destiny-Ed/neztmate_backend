@@ -52,4 +52,18 @@ class PropertyRepositoryImpl implements PropertyRepository {
   @override
   Future<List<TenantSummary>> getTenantsByProperty(String propertyId) =>
       dataSource.getTenantsByProperty(propertyId);
+
+  @override
+  Future<void> assignUserToProperty({
+    required String propertyId,
+    required String userId,
+    required String role,
+  }) => dataSource.assignUserToProperty(propertyId: propertyId, userId: userId, role: role);
+
+  @override
+  Future<void> removeUserFromProperty({
+    required String propertyId,
+    required String userId,
+    required String removedBy,
+  }) => dataSource.removeUserFromProperty(propertyId: propertyId, userId: userId, removedBy: removedBy);
 }

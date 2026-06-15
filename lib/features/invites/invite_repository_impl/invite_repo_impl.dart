@@ -28,4 +28,8 @@ class InviteRepositoryImpl implements InviteRepository {
 
   @override
   Future<void> deleteInvite(String id) => dataSource.deleteInvite(id);
+
+  @override
+  Future<List<InviteModel>> getInvitesByInviteeEmail(String email) =>
+      dataSource.getInvitesByInviteeEmail(email);
 }

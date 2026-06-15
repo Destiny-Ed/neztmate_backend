@@ -113,4 +113,41 @@ class FirestorePropertyDataSource implements PropertyRemoteDataSource {
     final allTenants = await getTenantsByProperty(propertyId);
     return allTenants.where((t) => t.leaseStatus == 'Terminated' || t.leaseStatus == 'Expired').toList();
   }
+
+  @override
+  Future<void> assignUserToProperty({
+    required String propertyId,
+    required String userId,
+    required String role,
+  }) async {
+    await firestore.collection('properties').doc(propertyId).update({
+      if (role == 'manager') 'managerId': userId,
+      if (role == 'artisan') 'artisanIds': FieldValue.arrayUnion([userId]),
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  @override
+  Future<void> removeUserFromProperty({
+    required String propertyId,
+    required String userId,
+    required String removedBy,
+  }) async {
+    final propDoc = await firestore.collection('properties').doc(propertyId).get();
+    final data = propDoc.data() as Map<String, dynamic>;
+
+    if (data['managerId'] == userId) {
+      await firestore.collection('properties').doc(propertyId).update({
+        'managerId': null,
+        'updatedAt': DateTime.now().toIso8601String(),
+        'removedBy': removedBy,
+      });
+    } else {
+      await firestore.collection('properties').doc(propertyId).update({
+        'artisanIds': FieldValue.arrayRemove([userId]),
+        'updatedAt': DateTime.now().toIso8601String(),
+        'removedBy': removedBy,
+      });
+    }
+  }
 }
