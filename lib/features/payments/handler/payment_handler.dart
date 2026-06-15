@@ -308,7 +308,7 @@ class PaymentHandler {
     }
   }
 
-  /// PATCH /withdrawals/<id>/approve
+  /// PATCH /withdrawals/<id>/approve - Approve and complete withdrawal
   Future<Response> approveWithdrawal(Request request) async {
     try {
       final withdrawalId = request.params['id'];
@@ -319,42 +319,46 @@ class PaymentHandler {
         return badRequest('Withdrawal ID is required');
       }
 
-      if (!['landowner', 'manager'].contains(role)) {
+      if (!['admin'].contains(role)) {
         return Response(403, body: jsonEncode({'message': 'Insufficient permission'}));
       }
 
       final withdrawal = await paymentRepository.getWithdrawalById(withdrawalId);
 
-      // Check if already processed
       if (withdrawal.status != 'Pending') {
-        return Response(400, body: jsonEncode({'message': 'This withdrawal has already been processed'}));
+        return Response(400, body: jsonEncode({'message': 'Only pending withdrawals can be approved'}));
       }
 
+      // Approve and mark as Completed
       await paymentRepository.approveWithdrawal(withdrawalId, processedBy);
 
-      // Log history
+      // Log history for the user
       await historyRepository.createHistoryEntry(
         HistoryEntryModel(
           userId: withdrawal.userId,
-          type: 'withdrawal_approved',
-          title: 'Withdrawal Approved',
-          description: '₦${withdrawal.amount} withdrawal request approved',
+          type: 'withdrawal_completed',
+          title: 'Withdrawal Completed',
+          description: '₦${withdrawal.amount} has been processed successfully',
           relatedId: withdrawalId,
           relatedCollection: 'withdrawals',
           timestamp: DateTime.now(),
           id: '',
+          metadata: {'propertyId': withdrawal.propertyId, 'amount': withdrawal.amount},
         ),
       );
 
       return Response.ok(
         jsonEncode({
-          'message': 'Withdrawal approved and funds released successfully',
+          'message': 'Withdrawal approved and completed successfully',
           'withdrawalId': withdrawalId,
+          'amount': withdrawal.amount,
+          'status': 'Completed',
         }),
+        headers: {'Content-Type': 'application/json'},
       );
     } catch (e, stack) {
       print('Approve withdrawal error: $e\n$stack');
-      return Response.internalServerError();
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to approve withdrawal'}));
     }
   }
 
@@ -373,17 +377,18 @@ class PaymentHandler {
       final withdrawal = await paymentRepository.getWithdrawalById(withdrawalId);
 
       if (withdrawal.status != 'Pending') {
-        return Response(400, body: jsonEncode({'message': 'This withdrawal has already been processed'}));
+        return Response(400, body: jsonEncode({'message': 'Only pending withdrawals can be rejected'}));
       }
 
       await paymentRepository.rejectWithdrawal(withdrawalId, processedBy, reason);
 
+      // Log history
       await historyRepository.createHistoryEntry(
         HistoryEntryModel(
           userId: withdrawal.userId,
           type: 'withdrawal_rejected',
           title: 'Withdrawal Rejected',
-          description: reason ?? 'Withdrawal request rejected',
+          description: reason ?? 'Withdrawal request was rejected',
           relatedId: withdrawalId,
           relatedCollection: 'withdrawals',
           timestamp: DateTime.now(),
@@ -392,7 +397,10 @@ class PaymentHandler {
       );
 
       return Response.ok(
-        jsonEncode({'message': 'Withdrawal request rejected', 'withdrawalId': withdrawalId}),
+        jsonEncode({
+          'message': 'Withdrawal rejected. Reserved amount has been released back.',
+          'withdrawalId': withdrawalId,
+        }),
       );
     } catch (e, stack) {
       print('Reject withdrawal error: $e\n$stack');
@@ -418,7 +426,7 @@ class PaymentHandler {
     }
   }
 
-  /// POST /withdrawals - Landowner/Manager requests withdrawal from a specific property
+  /// POST /withdrawals - Request withdrawal with immediate reservation
   Future<Response> requestWithdrawal(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
@@ -435,35 +443,26 @@ class PaymentHandler {
 
       final propertyId = body['propertyId'] as String?;
       final amount = (body['amount'] as num?)?.toDouble();
-      final method = body['method'] as String?;
       final notes = body['notes'] as String?;
 
-      if (propertyId == null) {
-        return badRequest('propertyId is required');
-      }
+      if (propertyId == null) return badRequest('propertyId is required');
+      if (amount == null || amount <= 0) return badRequest('Valid amount is required');
 
-      if (amount == null || amount <= 0) {
-        return badRequest('Valid amount is required');
-      }
-
-      //  CHECK IF USER HAS AT LEAST ONE PAYOUT ACCOUNT
+      // Check if user has payout account
       final payoutAccounts = await paymentRepository.getPayoutAccounts(userId);
-
       if (payoutAccounts.isEmpty) {
         return Response(
           400,
           body: jsonEncode({
-            'message':
-                'No payout account found. Please add a bank account first before requesting withdrawal.',
+            'message': 'No payout account found. Please add a bank account first.',
             'action': 'add_payout_account',
           }),
         );
       }
 
+      // Get current withdrawable balance
       final payments = await paymentRepository.getPaymentsByProperty(propertyId);
-
       final summary = await _calculatePropertySummary(payments, propertyId);
-
       if (amount > summary.withdrawableAmount) {
         return Response(
           400,
@@ -473,6 +472,7 @@ class PaymentHandler {
         );
       }
 
+      // Create withdrawal (Pending = amount is now reserved)
       final withdrawal = WithdrawalModel(
         id: '',
         userId: userId,
@@ -480,7 +480,7 @@ class PaymentHandler {
         amount: amount,
         currency: 'NGN',
         status: 'Pending',
-        method: method ?? 'Bank Transfer',
+        method: 'Bank Transfer',
         requestedAt: DateTime.now(),
         notes: notes,
       );
@@ -488,14 +488,17 @@ class PaymentHandler {
       final created = await paymentRepository.createWithdrawal(withdrawal);
 
       return Response.ok(
-        jsonEncode({'message': 'Withdrawal request submitted successfully', 'withdrawal': created.toMap()}),
+        jsonEncode({
+          'message': 'Withdrawal request submitted. Amount has been reserved.',
+          'withdrawal': created.toMap(),
+          'previouslyAvailable': summary.withdrawableAmount,
+          'nowReserved': amount,
+        }),
         headers: {'Content-Type': 'application/json'},
       );
     } catch (e, stack) {
       print('Request withdrawal error: $e\n$stack');
-      return Response.internalServerError(
-        body: jsonEncode({'message': 'Failed to submit withdrawal request'}),
-      );
+      return Response.internalServerError();
     }
   }
 
@@ -671,17 +674,18 @@ class PaymentHandler {
     double totalRevenue = 0.0;
     double totalTaskPayments = 0.0;
     double totalWithdrawn = 0.0;
+    double pendingWithdrawals = 0.0; // NEW: Reserved amount
     int totalPayments = 0;
-    int pendingCount = 0;
+    int pendingPayments = 0;
     int rentPaymentsCount = 0;
 
+    // Process Payments
     for (var p in payments) {
       final status = p.status.toLowerCase();
       final amount = p.amount;
 
       if (status == 'paid') {
         totalPayments++;
-
         if (p.type == 'rent' || p.type == 'rent-renewal') {
           totalRevenue += amount;
           rentPaymentsCount++;
@@ -689,29 +693,32 @@ class PaymentHandler {
           totalTaskPayments += amount;
         }
       } else if (status == 'pending' || status == 'pending payment') {
-        pendingCount++;
+        pendingPayments++;
+      }
+    }
+    // Get withdrawals linked to this property
+    final withdrawals = await paymentRepository.getWithdrawalsByProperty(propertyId);
+    // Process Withdrawals
+    for (var w in withdrawals) {
+      final status = w.status.toLowerCase();
+      if (status == 'completed') {
+        totalWithdrawn += w.amount;
+      } else if (status == 'pending') {
+        pendingWithdrawals += w.amount; // Reserved
       }
     }
 
-    // Get withdrawals linked to this property
-    final withdrawals = await paymentRepository.getWithdrawalsByProperty(propertyId);
-
-    totalWithdrawn = withdrawals.fold(0.0, (sum, w) {
-      if (w.status.toLowerCase() == 'completed') {
-        return sum + w.amount;
-      }
-      return sum;
-    });
+    final availableBalance = totalRevenue - totalWithdrawn - pendingWithdrawals;
 
     return PaymentSummaryModel(
       totalReceived: totalRevenue,
       totalPaid: totalTaskPayments,
       totalWithdrawn: totalWithdrawn,
-      balance: totalRevenue - totalWithdrawn,
+      balance: availableBalance,
       totalTransactions: totalPayments,
-      pendingPayments: pendingCount,
+      pendingPayments: pendingPayments,
       avgRent: rentPaymentsCount > 0 ? totalRevenue / rentPaymentsCount : 0.0,
-      withdrawableAmount: totalRevenue - totalWithdrawn,
+      withdrawableAmount: availableBalance,
       rentPaymentsCount: rentPaymentsCount,
       totalRentPaid: totalRevenue,
       entityType: 'property',

@@ -42,7 +42,6 @@ class UserHandler {
       }
 
       final requestedUserId = request.params['id'];
-      print("requestedUserId: $requestedUserId");
       if (requestedUserId == null) {
         return Response(
           400,

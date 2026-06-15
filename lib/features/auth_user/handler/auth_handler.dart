@@ -42,7 +42,7 @@ class AuthHandler {
       }
 
       if (request.fcmToken.isEmpty) {
-        throw ValidationException('Fcm Token is required ');
+        throw ValidationException('FcmToken is required ');
       }
 
       final created = await authRepository.registerNewUser(request);

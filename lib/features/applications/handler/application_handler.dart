@@ -194,6 +194,7 @@ class ApplicationHandler {
                 'fullName': tenant.fullName,
                 'email': tenant.email,
                 'phone': tenant.phone,
+                'verifiedIdentity': tenant.verifiedIdentity,
                 'profilePhotoUrl': tenant.profilePhotoUrl,
               },
               'property': {
@@ -249,7 +250,7 @@ class ApplicationHandler {
         return Response(400, body: jsonEncode({'message': 'Missing user ID or unit ID'}));
       }
 
-      if (!['Landowner', 'Manager'].contains(role)) {
+      if (!['landowner', 'manager'].contains(role)) {
         return Response(
           403,
           body: jsonEncode({'message': 'Only landowners or managers can view unit applications'}),
@@ -271,6 +272,9 @@ class ApplicationHandler {
               'fullName': tenant.fullName,
               'email': tenant.email,
               'phone': tenant.phone,
+              'verifiedIdentity': tenant.verifiedIdentity,
+
+              'profilePhotoUrl': tenant.profilePhotoUrl,
             },
             'property': {
               'id': property.id,
@@ -315,7 +319,7 @@ class ApplicationHandler {
 
       // Authorization check
       final isApplicant = application.tenantId == userId;
-      final isManagerOrOwner = ['Manager', 'Landowner'].contains(role);
+      final isManagerOrOwner = ['manager', 'landowner'].contains(role);
 
       if (!isApplicant && !isManagerOrOwner) {
         return Response(403, body: jsonEncode({'message': 'Forbidden'}));
@@ -334,6 +338,7 @@ class ApplicationHandler {
           'email': tenant.email,
           'phone': tenant.phone,
           'verifiedIdentity': tenant.verifiedIdentity,
+          'profilePhotoUrl': tenant.profilePhotoUrl,
         },
         'property': {
           'id': property.id,

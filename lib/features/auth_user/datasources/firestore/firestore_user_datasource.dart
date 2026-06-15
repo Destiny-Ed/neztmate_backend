@@ -14,7 +14,6 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
   @override
   Future<User> getUserById(String id) async {
     final doc = await _users.doc(id).get();
-    print('getUserById: Fetched document for ID $id: ${doc.data()}');
     if (!doc.exists) {
       throw NotFoundException('User', id);
     }

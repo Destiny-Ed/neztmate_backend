@@ -9,7 +9,7 @@ class LoginRequest {
     return LoginRequest(
       email: json['email'] as String,
       password: json['password'] as String,
-      fcmToken: json['fcm_token'],
+      fcmToken: json['fcmToken'],
     );
   }
 }

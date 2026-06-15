@@ -110,7 +110,7 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
       id: "",
       startDate: lease.endDate,
       endDate: newEndDate,
-      nextDueDate: lease.endDate.add(const Duration(days: 30)), // next rent due in 30 days
+      nextDueDate: lease.endDate.add(const Duration(days: 365)), // next rent due in 1 year
       status: 'Active',
       isRenewed: true,
       previousLeaseId: leaseId,
