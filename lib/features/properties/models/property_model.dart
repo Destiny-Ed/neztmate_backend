@@ -13,6 +13,7 @@ class PropertyModel {
   final double occupancyRate;
   DateTime createdAt;
   DateTime updatedAt;
+  List<String>? artisanIds;
 
   PropertyModel({
     required this.id,
@@ -29,6 +30,7 @@ class PropertyModel {
     required this.updatedAt,
     required this.proofOfOwnershipUrl,
     required this.documentType,
+    this.artisanIds,
   });
 
   factory PropertyModel.fromMap(Map<String, dynamic> map) {
@@ -41,6 +43,7 @@ class PropertyModel {
       managerId: map['managerId'] as String?,
       photoUrls: (map['photoUrls'] as List<dynamic>?)?.cast<String>(),
       amenities: (map['amenities'] as List<dynamic>?)?.cast<String>(),
+      artisanIds: (map['artisanIds'] as List<dynamic>?)?.cast<String>(),
       totalUnits: map['totalUnits'] as int? ?? 0,
       occupancyRate: (map['occupancyRate'] as num?)?.toDouble() ?? 0.0,
       createdAt: DateTime.parse(map['createdAt'] as String),
@@ -51,7 +54,7 @@ class PropertyModel {
   }
 
   Map<String, dynamic> toMap() => {
-    'id' : id,
+    'id': id,
     'name': name,
     'type': type,
     'address': address,
@@ -59,6 +62,7 @@ class PropertyModel {
     'managerId': managerId,
     'photoUrls': photoUrls,
     'amenities': amenities,
+    'artisanIds': artisanIds,
     'totalUnits': totalUnits,
     'occupancyRate': occupancyRate,
     'createdAt': createdAt.toIso8601String(),
@@ -78,6 +82,7 @@ class PropertyModel {
     String? documentType,
     List<String>? photoUrls,
     List<String>? amenities,
+    List<String>? artisanIds,
     int? totalUnits,
     double? occupancyRate,
     DateTime? createdAt,
@@ -93,6 +98,7 @@ class PropertyModel {
       managerId: managerId ?? this.managerId,
       photoUrls: photoUrls ?? this.photoUrls,
       amenities: amenities ?? this.amenities,
+      artisanIds: artisanIds ?? this.artisanIds,
       totalUnits: totalUnits ?? this.totalUnits,
       occupancyRate: occupancyRate ?? this.occupancyRate,
       createdAt: createdAt ?? this.createdAt,

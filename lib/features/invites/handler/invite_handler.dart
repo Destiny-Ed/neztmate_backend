@@ -17,7 +17,8 @@ class InviteHandler {
 
   InviteHandler(this.repository, this.userRepository, this.propertyRepository, this.notificationRepository);
 
-  /// POST /invites - Send new invite (expires in 5 days)
+  /// POST /invites - Send new invite (expires in 5 days) Send new invite with duplicate check
+  /// POST /invites - Send new invite with smart validation
   Future<Response> sendInvite(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
@@ -29,7 +30,7 @@ class InviteHandler {
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
 
-      final propertyIds = (body['propertyIds'] as List?)?.cast<String>();
+      final newPropertyIds = (body['propertyIds'] as List?)?.cast<String>();
       final inviteeEmail = body['inviteeEmail'] as String?;
       final inviteeRole = body['inviteeRole'] as String?;
       final message = body['message'] as String?;
@@ -38,27 +39,83 @@ class InviteHandler {
         return badRequest('inviteeEmail and inviteeRole are required');
       }
 
-      if (message == null) {
-        return badRequest("Invite message is required");
-      }
-
-      if (propertyIds == null || propertyIds.isEmpty) {
+      if (newPropertyIds == null || newPropertyIds.isEmpty) {
         return badRequest('At least one propertyId is required');
       }
 
+      final normalizedEmail = inviteeEmail.toLowerCase();
+
+      // 1. Check for existing active invites
+      final existingInvites = await repository.getInvitesByInviteeEmail(normalizedEmail);
+
+      if (existingInvites.isNotEmpty) {
+        for (var existing in existingInvites) {
+          if (existing.status == 'Pending' || existing.status == 'Accepted') {
+            final overlapping = newPropertyIds
+                .where((pid) => (existing.propertyIds ?? []).contains(pid))
+                .toList();
+
+            if (overlapping.isNotEmpty) {
+              return Response(
+                409,
+                body: jsonEncode({
+                  'message': 'An active invite already exists for this email on some of these properties.',
+                  'existingInviteId': existing.id,
+                  'status': existing.status,
+                  'overlappingProperties': overlapping,
+                }),
+              );
+            }
+          }
+        }
+      }
+
+      // 2. Check if user already exists and is assigned to any property
+      final existingUser = await userRepository.getUserByEmail(normalizedEmail);
+
+      // if (existingUser != null) {
+      for (var propertyId in newPropertyIds) {
+        final property = await propertyRepository.getPropertyById(propertyId);
+        // if (property == null) continue;
+
+        bool alreadyAssigned = false;
+
+        if (inviteeRole.toLowerCase() == 'manager' && property.managerId == existingUser.id) {
+          alreadyAssigned = true;
+        } else if (inviteeRole.toLowerCase() == 'artisan' &&
+            property.artisanIds != null &&
+            property.artisanIds!.contains(existingUser.id)) {
+          alreadyAssigned = true;
+        }
+
+        if (alreadyAssigned) {
+          return Response(
+            409,
+            body: jsonEncode({
+              'message': 'This user is already assigned as $inviteeRole on property: $propertyId',
+              'userId': existingUser.id,
+              'propertyId': propertyId,
+              'currentRole': inviteeRole,
+            }),
+          );
+        }
+      }
+      // }
+
+      // All validations passed → Create invite
       final expiresAt = DateTime.now().add(const Duration(days: 5));
 
       final invite = InviteModel(
         id: '',
         inviterId: userId,
-        inviteeEmail: inviteeEmail,
+        inviteeEmail: normalizedEmail,
         role: inviteeRole,
-        propertyIds: propertyIds,
-        message: message,
+        propertyIds: newPropertyIds,
+        message: message ?? "Hello, I would like you to join as $inviteeRole.",
         status: 'Pending',
         createdAt: DateTime.now(),
-        expiresAt: expiresAt,
         updatedAt: DateTime.now(),
+        expiresAt: expiresAt,
       );
 
       final created = await repository.createInvite(invite);
