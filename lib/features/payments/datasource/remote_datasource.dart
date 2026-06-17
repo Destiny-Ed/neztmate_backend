@@ -42,4 +42,15 @@ abstract class PaymentRemoteDataSource {
   Future<List<PayoutAccountModel>> getPayoutAccounts(String userId, {String? propertyId});
   Future<PayoutAccountModel?> getDefaultPayoutAccount(String userId, {String? propertyId});
   Future<void> setDefaultPayoutAccount(String accountId, String userId);
+
+  /// Deduct amount from property's available balance (for wallet payments)
+  Future<void> deductFromPropertyBalance({
+    required String propertyId,
+    required double amount,
+    required String reason,
+    required String reference,
+  });
+
+  /// Get current available balance for a property
+  Future<double> getPropertyAvailableBalance(String propertyId);
 }

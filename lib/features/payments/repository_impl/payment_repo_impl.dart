@@ -102,4 +102,21 @@ class PaymentRepositoryImpl implements PaymentRepository {
   @override
   Future<PayoutAccountModel> savePayoutAccount(PayoutAccountModel account) =>
       dataSource.savePayoutAccount(account);
+
+  @override
+  Future<void> deductFromPropertyBalance({
+    required String propertyId,
+    required double amount,
+    required String reason,
+    required String reference,
+  }) => dataSource.deductFromPropertyBalance(
+    propertyId: propertyId,
+    amount: amount,
+    reason: reason,
+    reference: reference,
+  );
+
+  @override
+  Future<double> getPropertyAvailableBalance(String propertyId) =>
+      dataSource.getPropertyAvailableBalance(propertyId);
 }

@@ -1,21 +1,21 @@
 import 'package:neztmate_backend/features/maintenance/handler/maintenance_handler.dart';
 import 'package:shelf_router/shelf_router.dart';
 
-Router maintenanceRoutes(MaintenanceRequestHandler handler) {
+Router maintenanceRoutes(MaintenanceHandler handler) {
   final router = Router();
 
-  // Tenant endpoints
-  router.post('/', handler.submitRequest);
-  router.get('/me', handler.getMyRequests);
-  router.delete('/<id>', handler.deleteRequest);
+  // Maintenance Requests
+  router.post('/create', handler.createRequest);
+  router.get('/all', handler.getAllRequests); // Manager/Landowner - All requests
+  router.get('/me', handler.getMyRequests); // Tenant - My requests
 
-  // Manager/Landowner endpoints
-  router.get('/unit/<unitId>', handler.getRequestsByUnit);
-  router.patch('/<id>/assign', handler.assignRequest);
+  // Tasks
+  router.post('/<requestId>/tasks/assign', handler.assignTask);
+  router.patch('/tasks/<id>/accept', handler.acceptTask);
+  router.patch('/tasks/<id>/complete', handler.completeTask);
 
-  // General (tenant + manager/artisan)
-  router.get('/<id>', handler.getRequestById);
-  router.patch('/<id>', handler.updateRequest);
+  // Payment Approval
+  router.patch('/tasks/<id>/approve-payment', handler.approveTaskPayment);
 
   return router;
 }

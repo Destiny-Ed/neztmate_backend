@@ -4,6 +4,7 @@ import 'package:neztmate_backend/core/services/payment/paystack_service.dart';
 import 'package:neztmate_backend/features/history/model/user_history_model.dart';
 import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
 import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
+import 'package:neztmate_backend/features/maintenance/repository/maintenance_repo.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
 import 'package:neztmate_backend/features/payments/models/payment_summary_model.dart';
@@ -21,6 +22,7 @@ class PaymentHandler {
   final HistoryRepository historyRepository;
   final UnitRepository unitRepository;
   final NotificationRepository notificationRepository;
+  final MaintenanceRepository maintenanceRepository;
 
   PaymentHandler(
     this.paymentRepository,
@@ -28,6 +30,7 @@ class PaymentHandler {
     this.historyRepository,
     this.notificationRepository,
     this.unitRepository,
+    this.maintenanceRepository,
   );
 
   final PaystackService paystackService = PaystackService();
@@ -137,6 +140,65 @@ class PaymentHandler {
 
         final payment = await paymentRepository.getPaymentByReference(reference);
 
+        //  TASK PAYMENT HANDLING
+        if (payment.type == 'task_payment' && payment.taskId != null) {
+          // Update task payment status
+          final task = await maintenanceRepository.getTaskById(payment.taskId!);
+
+          final updatedTask = task.copyWith(
+            paymentStatus: 'Paid',
+            paymentMethod: 'Paystack',
+            paymentReference: reference,
+            actualCost: amount,
+            paymentApprovedAt: DateTime.now(),
+          );
+
+          await maintenanceRepository.updateTask(updatedTask);
+
+          // Notify Artisan
+          await notificationRepository.create(
+            NotificationModel(
+              userId: task.artisanId,
+              type: 'task_payment_success',
+              title: 'Payment Received',
+              body: '₦${amount.toStringAsFixed(0)} has been paid for task: ${task.title}',
+              relatedId: task.id,
+              relatedCollection: 'maintenance_tasks',
+              createdAt: DateTime.now(),
+              id: '',
+            ),
+          );
+
+          // Notify Tenant (optional)
+          final maintRequest = await maintenanceRepository.getRequestById(task.maintenanceRequestId);
+          await notificationRepository.create(
+            NotificationModel(
+              userId: maintRequest.tenantId,
+              type: 'task_payment_success',
+              title: 'Task Payment Completed',
+              body: 'Payment for maintenance task has been processed.',
+              relatedId: task.id,
+              relatedCollection: 'maintenance_tasks',
+              createdAt: DateTime.now(),
+              id: '',
+            ),
+          );
+
+          // Log to history
+          await historyRepository.createHistoryEntry(
+            HistoryEntryModel(
+              userId: task.artisanId,
+              type: 'task_payment_received',
+              title: 'Task Payment Received',
+              description: '₦${amount.toStringAsFixed(0)} for ${task.title}',
+              relatedId: task.id,
+              relatedCollection: 'maintenance_tasks',
+              timestamp: DateTime.now(),
+              id: '',
+            ),
+          );
+        }
+
         if (payment.leaseId != null) {
           // 3. Update Lease status to Active (since payment was made)
           if (payment.type?.toLowerCase() == 'rent-renewal') {
@@ -144,8 +206,6 @@ class PaymentHandler {
           } else if (payment.type?.toLowerCase() == 'rent') {
             //Set as 'Active' if it's a first rent payment, but for task payments we don't change lease status
             await leaseRepository.updateLeaseStatus(payment.leaseId!, "Active");
-          } else {
-            //task payment - no lease update needed
           }
 
           final lease = await leaseRepository.getLeaseById(payment.leaseId!);

@@ -385,4 +385,59 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
 
     await Future.wait(updateFutures);
   }
+
+  // ====================== WALLET DEDUCTION (No balance field) ======================
+
+  @override
+  Future<void> deductFromPropertyBalance({
+    required String propertyId,
+    required double amount,
+    required String reason,
+    required String reference,
+  }) async {
+    // We don't store a balance field. We just log the deduction as a transaction.
+    await firestore.collection('balance_transactions').add({
+      'propertyId': propertyId,
+      'amount': amount,
+      'type': 'deduction',
+      'reason': reason,
+      'reference': reference,
+      'timestamp': DateTime.now().toIso8601String(),
+    });
+  }
+
+  @override
+  Future<double> getPropertyAvailableBalance(String propertyId) async {
+    try {
+      // Calculate from payments - withdrawals
+      final paymentsSnap = await firestore
+          .collection('payments')
+          .where('propertyId', WhereFilter.equal, propertyId)
+          .where('status', WhereFilter.equal, 'Paid')
+          .get();
+
+      double totalReceived = 0.0;
+      for (var doc in paymentsSnap.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        totalReceived += (data['amount'] as num).toDouble();
+      }
+
+      final withdrawalsSnap = await firestore
+          .collection('withdrawals')
+          .where('propertyId', WhereFilter.equal, propertyId)
+          .where('status', WhereFilter.equal, 'Completed')
+          .get();
+
+      double totalWithdrawn = 0.0;
+      for (var doc in withdrawalsSnap.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        totalWithdrawn += (data['amount'] as num).toDouble();
+      }
+
+      return totalReceived - totalWithdrawn;
+    } catch (e) {
+      print('Error calculating property balance: $e');
+      return 0.0;
+    }
+  }
 }

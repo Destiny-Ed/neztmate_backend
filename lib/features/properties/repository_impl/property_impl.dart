@@ -1,7 +1,6 @@
 import 'package:neztmate_backend/features/properties/datasources/property_remote_datasource.dart';
 import 'package:neztmate_backend/features/properties/models/property_model.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
-import 'package:neztmate_backend/features/tasks/models/task_model.dart';
 import 'package:neztmate_backend/features/tenants/models/tenant_summary.dart';
 
 class PropertyRepositoryImpl implements PropertyRepository {

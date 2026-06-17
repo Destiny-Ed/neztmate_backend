@@ -16,12 +16,12 @@ import 'package:neztmate_backend/features/invites/handler/invite_handler.dart';
 import 'package:neztmate_backend/features/invites/repository/invite_repo.dart';
 import 'package:neztmate_backend/features/leases/handler/lease_handler.dart';
 import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
+import 'package:neztmate_backend/features/maintenance/handler/maintenance_handler.dart';
 import 'package:neztmate_backend/features/messages/handler/messages_handler.dart';
 import 'package:neztmate_backend/features/notifications/handler/handler.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
 import 'package:neztmate_backend/features/payments/handler/payment_handler.dart';
 import 'package:neztmate_backend/features/properties/handler/property_handler.dart';
-import 'package:neztmate_backend/features/tasks/handler/task_handler.dart';
 import 'package:neztmate_backend/features/tenants/handler/tenant_handler.dart';
 import 'package:neztmate_backend/features/units/handler/unit_handler.dart';
 import 'package:neztmate_backend/routes/applications_routes.dart';
@@ -31,11 +31,11 @@ import 'package:neztmate_backend/routes/docs.dart';
 import 'package:neztmate_backend/routes/history_routes.dart';
 import 'package:neztmate_backend/routes/invites_route.dart';
 import 'package:neztmate_backend/routes/lease_routes.dart';
+import 'package:neztmate_backend/routes/maintenance_routes.dart';
 import 'package:neztmate_backend/routes/message_routes.dart';
 import 'package:neztmate_backend/routes/notifications_routes.dart';
 import 'package:neztmate_backend/routes/payment_routes.dart';
 import 'package:neztmate_backend/routes/property_routes.dart';
-import 'package:neztmate_backend/routes/task_route.dart';
 import 'package:neztmate_backend/routes/tenant_routes.dart';
 import 'package:neztmate_backend/routes/unit_routes.dart';
 import 'package:neztmate_backend/routes/user_routes.dart';
@@ -144,8 +144,10 @@ void main() async {
   );
 
   router.mount(
-    '/tasks/',
-    Pipeline().addMiddleware(authMiddleware(jwtService)).addHandler(taskRoutes(injector<TaskHandler>()).call),
+    '/maintenance/',
+    Pipeline()
+        .addMiddleware(authMiddleware(jwtService))
+        .addHandler(maintenanceRoutes(injector<MaintenanceHandler>()).call),
   );
 
   router.mount(

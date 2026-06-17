@@ -1,10 +1,10 @@
 import 'dart:convert';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
+import 'package:neztmate_backend/features/maintenance/repository/maintenance_repo.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
 import 'package:neztmate_backend/features/properties/models/property_model.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
-import 'package:neztmate_backend/features/tasks/repository/task_repo.dart';
 import 'package:shelf/shelf.dart';
 import 'package:neztmate_backend/core/error.dart';
 import 'package:shelf_router/shelf_router.dart';
@@ -13,14 +13,14 @@ import 'package:uuid/uuid.dart';
 class PropertyHandler {
   final PropertyRepository propertyRepository;
   final UserRepository userRepository;
-  final TaskRepository taskRepository;
+  final MaintenanceRepository maintenanceRepository;
   final NotificationRepository notificationRepository;
 
   PropertyHandler(
     this.propertyRepository,
     this.notificationRepository,
     this.userRepository,
-    this.taskRepository,
+    this.maintenanceRepository,
   );
 
   // GET /properties (my properties)
@@ -125,7 +125,7 @@ class PropertyHandler {
           final artisanUser = await userRepository.getUserById(artisanId);
 
           // Get active tasks for this artisan on this property
-          final activeTasks = await taskRepository.getActiveTasksByArtisanAndProperty(
+          final activeTasks = await maintenanceRepository.getActiveTasksByArtisanAndProperty(
             artisanId: artisanId,
             propertyId: propertyId,
           );

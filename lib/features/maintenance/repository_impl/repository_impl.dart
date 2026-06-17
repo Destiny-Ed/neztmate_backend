@@ -1,62 +1,59 @@
 import 'package:neztmate_backend/features/maintenance/datasource/maintenance_remote_datasource.dart';
-import 'package:neztmate_backend/features/maintenance/models/maintenance.dart';
-
+import 'package:neztmate_backend/features/maintenance/models/maintenance_request.dart';
+import 'package:neztmate_backend/features/maintenance/models/maintenance_task.dart';
 import 'package:neztmate_backend/features/maintenance/repository/maintenance_repo.dart';
 
-class MaintenanceRequestRepositoryImpl implements MaintenanceRequestRepository {
-  final MaintenanceRequestRemoteDataSource dataSource;
+class MaintenanceRepositoryImpl implements MaintenanceRepository {
+  final MaintenanceRemoteDataSource dataSource;
 
-  MaintenanceRequestRepositoryImpl(this.dataSource);
-
-  @override
-  Future<MaintenanceRequestModel> createRequest(MaintenanceRequestModel request) async {
-    return await dataSource.createRequest(request);
-  }
+  MaintenanceRepositoryImpl(this.dataSource);
 
   @override
-  Future<MaintenanceRequestModel> getRequestById(String id) async {
-    return await dataSource.getRequestById(id);
-  }
+  Future<MaintenanceRequestModel> createRequest(MaintenanceRequestModel request) =>
+      dataSource.createRequest(request);
 
   @override
-  Future<List<MaintenanceRequestModel>> getRequestsByTenant(String tenantId) async {
-    return await dataSource.getRequestsByTenant(tenantId);
-  }
+  Future<MaintenanceRequestModel> getRequestById(String id) => dataSource.getRequestById(id);
 
   @override
-  Future<List<MaintenanceRequestModel>> getRequestsByUnit(String unitId) async {
-    return await dataSource.getRequestsByUnit(unitId);
-  }
+  Future<List<MaintenanceRequestModel>> getRequestsByTenant(String tenantId) =>
+      dataSource.getRequestsByTenant(tenantId);
 
   @override
-  Future<List<MaintenanceRequestModel>> getRequestsByManager(String managerId) async {
-    return await dataSource.getRequestsByManager(managerId);
-  }
+  Future<List<MaintenanceRequestModel>> getRequestsByProperty(String propertyId) =>
+      dataSource.getRequestsByProperty(propertyId);
 
   @override
-  Future<void> updateRequest(MaintenanceRequestModel request) async {
-    await dataSource.updateRequest(request);
-  }
+  Future<List<MaintenanceRequestModel>> getAllRequestsForManagerOrLandowner(String userId) =>
+      dataSource.getAllRequestsForManagerOrLandowner(userId);
 
   @override
-  Future<void> deleteRequest(String id) async {
-    await dataSource.deleteRequest(id);
-  }
+  Future<MaintenanceTaskModel> createTask(MaintenanceTaskModel task) => dataSource.createTask(task);
 
   @override
-  Future<void> assignRequest(String id, String artisanId) async {
-    await dataSource.assignRequest(id, artisanId);
-  }
+  Future<MaintenanceTaskModel> getTaskById(String taskId) => dataSource.getTaskById(taskId);
 
   @override
-  Future<List<MaintenanceRequestModel>> getOverdueRequests() {
-    // TODO: implement getOverdueRequests
-    throw UnimplementedError();
-  }
+  Future<List<MaintenanceTaskModel>> getTasksByRequest(String requestId) =>
+      dataSource.getTasksByRequest(requestId);
 
   @override
-  Future<List<MaintenanceRequestModel>> getRequestsByArtisan(String artisanId) {
-    // TODO: implement getRequestsByArtisan
-    throw UnimplementedError();
-  }
+  Future<List<MaintenanceTaskModel>> getTasksByArtisan(String artisanId) =>
+      dataSource.getTasksByArtisan(artisanId);
+
+  @override
+  Future<void> acceptTask(String taskId, String artisanId) => dataSource.acceptTask(taskId, artisanId);
+
+  @override
+  Future<void> updateTask(MaintenanceTaskModel task) => dataSource.updateTask(task);
+
+  @override
+  Future<void> completeTask(String taskId, String summary, double? actualCost) =>
+      dataSource.completeTask(taskId, summary, actualCost);
+
+  @override
+  Future<List<MaintenanceTaskModel>> getActiveTasksByArtisanAndProperty({
+    required String artisanId,
+    required String propertyId,
+  }) => dataSource.getActiveTasksByArtisanAndProperty(artisanId: artisanId, propertyId: propertyId);
 }

@@ -61,11 +61,6 @@ import 'package:neztmate_backend/features/properties/datasources/property_remote
 import 'package:neztmate_backend/features/properties/handler/property_handler.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
 import 'package:neztmate_backend/features/properties/repository_impl/property_impl.dart';
-import 'package:neztmate_backend/features/tasks/datasource/firestore/firestore_task_remote_datasource.dart';
-import 'package:neztmate_backend/features/tasks/datasource/task_remote_datasource.dart';
-import 'package:neztmate_backend/features/tasks/handler/task_handler.dart';
-import 'package:neztmate_backend/features/tasks/repository/task_repo.dart';
-import 'package:neztmate_backend/features/tasks/repository_impl/task_repo_impl.dart';
 import 'package:neztmate_backend/features/tenants/datasources/firestore/firestore_tenant_datasource.dart';
 import 'package:neztmate_backend/features/tenants/datasources/tenant_remote_datasource.dart';
 import 'package:neztmate_backend/features/tenants/handler/tenant_handler.dart';
@@ -118,7 +113,7 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
       injector<PropertyRepository>(),
       injector<NotificationRepository>(),
       injector<UserRepository>(),
-      injector<TaskRepository>(),
+      injector<MaintenanceRepository>(),
     ),
   );
 
@@ -211,14 +206,21 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
   );
 
   //maintenance request
-  injector.registerLazySingleton<MaintenanceRequestRemoteDataSource>(
-    () => FirestoreMaintenanceRequestDataSource(injector<Firestore>()),
+  injector.registerLazySingleton<FirestoreMaintenanceDataSource>(
+    () => FirestoreMaintenanceDataSource(injector<Firestore>()),
   );
-  injector.registerLazySingleton<MaintenanceRequestRepository>(
-    () => MaintenanceRequestRepositoryImpl(injector<MaintenanceRequestRemoteDataSource>()),
+  injector.registerLazySingleton<MaintenanceRepository>(
+    () => MaintenanceRepositoryImpl(injector<FirestoreMaintenanceDataSource>()),
   );
-  injector.registerLazySingleton<MaintenanceRequestHandler>(
-    () => MaintenanceRequestHandler(injector<MaintenanceRequestRepository>()),
+  injector.registerLazySingleton<MaintenanceHandler>(
+    () => MaintenanceHandler(
+      maintenanceRepository: injector<MaintenanceRepository>(),
+      userRepository: injector<UserRepository>(),
+      propertyRepository: injector<PropertyRepository>(),
+      notificationRepository: injector<NotificationRepository>(),
+      historyRepository: injector<HistoryRepository>(),
+      paymentRepository: injector<PaymentRepository>(),
+    ),
   );
 
   //invites
@@ -236,13 +238,6 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
       injector<NotificationRepository>(),
     ),
   );
-
-  //Task
-  injector.registerLazySingleton<TaskRemoteDataSource>(() => FirestoreTaskDataSource(injector<Firestore>()));
-
-  injector.registerLazySingleton<TaskRepository>(() => TaskRepositoryImpl(injector<TaskRemoteDataSource>()));
-
-  injector.registerLazySingleton<TaskHandler>(() => TaskHandler(injector<TaskRepository>()));
 
   //community
   injector.registerLazySingleton<CommunityRemoteDataSource>(
@@ -291,6 +286,7 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
       injector<HistoryRepository>(),
       injector<NotificationRepository>(),
       injector<UnitRepository>(),
+      injector<MaintenanceRepository>(),
     ),
   );
 }
