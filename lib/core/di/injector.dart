@@ -114,7 +114,12 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
   );
   injector.registerLazySingleton<PropertyRepository>(() => PropertyRepositoryImpl(injector()));
   injector.registerLazySingleton<PropertyHandler>(
-    () => PropertyHandler(injector<PropertyRepository>(), injector<NotificationRepository>()),
+    () => PropertyHandler(
+      injector<PropertyRepository>(),
+      injector<NotificationRepository>(),
+      injector<UserRepository>(),
+      injector<TaskRepository>(),
+    ),
   );
 
   //units

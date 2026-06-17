@@ -1,5 +1,5 @@
 import 'package:neztmate_backend/features/properties/models/property_model.dart';
-import 'package:neztmate_backend/features/tenants/models/tenant_summary.dart';
+ import 'package:neztmate_backend/features/tenants/models/tenant_summary.dart';
 
 abstract class PropertyRepository {
   Future<PropertyModel> createProperty(PropertyModel property);
@@ -8,6 +8,7 @@ abstract class PropertyRepository {
   Future<List<PropertyModel>> getMyProperties(String userId, String role);
   Future<List<PropertyModel>> getPropertiesByLandowner(String landownerId);
   Future<List<PropertyModel>> getPropertiesByManager(String managerId);
+  Future<List<PropertyModel>> getPropertiesByArtisan(String artisanId);
   Future<void> updateProperty(PropertyModel property);
   Future<void> deleteProperty(String id);
   Future<List<TenantSummary>> getTenantsByProperty(String propertyId);

@@ -38,6 +38,12 @@ class FirestorePropertyDataSource implements PropertyRemoteDataSource {
   }
 
   @override
+  Future<List<PropertyModel>> getPropertiesByArtisan(String artisanId) async {
+    final snap = await _properties.where('artisanIds', WhereFilter.arrayContains, artisanId).get();
+    return snap.docs.map((d) => PropertyModel.fromMap(d.data())).toList();
+  }
+
+  @override
   Future<List<PropertyModel>> getAllProperties() async {
     final snap = await _properties.orderBy('createdAt', descending: true).get();
     return snap.docs.map((d) => PropertyModel.fromMap(d.data())).toList();

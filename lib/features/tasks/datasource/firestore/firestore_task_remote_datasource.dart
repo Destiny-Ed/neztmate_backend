@@ -59,4 +59,25 @@ class FirestoreTaskDataSource implements TaskRemoteDataSource {
       'completedTime': DateTime.now().toIso8601String(),
     });
   }
+
+  @override
+  Future<List<TaskModel>> getActiveTasksByArtisanAndProperty({
+    required String artisanId,
+    required String propertyId,
+  }) async {
+    try {
+      final snap = await firestore
+          .collection('tasks')
+          .where('artisanId', WhereFilter.equal, artisanId)
+          .where('propertyId', WhereFilter.equal, propertyId)
+          .where('status', WhereFilter.isIn, ['Pending', 'Assigned', 'InProgress'])
+          .orderBy('createdAt', descending: true)
+          .get();
+
+      return snap.docs.map((doc) => TaskModel.fromMap(doc.data() as Map<String, dynamic>, doc.id)).toList();
+    } catch (e) {
+      print('Error fetching active tasks for artisan on property: $e');
+      return [];
+    }
+  }
 }

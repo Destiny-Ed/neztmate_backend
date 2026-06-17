@@ -41,4 +41,12 @@ class TaskRepositoryImpl implements TaskRepository {
   Future<void> completeTask(String id, String summary, double? cost) async {
     await dataSource.completeTask(id, summary, cost);
   }
+
+  @override
+  Future<List<TaskModel>> getActiveTasksByArtisanAndProperty({
+    required String artisanId,
+    required String propertyId,
+  }) async {
+    return await dataSource.getActiveTasksByArtisanAndProperty(artisanId: artisanId, propertyId: propertyId);
+  }
 }

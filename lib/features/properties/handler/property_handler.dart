@@ -1,8 +1,10 @@
 import 'dart:convert';
+import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
 import 'package:neztmate_backend/features/properties/models/property_model.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
+import 'package:neztmate_backend/features/tasks/repository/task_repo.dart';
 import 'package:shelf/shelf.dart';
 import 'package:neztmate_backend/core/error.dart';
 import 'package:shelf_router/shelf_router.dart';
@@ -10,9 +12,16 @@ import 'package:uuid/uuid.dart';
 
 class PropertyHandler {
   final PropertyRepository propertyRepository;
+  final UserRepository userRepository;
+  final TaskRepository taskRepository;
   final NotificationRepository notificationRepository;
 
-  PropertyHandler(this.propertyRepository, this.notificationRepository);
+  PropertyHandler(
+    this.propertyRepository,
+    this.notificationRepository,
+    this.userRepository,
+    this.taskRepository,
+  );
 
   // GET /properties (my properties)
   /// GET /properties - Get all properties belonging to the current user (Landowner/Manager)
@@ -26,7 +35,7 @@ class PropertyHandler {
         return _unauthorized();
       }
 
-      if (!['landowner', 'manager'].contains(role)) {
+      if (!['landowner', 'manager', 'artisan'].contains(role)) {
         return Response(
           403,
           body: jsonEncode({'message': 'Only landowners and managers can view properties'}),
@@ -78,7 +87,7 @@ class PropertyHandler {
     }
   }
 
-  // GET /properties/<id>
+  /// GET /properties/<id> - Get property with enriched details
   Future<Response> getPropertyById(Request request) async {
     try {
       final propertyId = request.params['id'];
@@ -88,8 +97,51 @@ class PropertyHandler {
 
       final property = await propertyRepository.getPropertyById(propertyId);
 
+      // Get tenants
       final currentTenants = await propertyRepository.getCurrentTenantsByProperty(propertyId);
       final pastTenants = await propertyRepository.getPastTenantsByProperty(propertyId);
+
+      // Get Landowner details
+      final landowner = await userRepository.getUserById(property.landownerId);
+
+      // Get Manager details (if assigned)
+      Map<String, dynamic>? manager;
+      if (property.managerId != null) {
+        final managerUser = await userRepository.getUserById(property.managerId!);
+        manager = {
+          'id': managerUser.id,
+          'fullName': managerUser.fullName,
+          'email': managerUser.email,
+          'phone': managerUser.phone,
+          'profilePhotoUrl': managerUser.profilePhotoUrl,
+          'role': managerUser.role,
+        };
+      }
+
+      // Get Artisans + Their Active Tasks
+      List<Map<String, dynamic>> artisansWithTasks = [];
+      if (property.artisanIds != null && property.artisanIds!.isNotEmpty) {
+        for (var artisanId in property.artisanIds!) {
+          final artisanUser = await userRepository.getUserById(artisanId);
+
+          // Get active tasks for this artisan on this property
+          final activeTasks = await taskRepository.getActiveTasksByArtisanAndProperty(
+            artisanId: artisanId,
+            propertyId: propertyId,
+          );
+
+          artisansWithTasks.add({
+            'id': artisanUser.id,
+            'fullName': artisanUser.fullName,
+            'email': artisanUser.email,
+            'phone': artisanUser.phone,
+            'profilePhotoUrl': artisanUser.profilePhotoUrl,
+            'role': artisanUser.role,
+            'activeTasksCount': activeTasks.length,
+            // 'activeTasks': activeTasks.map((t) => t.toMap()).toList(),
+          });
+        }
+      }
 
       final response = {
         ...property.toMap(),
@@ -97,12 +149,23 @@ class PropertyHandler {
         'pastTenants': pastTenants.map((t) => t.toMap()).toList(),
         'totalCurrentTenants': currentTenants.length,
         'totalPastTenants': pastTenants.length,
+        'landowner': {
+          'id': landowner.id,
+          'fullName': landowner.fullName,
+          'email': landowner.email,
+          'phone': landowner.phone,
+          'profilePhotoUrl': landowner.profilePhotoUrl,
+          'role': landowner.role,
+        },
+        'manager': manager,
+        'artisans': artisansWithTasks,
+        'totalArtisans': artisansWithTasks.length,
       };
 
       return Response.ok(jsonEncode({'property': response}), headers: {'Content-Type': 'application/json'});
     } catch (e, stack) {
-      print('Get property error: $e');
-      return Response.internalServerError();
+      print('Get property by id error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to fetch property details'}));
     }
   }
 

@@ -6,6 +6,7 @@ abstract class PropertyRemoteDataSource {
   Future<PropertyModel> getPropertyById(String id);
   Future<List<PropertyModel>> getPropertiesByLandowner(String landownerId);
   Future<List<PropertyModel>> getPropertiesByManager(String managerId);
+  Future<List<PropertyModel>> getPropertiesByArtisan(String artisanId);
   Future<List<PropertyModel>> getAllProperties(); // for tenants to browse
   Future<void> updateProperty(PropertyModel property);
   Future<void> deleteProperty(String id);

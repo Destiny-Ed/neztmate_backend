@@ -8,4 +8,9 @@ abstract class TaskRepository {
   Future<List<TaskModel>> getTasksByManager(String managerId);
   Future<void> updateTask(TaskModel task);
   Future<void> completeTask(String id, String summary, double? cost);
+
+  Future<List<TaskModel>> getActiveTasksByArtisanAndProperty({
+    required String artisanId,
+    required String propertyId,
+  });
 }

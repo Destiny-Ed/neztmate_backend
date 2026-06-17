@@ -159,11 +159,12 @@ class InviteHandler {
   Future<Response> getInviteRequests(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
-      final email = request.context['email'] as String?; // Should be populated in auth middleware
 
       if (userId == null) return unauthorized();
 
-      final invites = await repository.getInvitesByInviteeEmail(email ?? '');
+      final user = await userRepository.getUserById(userId);
+
+      final invites = await repository.getInvitesByInviteeEmail(user.email);
 
       final enriched = await _enrichInvites(invites);
 

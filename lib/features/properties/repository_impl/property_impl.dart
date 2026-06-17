@@ -1,6 +1,7 @@
 import 'package:neztmate_backend/features/properties/datasources/property_remote_datasource.dart';
 import 'package:neztmate_backend/features/properties/models/property_model.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
+import 'package:neztmate_backend/features/tasks/models/task_model.dart';
 import 'package:neztmate_backend/features/tenants/models/tenant_summary.dart';
 
 class PropertyRepositoryImpl implements PropertyRepository {
@@ -20,6 +21,8 @@ class PropertyRepositoryImpl implements PropertyRepository {
       return dataSource.getPropertiesByLandowner(userId);
     } else if (role == 'manager') {
       return dataSource.getPropertiesByManager(userId);
+    } else if (role == 'artisan') {
+      return dataSource.getPropertiesByArtisan(userId);
     }
     return [];
   }
@@ -66,4 +69,8 @@ class PropertyRepositoryImpl implements PropertyRepository {
     required String userId,
     required String removedBy,
   }) => dataSource.removeUserFromProperty(propertyId: propertyId, userId: userId, removedBy: removedBy);
+
+  @override
+  Future<List<PropertyModel>> getPropertiesByArtisan(String artisanId) =>
+      dataSource.getPropertiesByManager(artisanId);
 }
