@@ -129,6 +129,29 @@ class MaintenanceHandler {
     }
   }
 
+  /// GET /maintenance/<id>/request - Get requests by Id
+  Future<Response> getRequestById(Request request) async {
+    try {
+      final tenantId = request.context['userId'] as String?;
+      if (tenantId == null) return unauthorized();
+
+      final requestId = request.params['id'];
+
+      if (requestId == null) {
+        return Response(403, body: jsonEncode({'message': 'Request id is required'}));
+      }
+
+      final requests = await maintenanceRepository.getRequestById(requestId);
+
+      return Response.ok(
+        jsonEncode({'requests': requests.toMap(), "message": "Request fetched successfully"}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e) {
+      return Response.internalServerError();
+    }
+  }
+
   // TASKS
 
   /// POST /maintenance/<requestId>/tasks - Assign task to artisan
@@ -210,6 +233,22 @@ class MaintenanceHandler {
     }
   }
 
+  /// PATCH /tasks/<id>/decline - Artisan declines task
+  Future<Response> declineTask(Request request) async {
+    try {
+      final artisanId = request.context['userId'] as String?;
+      final taskId = request.params['id'];
+
+      if (artisanId == null || taskId == null) return badRequest('Missing task ID');
+
+      await maintenanceRepository.declineTask(taskId, artisanId);
+
+      return Response.ok(jsonEncode({'message': 'Task declined successfully'}));
+    } catch (e) {
+      return Response.internalServerError();
+    }
+  }
+
   /// PATCH /tasks/<id>/complete - Artisan completes task
   Future<Response> completeTask(Request request) async {
     try {
@@ -278,6 +317,12 @@ class MaintenanceHandler {
       final maintenanceRequest = await maintenanceRepository.getRequestById(task.maintenanceRequestId);
 
       if (paymentMethod == 'wallet') {
+        //check available balance
+        final balance = await paymentRepository.getPropertyAvailableBalance(task.propertyId);
+
+        if (balance < amount) {
+          return badRequest('Insufficient wallet amount');
+        }
         // Deduct from property balance
         await paymentRepository.deductFromPropertyBalance(
           propertyId: maintenanceRequest.propertyId,

@@ -93,6 +93,11 @@ class FirestoreMaintenanceDataSource implements MaintenanceRemoteDataSource {
   }
 
   @override
+  Future<void> declineTask(String taskId, String artisanId) async {
+    await _tasks.doc(taskId).update({'status': 'Declined', 'updatedAt': DateTime.now().toIso8601String()});
+  }
+
+  @override
   Future<void> updateTask(MaintenanceTaskModel task) async {
     await _tasks.doc(task.id).update(task.toMap());
   }

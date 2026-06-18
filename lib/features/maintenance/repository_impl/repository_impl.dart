@@ -44,6 +44,9 @@ class MaintenanceRepositoryImpl implements MaintenanceRepository {
   @override
   Future<void> acceptTask(String taskId, String artisanId) => dataSource.acceptTask(taskId, artisanId);
 
+   @override
+  Future<void> declineTask(String taskId, String artisanId) => dataSource.declineTask(taskId, artisanId);
+
   @override
   Future<void> updateTask(MaintenanceTaskModel task) => dataSource.updateTask(task);
 

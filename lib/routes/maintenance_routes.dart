@@ -8,10 +8,12 @@ Router maintenanceRoutes(MaintenanceHandler handler) {
   router.post('/create', handler.createRequest);
   router.get('/all', handler.getAllRequests); // Manager/Landowner - All requests
   router.get('/me', handler.getMyRequests); // Tenant - My requests
+  router.get('/<id>/requests', handler.getRequestById); // Tenant - My requests
 
   // Tasks
   router.post('/<requestId>/tasks/assign', handler.assignTask);
   router.patch('/tasks/<id>/accept', handler.acceptTask);
+  router.patch('/tasks/<id>/decline', handler.declineTask);
   router.patch('/tasks/<id>/complete', handler.completeTask);
 
   // Payment Approval
