@@ -8,7 +8,7 @@ Router maintenanceRoutes(MaintenanceHandler handler) {
   router.post('/create', handler.createRequest);
   router.get('/all', handler.getAllRequests); // Manager/Landowner - All requests
   router.get('/me', handler.getMyRequests); // Tenant - My requests
-  router.get('/<id>/requests', handler.getRequestById); // Tenant - My requests
+  router.get('/<id>/request', handler.getRequestById); // Tenant - My requests
 
   // Tasks
   router.post('/<requestId>/tasks/assign', handler.assignTask);

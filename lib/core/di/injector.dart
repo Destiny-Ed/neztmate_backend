@@ -220,6 +220,7 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
       notificationRepository: injector<NotificationRepository>(),
       historyRepository: injector<HistoryRepository>(),
       paymentRepository: injector<PaymentRepository>(),
+      unitRepository: injector<UnitRepository>(),
     ),
   );
 

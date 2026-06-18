@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:developer';
 import 'package:neztmate_backend/core/services/payment/paystack_service.dart';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
 import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
@@ -10,6 +11,7 @@ import 'package:neztmate_backend/features/notifications/repository/notification_
 import 'package:neztmate_backend/features/payments/models/payments.dart';
 import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
+import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
@@ -17,6 +19,7 @@ class MaintenanceHandler {
   final MaintenanceRepository maintenanceRepository;
   final UserRepository userRepository;
   final PropertyRepository propertyRepository;
+  final UnitRepository unitRepository;
   final NotificationRepository notificationRepository;
   final HistoryRepository historyRepository;
   final PaymentRepository paymentRepository;
@@ -25,6 +28,7 @@ class MaintenanceHandler {
     required this.maintenanceRepository,
     required this.userRepository,
     required this.propertyRepository,
+    required this.unitRepository,
     required this.notificationRepository,
     required this.historyRepository,
     required this.paymentRepository,
@@ -102,8 +106,25 @@ class MaintenanceHandler {
 
       final requests = await maintenanceRepository.getAllRequestsForManagerOrLandowner(userId);
 
+      final enrichedRequest = await Future.wait(
+        requests.map((request) async {
+          final user = await userRepository.getUserById(request.tenantId);
+
+          final property = await propertyRepository.getPropertyById(request.propertyId);
+
+          final unit = await unitRepository.getUnitById(request.unitId);
+
+          return {
+            ...request.toMap(),
+            'propertyName': property.name,
+            'tenantName': user.fullName,
+            "unit": unit.unitNumber,
+          };
+        }),
+      );
+
       return Response.ok(
-        jsonEncode({'requests': requests.map((r) => r.toMap()).toList()}),
+        jsonEncode({'requests': enrichedRequest}),
         headers: {'Content-Type': 'application/json'},
       );
     } catch (e, stack) {
@@ -124,31 +145,101 @@ class MaintenanceHandler {
         jsonEncode({'requests': requests.map((r) => r.toMap()).toList()}),
         headers: {'Content-Type': 'application/json'},
       );
-    } catch (e) {
+    } catch (e, s) {
+      print("errorororo ::: $e $s");
       return Response.internalServerError();
     }
   }
 
-  /// GET /maintenance/<id>/request - Get requests by Id
+  /// GET /maintenance/<id> - Get single maintenance request with full details
   Future<Response> getRequestById(Request request) async {
     try {
-      final tenantId = request.context['userId'] as String?;
-      if (tenantId == null) return unauthorized();
+      final currentUserId = request.context['userId'] as String?;
+      final userRole = request.context['role'] as String?;
+
+      if (currentUserId == null) return unauthorized();
 
       final requestId = request.params['id'];
-
       if (requestId == null) {
-        return Response(403, body: jsonEncode({'message': 'Request id is required'}));
+        return badRequest('Request ID is required');
       }
 
-      final requests = await maintenanceRepository.getRequestById(requestId);
+      final maintRequest = await maintenanceRepository.getRequestById(requestId);
+
+      // Authorization: Tenant who created it OR Manager/Landowner of the property
+      final isTenant = maintRequest.tenantId == currentUserId;
+      final isManagerOrOwner = ['landowner', 'manager'].contains(userRole);
+
+      if (!isTenant && !isManagerOrOwner) {
+        return Response(403, body: jsonEncode({'message': 'You do not have access to this request'}));
+      }
+
+      // Enrich data
+      final tenant = await userRepository.getUserById(maintRequest.tenantId);
+      final property = await propertyRepository.getPropertyById(maintRequest.propertyId);
+      final unit = await unitRepository.getUnitById(maintRequest.unitId);
+
+      // Get all tasks related to this request
+      final tasks = await maintenanceRepository.getTasksByRequest(requestId);
+
+      // Enrich tasks + calculate total payments
+      double totalPayments = 0.0;
+      final enrichedTasks = await Future.wait(
+        tasks.map((task) async {
+          final artisan = await userRepository.getUserById(task.artisanId);
+
+          // Sum payment/quoted amount
+          final taskAmount = task.actualCost ?? task.quotationAmount ?? 0.0;
+          totalPayments += taskAmount;
+          return {
+            ...task.toMap(),
+            'artisan': {
+              'id': artisan.id,
+              'fullName': artisan.fullName,
+              'phone': artisan.phone,
+              'profilePhotoUrl': artisan.profilePhotoUrl,
+              'primarySkill': artisan.primarySkill,
+              'rating': artisan.rating,
+            },
+          };
+        }),
+      );
+
+      final response = {
+        ...maintRequest.toMap(),
+        'tenant': {
+          'id': tenant.id,
+          'fullName': tenant.fullName,
+          'email': tenant.email,
+          'phone': tenant.phone,
+          'profilePhotoUrl': tenant.profilePhotoUrl,
+        },
+        'property': {
+          'id': property.id,
+          'name': property.name,
+          'address': property.address,
+          'type': property.type,
+        },
+        'unit': {
+          'id': unit.id,
+          'unitNumber': unit.unitNumber,
+          'bedrooms': unit.bedrooms,
+          'bathrooms': unit.bathrooms,
+        },
+        'tasks': enrichedTasks,
+        'totalTasks': enrichedTasks.length,
+        'totalPayments': totalPayments,
+      };
 
       return Response.ok(
-        jsonEncode({'requests': requests.toMap(), "message": "Request fetched successfully"}),
+        jsonEncode({'request': response, 'message': 'Maintenance request fetched successfully'}),
         headers: {'Content-Type': 'application/json'},
       );
-    } catch (e) {
-      return Response.internalServerError();
+    } catch (e, stack) {
+      print('Get request by id error: $e\n$stack');
+      return Response.internalServerError(
+        body: jsonEncode({'message': 'Failed to fetch maintenance request'}),
+      );
     }
   }
 
