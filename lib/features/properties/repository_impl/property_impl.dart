@@ -1,4 +1,6 @@
+import 'package:neztmate_backend/features/auth_user/models/user_model.dart';
 import 'package:neztmate_backend/features/properties/datasources/property_remote_datasource.dart';
+import 'package:neztmate_backend/features/properties/models/artisan_with_stats.dart';
 import 'package:neztmate_backend/features/properties/models/property_model.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
 import 'package:neztmate_backend/features/tenants/models/tenant_summary.dart';
@@ -72,4 +74,12 @@ class PropertyRepositoryImpl implements PropertyRepository {
   @override
   Future<List<PropertyModel>> getPropertiesByArtisan(String artisanId) =>
       dataSource.getPropertiesByManager(artisanId);
+
+  @override
+  Future<List<User>> getArtisansForProperty(String propertyId) =>
+      dataSource.getArtisansForProperty(propertyId);
+
+  @override
+  Future<List<ArtisanWithStats>> getArtisansWithStatsForProperty(String propertyId) =>
+      dataSource.getArtisansWithStatsForProperty(propertyId);
 }

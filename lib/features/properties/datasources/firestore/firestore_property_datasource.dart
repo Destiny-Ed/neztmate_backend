@@ -1,13 +1,18 @@
 import 'package:dart_firebase_admin/firestore.dart';
 import 'package:neztmate_backend/core/error.dart';
+import 'package:neztmate_backend/features/auth_user/models/user_model.dart';
+import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
+import 'package:neztmate_backend/features/maintenance/repository/maintenance_repo.dart';
 import 'package:neztmate_backend/features/properties/datasources/property_remote_datasource.dart';
+import 'package:neztmate_backend/features/properties/models/artisan_with_stats.dart';
 import 'package:neztmate_backend/features/properties/models/property_model.dart';
 import 'package:neztmate_backend/features/tenants/models/tenant_summary.dart';
 
 class FirestorePropertyDataSource implements PropertyRemoteDataSource {
   final Firestore firestore;
+  final MaintenanceRepository maintenanceRepository;
 
-  FirestorePropertyDataSource(this.firestore);
+  FirestorePropertyDataSource(this.firestore, this.maintenanceRepository);
 
   CollectionReference get _properties => firestore.collection('properties');
 
@@ -155,5 +160,57 @@ class FirestorePropertyDataSource implements PropertyRemoteDataSource {
         'removedBy': removedBy,
       });
     }
+  }
+
+  @override
+  Future<List<User>> getArtisansForProperty(String propertyId) async {
+    final doc = await _properties.doc(propertyId).get();
+
+    if (!doc.exists) {
+      throw NotFoundException('Property', propertyId);
+    }
+
+    final data = doc.data() as Map<String, dynamic>;
+    final artisanIds = (data['artisanIds'] as List<dynamic>?)?.cast<String>() ?? [];
+
+    if (artisanIds.isEmpty) return [];
+
+    // Fetch full user details for each artisan
+    final artisans = <User>[];
+    for (final id in artisanIds) {
+      final userDoc = await firestore.collection('users').doc(id).get();
+
+      if (!userDoc.exists) continue;
+
+      final user = User.fromMap(userDoc.data() as Map<String, dynamic>);
+
+      if (user.role == 'Artisan') {
+        artisans.add(user);
+      }
+    }
+
+    return artisans;
+  }
+
+  @override
+  Future<List<ArtisanWithStats>> getArtisansWithStatsForProperty(String propertyId) async {
+    final artisans = await getArtisansForProperty(propertyId);
+    final enriched = <ArtisanWithStats>[];
+
+    for (final artisan in artisans) {
+      final activeTasks = await maintenanceRepository.getActiveTasksByArtisanAndProperty(
+        artisanId: artisan.id,
+        propertyId: propertyId,
+      );
+      enriched.add(
+        ArtisanWithStats(
+          artisan: artisan,
+          activeTasksCount: activeTasks.length,
+          completedTasksCount: activeTasks.where((e) => e.status == 'Completed').length,
+        ),
+      );
+    }
+
+    return enriched;
   }
 }

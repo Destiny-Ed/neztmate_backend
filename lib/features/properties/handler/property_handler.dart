@@ -342,5 +342,44 @@ class PropertyHandler {
     }
   }
 
+  /// GET /properties/<id>/artisans
+  Future<Response> getArtisansForProperty(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+      final propertyId = request.params['id'];
+
+      if (userId == null || propertyId == null) {
+        return badRequest('Property ID is required');
+      }
+
+      // Only landowner or manager of the property should access
+      final property = await propertyRepository.getPropertyById(propertyId);
+
+      final isAuthorized =
+          property.landownerId == userId ||
+          (property.managerId == userId) ||
+          ['manager', 'landowner'].contains(role);
+
+      if (!isAuthorized) {
+        return Response(403, body: jsonEncode({'message': 'Access denied'}));
+      }
+
+      final artisansWithStats = await propertyRepository.getArtisansWithStatsForProperty(propertyId);
+
+      return Response.ok(
+        jsonEncode({
+          'artisans': artisansWithStats.map((a) => a.toMap()).toList(),
+          'totalArtisans': artisansWithStats.length,
+          'message': 'Artisans fetched successfully',
+        }),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, stack) {
+      print('Get artisans for property error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to fetch artisans'}));
+    }
+  }
+
   Response _unauthorized() => Response(401, body: jsonEncode({'message': 'Unauthorized'}));
 }

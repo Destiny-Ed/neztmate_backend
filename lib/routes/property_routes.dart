@@ -11,6 +11,8 @@ Router propertyRoutes(PropertyHandler handler) {
   router.delete('/<id>/delete', handler.deleteProperty);
   router.post('/<propertyId>/remove-user', handler.removeUserFromProperty);
 
+  router.get('/<id>/artisans', handler.getArtisansForProperty);
+
   // router.get('/<id>/tenants', handler.getTenantsByProperty);
   // router.get('/<id>/current-tenants', handler.getCurrentTenantsByProperty);
   // router.get('/<id>/past-tenants', handler.getPastTenantsByProperty);

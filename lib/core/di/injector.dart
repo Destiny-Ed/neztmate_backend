@@ -105,7 +105,7 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
 
   //properties
   injector.registerLazySingleton<PropertyRemoteDataSource>(
-    () => FirestorePropertyDataSource(injector<Firestore>()),
+    () => FirestorePropertyDataSource(injector<Firestore>(), injector<MaintenanceRepository>()),
   );
   injector.registerLazySingleton<PropertyRepository>(() => PropertyRepositoryImpl(injector()));
   injector.registerLazySingleton<PropertyHandler>(
