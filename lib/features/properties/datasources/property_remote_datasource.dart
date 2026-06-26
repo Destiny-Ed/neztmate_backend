@@ -26,10 +26,4 @@ abstract class PropertyRemoteDataSource {
     required String userId,
     required String removedBy, // Who performed the removal
   });
-
-  /// Get all artisans assigned to a specific property
-  Future<List<User>> getArtisansForProperty(String propertyId);
-
-  /// Optional: Get artisans with their active tasks count
-  Future<List<ArtisanWithStats>> getArtisansWithStatsForProperty(String propertyId);
 }

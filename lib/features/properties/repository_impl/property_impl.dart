@@ -74,12 +74,4 @@ class PropertyRepositoryImpl implements PropertyRepository {
   @override
   Future<List<PropertyModel>> getPropertiesByArtisan(String artisanId) =>
       dataSource.getPropertiesByManager(artisanId);
-
-  @override
-  Future<List<User>> getArtisansForProperty(String propertyId) =>
-      dataSource.getArtisansForProperty(propertyId);
-
-  @override
-  Future<List<ArtisanWithStats>> getArtisansWithStatsForProperty(String propertyId) =>
-      dataSource.getArtisansWithStatsForProperty(propertyId);
 }

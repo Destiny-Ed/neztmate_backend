@@ -1,10 +1,12 @@
 import 'dart:convert';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
+import 'package:neztmate_backend/features/maintenance/models/maintenance_task.dart';
 import 'package:neztmate_backend/features/maintenance/repository/maintenance_repo.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
 import 'package:neztmate_backend/features/properties/models/property_model.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
+import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
 import 'package:shelf/shelf.dart';
 import 'package:neztmate_backend/core/error.dart';
 import 'package:shelf_router/shelf_router.dart';
@@ -14,6 +16,7 @@ class PropertyHandler {
   final PropertyRepository propertyRepository;
   final UserRepository userRepository;
   final MaintenanceRepository maintenanceRepository;
+  final UnitRepository unitRepository;
   final NotificationRepository notificationRepository;
 
   PropertyHandler(
@@ -21,6 +24,7 @@ class PropertyHandler {
     this.notificationRepository,
     this.userRepository,
     this.maintenanceRepository,
+    this.unitRepository,
   );
 
   // GET /properties (my properties)
@@ -88,23 +92,30 @@ class PropertyHandler {
   }
 
   /// GET /properties/<id> - Get property with enriched details
+  /// GET /properties/<id> - Get property with fully enriched details
   Future<Response> getPropertyById(Request request) async {
     try {
+      final currentUserId = request.context['userId'] as String?;
+      final userRole = request.context['role'] as String?;
       final propertyId = request.params['id'];
+
       if (propertyId == null) {
-        return Response(400, body: jsonEncode({'message': 'Property ID required'}));
+        return badRequest('Property ID is required');
+      }
+
+      if (currentUserId == null) {
+        return unauthorized('unauthorized');
       }
 
       final property = await propertyRepository.getPropertyById(propertyId);
 
-      // Get tenants
+      // Fetch common data
       final currentTenants = await propertyRepository.getCurrentTenantsByProperty(propertyId);
       final pastTenants = await propertyRepository.getPastTenantsByProperty(propertyId);
 
-      // Get Landowner details
       final landowner = await userRepository.getUserById(property.landownerId);
 
-      // Get Manager details (if assigned)
+      // Manager details
       Map<String, dynamic>? manager;
       if (property.managerId != null) {
         final managerUser = await userRepository.getUserById(property.managerId!);
@@ -118,13 +129,14 @@ class PropertyHandler {
         };
       }
 
-      // Get Artisans + Their Active Tasks
+      // Artisans list (visible to Landowner & Manager)
       List<Map<String, dynamic>> artisansWithTasks = [];
-      if (property.artisanIds != null && property.artisanIds!.isNotEmpty) {
+      if (['landowner', 'manager'].contains(userRole) &&
+          property.artisanIds != null &&
+          property.artisanIds!.isNotEmpty) {
         for (var artisanId in property.artisanIds!) {
           final artisanUser = await userRepository.getUserById(artisanId);
 
-          // Get active tasks for this artisan on this property
           final activeTasks = await maintenanceRepository.getActiveTasksByArtisanAndProperty(
             artisanId: artisanId,
             propertyId: propertyId,
@@ -138,17 +150,33 @@ class PropertyHandler {
             'profilePhotoUrl': artisanUser.profilePhotoUrl,
             'role': artisanUser.role,
             'activeTasksCount': activeTasks.length,
-            // 'activeTasks': activeTasks.map((t) => t.toMap()).toList(),
           });
         }
       }
 
+      //  ARTISAN-SPECIFIC ENRICHMENT
+      List<Map<String, dynamic>> myAssignedTasks = [];
+      if (userRole == 'artisan') {
+        final tasks = await maintenanceRepository.getActiveTasksByArtisanAndProperty(
+          artisanId: currentUserId,
+          propertyId: propertyId,
+        );
+
+        myAssignedTasks = tasks.map((task) => task.toMap()).toList();
+        // final enrichedTask = await Future.wait(
+        //   tasks.map((task) async {
+        //     final maintenance = await maintenanceRepository.getRequestById(task.maintenanceRequestId);
+        //     final unit = await unitRepository.getUnitById(maintenance.unitId);
+        //     return {...task.toMap(), 'unit': unit.unitNumber, 'urgency': maintenance.priority};
+        //   }),
+        // );
+
+        // myAssignedTasks = enrichedTask;
+      }
+
+      // Build final response
       final response = {
         ...property.toMap(),
-        'currentTenants': currentTenants.map((t) => t.toMap()).toList(),
-        'pastTenants': pastTenants.map((t) => t.toMap()).toList(),
-        'totalCurrentTenants': currentTenants.length,
-        'totalPastTenants': pastTenants.length,
         'landowner': {
           'id': landowner.id,
           'fullName': landowner.fullName,
@@ -158,8 +186,22 @@ class PropertyHandler {
           'role': landowner.role,
         },
         'manager': manager,
-        'artisans': artisansWithTasks,
-        'totalArtisans': artisansWithTasks.length,
+
+        // Landowner / Manager only data
+        if (['landowner', 'manager'].contains(userRole)) ...{
+          'currentTenants': currentTenants.map((t) => t.toMap()).toList(),
+          'pastTenants': pastTenants.map((t) => t.toMap()).toList(),
+          'totalCurrentTenants': currentTenants.length,
+          'totalPastTenants': pastTenants.length,
+          'artisans': artisansWithTasks,
+          'totalArtisans': artisansWithTasks.length,
+        },
+
+        // Artisan only data
+        if (userRole == 'artisan') ...{
+          'myAssignedTasks': myAssignedTasks,
+          'myActiveTasksCount': myAssignedTasks.length,
+        },
       };
 
       return Response.ok(jsonEncode({'property': response}), headers: {'Content-Type': 'application/json'});
@@ -211,7 +253,7 @@ class PropertyHandler {
       final created = await propertyRepository.createProperty(property);
       return Response.ok(jsonEncode({'message': 'Property created', 'property': created.toMap()}));
     } catch (e, s) {
-      print("Error creating property : $e === $s");
+      print("Error creating property : $e  $s");
       return Response.internalServerError();
     }
   }
@@ -365,12 +407,37 @@ class PropertyHandler {
         return Response(403, body: jsonEncode({'message': 'Access denied'}));
       }
 
-      final artisansWithStats = await propertyRepository.getArtisansWithStatsForProperty(propertyId);
+      // Get Artisans + Their Active Tasks
+      List<Map<String, dynamic>> artisansWithTasks = [];
+      if (property.artisanIds != null && property.artisanIds!.isNotEmpty) {
+        for (var artisanId in property.artisanIds!) {
+          final artisanUser = await userRepository.getUserById(artisanId);
+
+          // Get active tasks for this artisan on this property
+          final activeTasks = await maintenanceRepository.getActiveTasksByArtisanAndProperty(
+            artisanId: artisanId,
+            propertyId: propertyId,
+          );
+
+          artisansWithTasks.add({
+            'id': artisanUser.id,
+            'fullName': artisanUser.fullName,
+            'email': artisanUser.email,
+            'phone': artisanUser.phone,
+            'profilePhotoUrl': artisanUser.profilePhotoUrl,
+            'role': artisanUser.role,
+            'activeTasksCount': activeTasks.length,
+            'primarySkill': artisanUser.primarySkill,
+            'rating': artisanUser.rating,
+            "completedTasksCount": activeTasks.where((e) => e.status == 'Completed').length,
+          });
+        }
+      }
 
       return Response.ok(
         jsonEncode({
-          'artisans': artisansWithStats.map((a) => a.toMap()).toList(),
-          'totalArtisans': artisansWithStats.length,
+          'artisans': artisansWithTasks,
+          'totalArtisans': artisansWithTasks.length,
           'message': 'Artisans fetched successfully',
         }),
         headers: {'Content-Type': 'application/json'},

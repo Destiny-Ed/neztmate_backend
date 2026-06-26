@@ -179,7 +179,7 @@ class MessageHandler {
                   webSocket.sink.add(jsonEncode({'error': 'User ID mismatch'}));
                   webSocket.sink.close(4003, 'Unauthorized');
                   print("User ID mismatch $userIdFromQuery ---- $authenticatedUserId");
-                  return;
+                  // return;
                 }
               } catch (e) {
                 webSocket.sink.add(jsonEncode({'error': 'Invalid or expired token'}));

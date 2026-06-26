@@ -1,22 +1,32 @@
+// features/maintenance/models/maintenance_task_model.dart
+
 class MaintenanceTaskModel {
   final String id;
   final String maintenanceRequestId;
   final String artisanId;
   final String propertyId;
+
   final String title;
   final String? description;
-  final String status;
+  final String category;
+  final String priority; // Low, Medium, High, Emergency
+
+  final String status; // Pending, Accepted, InProgress, Completed, Rejected, Cancelled
+
+  // Progress & Timeline
+  final String? progressNotes;
+  final DateTime? assignedAt;
+  final String? assignedBy;
+  final DateTime? startedAt;
+  final DateTime? completedAt;
+  final DateTime createdAt;
+  final DateTime? updatedAt;
+
+  // Payment Related
   final double? quotationAmount;
   final String? quotationNotes;
   final double? actualCost;
-  final List<String>? photoUrls;
-  final DateTime createdAt;
-  final DateTime? assignedAt;
-  final String? assignedBy;
-  final DateTime? updatedAt;
-  final DateTime? completedAt;
 
-  // Payment Fields
   final String? paymentStatus; // Pending, Approved, Paid, Rejected
   final String? paymentMethod; // Wallet, External, Link
   final String? paymentReference;
@@ -30,17 +40,19 @@ class MaintenanceTaskModel {
     required this.propertyId,
     required this.title,
     this.description,
+    required this.category,
+    required this.priority,
     this.status = 'Pending',
+    this.progressNotes,
+    this.assignedAt,
+    this.assignedBy,
+    this.startedAt,
+    this.completedAt,
+    required this.createdAt,
+    this.updatedAt,
     this.quotationAmount,
     this.quotationNotes,
     this.actualCost,
-    this.photoUrls,
-    required this.createdAt,
-    this.assignedAt,
-    this.assignedBy,
-    this.updatedAt,
-    this.completedAt,
-
     this.paymentStatus,
     this.paymentMethod,
     this.paymentReference,
@@ -48,25 +60,29 @@ class MaintenanceTaskModel {
     this.paymentApprovedBy,
   });
 
-  factory MaintenanceTaskModel.fromMap(Map<String, dynamic> map) {
+  factory MaintenanceTaskModel.fromMap(Map<String, dynamic> map, {String? id}) {
     return MaintenanceTaskModel(
-      id: map['id'],
-      maintenanceRequestId: map['maintenanceRequestId'],
-      artisanId: map['artisanId'],
-      propertyId: map['propertyId'],
-      title: map['title'],
+      id: id ?? map['id'] as String,
+      maintenanceRequestId: map['maintenanceRequestId'] as String,
+      artisanId: map['artisanId'] as String,
+      propertyId: map['propertyId'] as String,
+      title: map['title'] as String,
       description: map['description'] as String?,
-      status: map['status'] ?? 'Pending',
+      category: map['category'] as String,
+      priority: map['priority'] as String,
+      status: map['status'] as String? ?? 'Pending',
+      progressNotes: map['progressNotes'] as String?,
+      assignedAt: map['assignedAt'] != null ? DateTime.parse(map['assignedAt']) : null,
+      assignedBy: map['assignedBy'] as String?,
+      startedAt: map['startedAt'] != null ? DateTime.parse(map['startedAt']) : null,
+      completedAt: map['completedAt'] != null ? DateTime.parse(map['completedAt']) : null,
+      createdAt: DateTime.parse(map['createdAt'] as String),
+      updatedAt: map['updatedAt'] != null ? DateTime.parse(map['updatedAt']) : null,
+
+      // Payment fields
       quotationAmount: (map['quotationAmount'] as num?)?.toDouble(),
       quotationNotes: map['quotationNotes'] as String?,
       actualCost: (map['actualCost'] as num?)?.toDouble(),
-      photoUrls: (map['photoUrls'] as List<dynamic>?)?.cast<String>(),
-      createdAt: DateTime.parse(map['createdAt']),
-      assignedAt: map['assignedAt'] != null ? DateTime.parse(map['assignedAt']) : null,
-      assignedBy: map['assignedBy'] as String?,
-      updatedAt: map['updatedAt'] != null ? DateTime.parse(map['updatedAt']) : null,
-      completedAt: map['completedAt'] != null ? DateTime.parse(map['completedAt']) : null,
-
       paymentStatus: map['paymentStatus'] as String?,
       paymentMethod: map['paymentMethod'] as String?,
       paymentReference: map['paymentReference'] as String?,
@@ -75,72 +91,73 @@ class MaintenanceTaskModel {
     );
   }
 
-  Map<String, dynamic> toMap() => {
-    'id': id,
-    'maintenanceRequestId': maintenanceRequestId,
-    'artisanId': artisanId,
-    'propertyId': propertyId,
-    'title': title,
-    'description': description,
-    'status': status,
-    'quotationAmount': quotationAmount,
-    'quotationNotes': quotationNotes,
-    'actualCost': actualCost,
-    'photoUrls': photoUrls,
-    'createdAt': createdAt.toIso8601String(),
-    'assignedAt': assignedAt?.toIso8601String(),
-    'assignedBy': assignedBy,
-    'updatedAt': updatedAt?.toIso8601String(),
-    'completedAt': completedAt?.toIso8601String(),
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'maintenanceRequestId': maintenanceRequestId,
+      'artisanId': artisanId,
+      'propertyId': propertyId,
+      'title': title,
+      'description': description,
+      'category': category,
+      'priority': priority,
+      'status': status,
+      'progressNotes': progressNotes,
+      'assignedAt': assignedAt?.toIso8601String(),
+      'assignedBy': assignedBy,
+      'startedAt': startedAt?.toIso8601String(),
+      'completedAt': completedAt?.toIso8601String(),
+      'createdAt': createdAt.toIso8601String(),
+      'updatedAt': updatedAt?.toIso8601String(),
 
-    'paymentApprovedAt': paymentApprovedAt?.toIso8601String(),
-    'paymentStatus': paymentStatus,
-    'paymentMethod': paymentMethod,
-    'paymentReference': paymentReference,
-    'paymentApprovedBy': paymentApprovedBy,
-  };
+      // Payment fields
+      'quotationAmount': quotationAmount,
+      'quotationNotes': quotationNotes,
+      'actualCost': actualCost,
+      'paymentStatus': paymentStatus,
+      'paymentMethod': paymentMethod,
+      'paymentReference': paymentReference,
+      'paymentApprovedAt': paymentApprovedAt?.toIso8601String(),
+      'paymentApprovedBy': paymentApprovedBy,
+    };
+  }
 
   MaintenanceTaskModel copyWith({
     String? id,
-    String? maintenanceRequestId,
-    String? artisanId,
-    String? propertyId,
-    String? title,
-    String? description,
     String? status,
+    String? progressNotes,
+    DateTime? startedAt,
+    DateTime? completedAt,
+    DateTime? updatedAt,
     double? quotationAmount,
     String? quotationNotes,
     double? actualCost,
-    List<String>? photoUrls,
-    DateTime? createdAt,
-    DateTime? assignedAt,
-    String? assignedBy,
-    DateTime? updatedAt,
-    DateTime? completedAt,
-    String? paymentStatus, // Pending, Approved, Paid, Rejected
-    String? paymentMethod, // Wallet, External, Link
+    String? paymentStatus,
+    String? paymentMethod,
     String? paymentReference,
     DateTime? paymentApprovedAt,
     String? paymentApprovedBy,
   }) {
     return MaintenanceTaskModel(
       id: id ?? this.id,
-      maintenanceRequestId: maintenanceRequestId ?? this.maintenanceRequestId,
-      artisanId: artisanId ?? this.artisanId,
-      propertyId: propertyId ?? this.propertyId,
-      title: title ?? this.title,
-      description: description ?? this.description,
+      maintenanceRequestId: maintenanceRequestId,
+      artisanId: artisanId,
+      propertyId: propertyId,
+      title: title,
+      description: description,
+      category: category,
+      priority: priority,
       status: status ?? this.status,
+      progressNotes: progressNotes ?? this.progressNotes,
+      assignedAt: assignedAt,
+      assignedBy: assignedBy,
+      startedAt: startedAt ?? this.startedAt,
+      completedAt: completedAt ?? this.completedAt,
+      createdAt: createdAt,
+      updatedAt: updatedAt ?? DateTime.now(),
       quotationAmount: quotationAmount ?? this.quotationAmount,
       quotationNotes: quotationNotes ?? this.quotationNotes,
       actualCost: actualCost ?? this.actualCost,
-      photoUrls: photoUrls ?? this.photoUrls,
-      createdAt: createdAt ?? this.createdAt,
-      assignedAt: assignedAt ?? this.assignedAt,
-      assignedBy: assignedBy ?? this.assignedBy,
-      updatedAt: updatedAt ?? this.updatedAt,
-      completedAt: completedAt ?? this.completedAt,
-
       paymentStatus: paymentStatus ?? this.paymentStatus,
       paymentMethod: paymentMethod ?? this.paymentMethod,
       paymentReference: paymentReference ?? this.paymentReference,

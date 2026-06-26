@@ -94,7 +94,11 @@ class FirestoreMaintenanceDataSource implements MaintenanceRemoteDataSource {
 
   @override
   Future<void> declineTask(String taskId, String artisanId) async {
-    await _tasks.doc(taskId).update({'status': 'Declined', 'updatedAt': DateTime.now().toIso8601String()});
+    await _tasks.doc(taskId).update({
+      'status': 'Declined',
+      'updatedAt': DateTime.now().toIso8601String(),
+      'startedAt': DateTime.now().toIso8601String(),
+    });
   }
 
   @override
@@ -122,12 +126,13 @@ class FirestoreMaintenanceDataSource implements MaintenanceRemoteDataSource {
       final snap = await _tasks
           .where('artisanId', WhereFilter.equal, artisanId)
           .where('propertyId', WhereFilter.equal, propertyId)
+          .where('status', WhereFilter.notEqual, 'Cancelled')
           .orderBy('createdAt', descending: true)
           .get();
 
       return snap.docs.map((d) => MaintenanceTaskModel.fromMap(d.data() as Map<String, dynamic>)).toList();
-    } catch (e) {
-      print('Error fetching active tasks for artisan on property: $e');
+    } catch (e, s) {
+      print('Error fetching active tasks for artisan on property: $e, stack : $s');
       return [];
     }
   }
