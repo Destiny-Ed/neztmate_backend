@@ -22,4 +22,7 @@ abstract class MaintenanceRemoteDataSource {
     required String artisanId,
     required String propertyId,
   });
+
+  Future<void> updateRequestStatus(String requestId, String newStatus);
+  Future<String> calculateRequestStatus(String requestId);
 }

@@ -89,7 +89,11 @@ class FirestoreMaintenanceDataSource implements MaintenanceRemoteDataSource {
 
   @override
   Future<void> acceptTask(String taskId, String artisanId) async {
-    await _tasks.doc(taskId).update({'status': 'Accepted', 'updatedAt': DateTime.now().toIso8601String()});
+    await _tasks.doc(taskId).update({
+      'status': 'Accepted',
+      'startedAt': DateTime.now().toIso8601String(),
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
   }
 
   @override
@@ -135,5 +139,30 @@ class FirestoreMaintenanceDataSource implements MaintenanceRemoteDataSource {
       print('Error fetching active tasks for artisan on property: $e, stack : $s');
       return [];
     }
+  }
+
+  @override
+  Future<String> calculateRequestStatus(String requestId) async {
+    final tasks = await getTasksByRequest(requestId);
+
+    if (tasks.isEmpty) return 'Pending';
+
+    final hasInProgress = tasks.any((t) => t.status == 'InProgress');
+    final hasCompleted = tasks.any((t) => t.status == 'Completed');
+    final allCompleted = tasks.every((t) => t.status == 'Completed');
+    final hasPending = tasks.any((t) => t.status == 'Pending' || t.status == 'Accepted');
+
+    if (allCompleted) return 'Completed';
+    if (hasInProgress) return 'InProgress';
+    if (hasPending) return 'InProgress'; // or 'Pending' based on your preference
+    return 'Pending';
+  }
+
+  @override
+  Future<void> updateRequestStatus(String requestId, String newStatus) async {
+    await firestore.collection('maintenance_requests').doc(requestId).update({
+      'status': newStatus,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
   }
 }

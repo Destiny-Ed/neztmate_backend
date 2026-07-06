@@ -591,7 +591,7 @@ class MaintenanceHandler {
         return Response(400, body: jsonEncode({'message': 'Payment already approved'}));
       }
 
-      final amount = task.quotationAmount ?? 0.0;
+      final amount = task.actualCost ?? 0.0;
       if (amount <= 0) {
         return badRequest('No valid amount to approve');
       }

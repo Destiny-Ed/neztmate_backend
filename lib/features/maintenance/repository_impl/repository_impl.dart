@@ -44,11 +44,18 @@ class MaintenanceRepositoryImpl implements MaintenanceRepository {
   @override
   Future<void> acceptTask(String taskId, String artisanId) => dataSource.acceptTask(taskId, artisanId);
 
-   @override
+  @override
   Future<void> declineTask(String taskId, String artisanId) => dataSource.declineTask(taskId, artisanId);
 
   @override
-  Future<void> updateTask(MaintenanceTaskModel task) => dataSource.updateTask(task);
+  Future<void> updateTask(MaintenanceTaskModel task) async {
+    await dataSource.updateTask(task);
+
+    // Sync parent request status
+    final newRequestStatus = await dataSource.calculateRequestStatus(task.maintenanceRequestId);
+
+    await dataSource.updateRequestStatus(task.maintenanceRequestId, newRequestStatus);
+  }
 
   @override
   Future<void> completeTask(String taskId, String summary, double? actualCost) =>

@@ -24,7 +24,7 @@ class MaintenanceTaskModel {
 
   // Payment Related
   final double? quotationAmount;
-  final String? quotationNotes;
+  final String? summary;
   final double? actualCost;
 
   final String? paymentStatus; // Pending, Approved, Paid, Rejected
@@ -51,7 +51,7 @@ class MaintenanceTaskModel {
     required this.createdAt,
     this.updatedAt,
     this.quotationAmount,
-    this.quotationNotes,
+    this.summary,
     this.actualCost,
     this.paymentStatus,
     this.paymentMethod,
@@ -81,7 +81,7 @@ class MaintenanceTaskModel {
 
       // Payment fields
       quotationAmount: (map['quotationAmount'] as num?)?.toDouble(),
-      quotationNotes: map['quotationNotes'] as String?,
+      summary: map['summary'] as String?,
       actualCost: (map['actualCost'] as num?)?.toDouble(),
       paymentStatus: map['paymentStatus'] as String?,
       paymentMethod: map['paymentMethod'] as String?,
@@ -112,7 +112,7 @@ class MaintenanceTaskModel {
 
       // Payment fields
       'quotationAmount': quotationAmount,
-      'quotationNotes': quotationNotes,
+      'summary': summary,
       'actualCost': actualCost,
       'paymentStatus': paymentStatus,
       'paymentMethod': paymentMethod,
@@ -130,7 +130,7 @@ class MaintenanceTaskModel {
     DateTime? completedAt,
     DateTime? updatedAt,
     double? quotationAmount,
-    String? quotationNotes,
+    String? summary,
     double? actualCost,
     String? paymentStatus,
     String? paymentMethod,
@@ -156,7 +156,7 @@ class MaintenanceTaskModel {
       createdAt: createdAt,
       updatedAt: updatedAt ?? DateTime.now(),
       quotationAmount: quotationAmount ?? this.quotationAmount,
-      quotationNotes: quotationNotes ?? this.quotationNotes,
+      summary: summary ?? this.summary,
       actualCost: actualCost ?? this.actualCost,
       paymentStatus: paymentStatus ?? this.paymentStatus,
       paymentMethod: paymentMethod ?? this.paymentMethod,

@@ -12,16 +12,15 @@ Router maintenanceRoutes(MaintenanceHandler handler) {
 
   // Tasks
   router.post('/<requestId>/tasks/assign', handler.assignTask);
-  router.delete('/tasks/<taskId>/remove', handler.removeAssignedArtisan);
+  router.get('/tasks/my', handler.getMyTasks);
+  router.get('/tasks/<id>', handler.getTaskById);
+
   router.patch('/tasks/<id>/accept', handler.acceptTask);
   router.patch('/tasks/<id>/decline', handler.declineTask);
   router.patch('/tasks/<id>/complete', handler.completeTask);
-  router.get('/tasks/<id>', handler.getTaskById);
-
-  router.get('/tasks/my', handler.getMyTasks);
-
   // Payment Approval
   router.patch('/tasks/<id>/approve-payment', handler.approveTaskPayment);
+  router.delete('/tasks/<taskId>/remove', handler.removeAssignedArtisan);
 
   return router;
 }
