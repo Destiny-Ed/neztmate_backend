@@ -1,8 +1,10 @@
 import 'package:dart_firebase_admin/firestore.dart';
 import 'package:neztmate_backend/core/error.dart';
 import 'package:neztmate_backend/features/payments/datasource/remote_datasource.dart';
+import 'package:neztmate_backend/features/payments/models/payment_disbursement_model.dart';
 import 'package:neztmate_backend/features/payments/models/payments.dart';
 import 'package:neztmate_backend/features/payments/models/payout_account_model.dart';
+import 'package:neztmate_backend/features/payments/models/plaform_fee_record_model.dart';
 import 'package:neztmate_backend/features/payments/models/withdrawal_model.dart';
 
 class FirestorePaymentDataSource implements PaymentRemoteDataSource {
@@ -11,6 +13,59 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
   FirestorePaymentDataSource(this.firestore);
 
   // PAYMENTS
+
+  CollectionReference get _disbursements => firestore.collection('payment_disbursements');
+  CollectionReference get _platformFees => firestore.collection('platform_fees');
+
+  @override
+  Future<void> createDisbursement(PaymentDisbursementModel disbursement) async {
+    final docRef = _disbursements.doc();
+    final newDisbursement = disbursement.copyWith(id: docRef.id);
+    await docRef.set(newDisbursement.toMap());
+  }
+
+  @override
+  Future<List<PaymentDisbursementModel>> getPendingDisbursements() async {
+    final snap = await _disbursements
+        .where('status', WhereFilter.equal, 'Held')
+        .where('scheduledDate', WhereFilter.lessThanOrEqual, DateTime.now().toIso8601String())
+        .get();
+
+    return snap.docs.map((doc) {
+      return PaymentDisbursementModel.fromMap(doc.data() as Map<String, dynamic>);
+    }).toList();
+  }
+
+  @override
+  Future<void> markDisbursementAsCompleted(String disbursementId, String transferReference) async {
+    await _disbursements.doc(disbursementId).update({
+      'status': 'Completed',
+      'disbursedAt': DateTime.now().toIso8601String(),
+      'paystackTransferReference': transferReference,
+    });
+  }
+
+  @override
+  Future<void> markDisbursementAsFailed(String disbursementId, String reason) async {
+    await _disbursements.doc(disbursementId).update({
+      'status': 'Failed',
+      'failureReason': reason,
+      'disbursedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  @override
+  Future<void> createWithdrawalAsFallback(PaymentDisbursementModel disbursement) async {
+    // Fallback: Create a manual withdrawal request
+    await firestore.collection('withdrawals').add({
+      'userId': disbursement.recipientId,
+      'amount': disbursement.netAmount,
+      'reason': 'Auto-payout fallback for payment ${disbursement.paymentId}',
+      'status': 'Pending',
+      'createdAt': DateTime.now().toIso8601String(),
+      'type': 'fallback',
+    });
+  }
 
   @override
   Future<PaymentModel> createPayment(PaymentModel payment) async {
@@ -438,6 +493,62 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
     } catch (e) {
       print('Error calculating property balance: $e');
       return 0.0;
+    }
+  }
+
+  @override
+  Future<PayoutAccountModel?> getPayoutAccountById(String id) async {
+    final snap = await firestore.collection('payout_accounts').doc(id).get();
+    if (!snap.exists) return null;
+    return PayoutAccountModel.fromMap(snap.data() as Map<String, dynamic>);
+  }
+
+  @override
+  Future<void> updatePayoutAccount(PayoutAccountModel account) async {
+    await firestore.collection('payout_accounts').doc(account.id).update(account.toMap());
+  }
+
+  @override
+  Future<void> recordPlatformFee(String paymentId, double amount, String paymentType) async {
+    await _platformFees.add({
+      'paymentId': paymentId,
+      'amount': amount,
+      'paymentType': paymentType,
+      'createdAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  @override
+  Future<List<PlatformFeeRecord>> getPlatformFeeHistory() async {
+    final snap = await _platformFees.orderBy('collectedAt', descending: true).get();
+
+    return snap.docs.map((doc) {
+      return PlatformFeeRecord.fromMap(doc.data() as Map<String, dynamic>, doc.id);
+    }).toList();
+  }
+
+  @override
+  Future<double> getTotalUnwithdrawnPlatformFees() async {
+    final snap = await _platformFees.where('status', WhereFilter.equal, 'Collected').get();
+
+    double total = 0.0;
+    for (var doc in snap.docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      total += (data['amount'] as num).toDouble();
+    }
+    return total;
+  }
+
+  @override
+  Future<void> markPlatformFeesAsWithdrawn(String withdrawalReference) async {
+    final snap = await _platformFees.where('status', WhereFilter.equal, 'Collected').get();
+
+    for (var doc in snap.docs) {
+      await doc.ref.update({
+        'status': 'Withdrawn',
+        'withdrawnAt': DateTime.now().toIso8601String(),
+        'withdrawalReference': withdrawalReference,
+      });
     }
   }
 }

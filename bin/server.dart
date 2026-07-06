@@ -21,6 +21,7 @@ import 'package:neztmate_backend/features/messages/handler/messages_handler.dart
 import 'package:neztmate_backend/features/notifications/handler/handler.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
 import 'package:neztmate_backend/features/payments/handler/payment_handler.dart';
+import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
 import 'package:neztmate_backend/features/properties/handler/property_handler.dart';
 import 'package:neztmate_backend/features/tenants/handler/tenant_handler.dart';
 import 'package:neztmate_backend/features/units/handler/unit_handler.dart';
@@ -64,6 +65,7 @@ void main() async {
   //   leaseRepository: injector<LeaseRepository>(),
   //   notificationRepository: injector<NotificationRepository>(),
   //   historyRepository: injector<HistoryRepository>(),
+  //   paymentRepository: injector<PaymentRepository>(),
   // );
 
   // scheduler.start();

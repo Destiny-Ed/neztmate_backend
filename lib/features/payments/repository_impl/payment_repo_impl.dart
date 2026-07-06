@@ -1,6 +1,8 @@
 import 'package:neztmate_backend/features/payments/datasource/remote_datasource.dart';
+import 'package:neztmate_backend/features/payments/models/payment_disbursement_model.dart';
 import 'package:neztmate_backend/features/payments/models/payments.dart';
 import 'package:neztmate_backend/features/payments/models/payout_account_model.dart';
+import 'package:neztmate_backend/features/payments/models/plaform_fee_record_model.dart';
 import 'package:neztmate_backend/features/payments/models/withdrawal_model.dart';
 import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
 
@@ -119,4 +121,43 @@ class PaymentRepositoryImpl implements PaymentRepository {
   @override
   Future<double> getPropertyAvailableBalance(String propertyId) =>
       dataSource.getPropertyAvailableBalance(propertyId);
+
+  @override
+  Future<void> createDisbursement(PaymentDisbursementModel disbursement) =>
+      dataSource.createDisbursement(disbursement);
+
+  @override
+  Future<void> createWithdrawalAsFallback(PaymentDisbursementModel disbursement) =>
+      dataSource.createWithdrawalAsFallback(disbursement);
+
+  @override
+  Future<List<PaymentDisbursementModel>> getPendingDisbursements() => dataSource.getPendingDisbursements();
+
+  @override
+  Future<void> markDisbursementAsCompleted(String disbursementId, String transferReference) =>
+      dataSource.markDisbursementAsCompleted(disbursementId, transferReference);
+
+  @override
+  Future<void> markDisbursementAsFailed(String disbursementId, String reason) =>
+      dataSource.markDisbursementAsFailed(disbursementId, reason);
+
+  @override
+  Future<void> recordPlatformFee(String paymentId, double amount, String paymentType) =>
+      dataSource.recordPlatformFee(paymentId, amount, paymentType);
+
+  @override
+  Future<PayoutAccountModel?> getPayoutAccountById(String id) => dataSource.getPayoutAccountById(id);
+
+  @override
+  Future<void> updatePayoutAccount(PayoutAccountModel account) => dataSource.updatePayoutAccount(account);
+
+  @override
+  Future<List<PlatformFeeRecord>> getPlatformFeeHistory() => dataSource.getPlatformFeeHistory();
+
+  @override
+  Future<double> getTotalUnwithdrawnPlatformFees() => dataSource.getTotalUnwithdrawnPlatformFees();
+
+  @override
+  Future<void> markPlatformFeesAsWithdrawn(String withdrawalReference) =>
+      dataSource.markPlatformFeesAsWithdrawn(withdrawalReference);
 }

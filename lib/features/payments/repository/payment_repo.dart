@@ -1,5 +1,7 @@
+import 'package:neztmate_backend/features/payments/models/payment_disbursement_model.dart';
 import 'package:neztmate_backend/features/payments/models/payments.dart';
 import 'package:neztmate_backend/features/payments/models/payout_account_model.dart';
+import 'package:neztmate_backend/features/payments/models/plaform_fee_record_model.dart';
 import 'package:neztmate_backend/features/payments/models/withdrawal_model.dart';
 
 abstract class PaymentRepository {
@@ -39,6 +41,9 @@ abstract class PaymentRepository {
   Future<List<PayoutAccountModel>> getPayoutAccounts(String userId, {String? propertyId});
   Future<PayoutAccountModel?> getDefaultPayoutAccount(String userId, {String? propertyId});
 
+  Future<PayoutAccountModel?> getPayoutAccountById(String id);
+  Future<void> updatePayoutAccount(PayoutAccountModel account);
+
   /// Deduct amount from property's available balance (for wallet payments)
   Future<void> deductFromPropertyBalance({
     required String propertyId,
@@ -49,4 +54,19 @@ abstract class PaymentRepository {
 
   /// Get current available balance for a property
   Future<double> getPropertyAvailableBalance(String propertyId);
+
+  //
+
+  Future<void> createDisbursement(PaymentDisbursementModel disbursement);
+  Future<List<PaymentDisbursementModel>> getPendingDisbursements();
+  Future<void> markDisbursementAsCompleted(String disbursementId, String transferReference);
+  Future<void> markDisbursementAsFailed(String disbursementId, String reason);
+
+  Future<void> recordPlatformFee(String paymentId, double amount, String paymentType);
+
+  Future<void> createWithdrawalAsFallback(PaymentDisbursementModel disbursement);
+
+  Future<double> getTotalUnwithdrawnPlatformFees();
+  Future<void> markPlatformFeesAsWithdrawn(String withdrawalReference);
+  Future<List<PlatformFeeRecord>> getPlatformFeeHistory();
 }

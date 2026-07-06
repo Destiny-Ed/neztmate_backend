@@ -4,6 +4,7 @@ import 'package:neztmate_backend/features/maintenance/models/maintenance_task.da
 import 'package:neztmate_backend/features/maintenance/repository/maintenance_repo.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
+import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
 import 'package:neztmate_backend/features/properties/models/property_model.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
 import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
@@ -17,6 +18,7 @@ class PropertyHandler {
   final UserRepository userRepository;
   final MaintenanceRepository maintenanceRepository;
   final UnitRepository unitRepository;
+  final PaymentRepository paymentRepository;
   final NotificationRepository notificationRepository;
 
   PropertyHandler(
@@ -25,6 +27,7 @@ class PropertyHandler {
     this.userRepository,
     this.maintenanceRepository,
     this.unitRepository,
+    this.paymentRepository,
   );
 
   // GET /properties (my properties)
@@ -219,6 +222,11 @@ class PropertyHandler {
         return Response(403, body: jsonEncode({'message': 'Only landowners can create properties'}));
       }
 
+      final landownerId = request.context['userId'] as String?;
+      if (landownerId == null) {
+        return Response(400, body: jsonEncode({'message': 'Landowner ID is required'}));
+      }
+
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
 
       if (body['name'] == null) {
@@ -249,6 +257,16 @@ class PropertyHandler {
       body['updatedAt'] = DateTime.now().toIso8601String();
       body['id'] = Uuid().v4();
       final property = PropertyModel.fromMap(body);
+
+      //Check if payout account is linked for the landowner
+
+      final payoutAccounts = await paymentRepository.getDefaultPayoutAccount(landownerId);
+      if (payoutAccounts == null) {
+        return Response(
+          400,
+          body: jsonEncode({'message': 'Please link a payout account before creating a property'}),
+        );
+      }
 
       final created = await propertyRepository.createProperty(property);
       return Response.ok(jsonEncode({'message': 'Property created', 'property': created.toMap()}));

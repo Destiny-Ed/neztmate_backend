@@ -1,34 +1,46 @@
-// lib/core/scheduler/scheduler_service.dart
 import 'dart:async';
+import 'package:neztmate_backend/core/services/payment/paystack_service.dart';
 import 'package:neztmate_backend/features/invites/repository/invite_repo.dart';
 import 'package:neztmate_backend/features/leases/models/leases_model.dart';
 import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
 import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
+import 'package:neztmate_backend/features/payments/models/payment_disbursement_model.dart';
+import 'package:neztmate_backend/features/payments/models/withdrawal_model.dart';
+import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
 
 class SchedulerService {
   // static Timer? _inviteCleanupTimer;
   static Timer? _leaseReminderTimer;
   static Timer? _leaseStatusTimer;
+  Timer? _disbursementTimer;
 
   final InviteRepository inviteRepository;
   final LeaseRepository leaseRepository;
   final NotificationRepository notificationRepository;
   final HistoryRepository historyRepository;
+  final PaymentRepository paymentRepository;
 
   SchedulerService({
     required this.inviteRepository,
     required this.leaseRepository,
     required this.notificationRepository,
     required this.historyRepository,
+    required this.paymentRepository,
   });
+
+  final PaystackService paystackService = PaystackService();
 
   void start() {
     // Clean expired invites every 6 hours
     // _inviteCleanupTimer = Timer.periodic(const Duration(hours: 6), (_) async {
     //   await _cleanupExpiredInvites();
     // });
+
+    _disbursementTimer = Timer.periodic(const Duration(hours: 6), (_) async {
+      await _processDueDisbursements();
+    });
 
     _leaseStatusTimer = Timer.periodic(const Duration(hours: 6), (_) async {
       await _updateExpiredLeases();
@@ -47,6 +59,8 @@ class SchedulerService {
     // _inviteCleanupTimer?.cancel();
     _leaseStatusTimer?.cancel();
     _leaseReminderTimer?.cancel();
+    _disbursementTimer?.cancel();
+    print('🛑 SchedulerService stopped');
   }
 
   Future<void> _updateExpiredLeases() async {
@@ -191,5 +205,54 @@ class SchedulerService {
         id: '',
       ),
     );
+  }
+
+  Future<void> _processDueDisbursements() async {
+    try {
+      final dueDisbursements = await paymentRepository.getPendingDisbursements();
+
+      print('📊 Found ${dueDisbursements.length} disbursements ready for processing');
+
+      for (var disbursement in dueDisbursements) {
+        await _processSingleDisbursement(disbursement);
+      }
+    } catch (e, stack) {
+      print('❌ Scheduler error: $e\n$stack');
+    }
+  }
+
+  Future<void> _processSingleDisbursement(PaymentDisbursementModel disbursement) async {
+    try {
+      final account = await paymentRepository.getDefaultPayoutAccount(disbursement.recipientId);
+
+      if (account?.paystackSubaccountId == null) {
+        // Fallback to manual withdrawal
+        await paymentRepository.createWithdrawalAsFallback(disbursement);
+        await paymentRepository.markDisbursementAsFailed(
+          disbursement.id,
+          'No subaccount found - moved to manual withdrawal',
+        );
+        return;
+      }
+
+      final reference = 'disb_${DateTime.now().millisecondsSinceEpoch}';
+
+      final success = await paystackService.transferToSubaccount(
+        amount: disbursement.netAmount,
+        subaccountId: account!.paystackSubaccountId!,
+        reference: reference,
+        reason: '${disbursement.recipientType} payout for payment ${disbursement.paymentId}',
+      );
+
+      if (success) {
+        await paymentRepository.markDisbursementAsCompleted(disbursement.id, reference);
+        print('✅ Auto-disbursed ₦${disbursement.netAmount} to ${disbursement.recipientType}');
+      } else {
+        await paymentRepository.markDisbursementAsFailed(disbursement.id, 'Transfer failed');
+      }
+    } catch (e) {
+      print('Failed to process disbursement ${disbursement.id}: $e');
+      await paymentRepository.markDisbursementAsFailed(disbursement.id, e.toString());
+    }
   }
 }

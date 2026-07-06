@@ -6,6 +6,7 @@ Router applicationRoutes(ApplicationHandler handler) {
 
   router.post('/create', handler.submitApplication);
   router.get('/me', handler.getMyApplications);
+  router.post('/<id>/pay-fee', handler.payApplicationFee);
   router.get('/unit/<unitId>', handler.getApplicationsByUnit);
   router.get('/<id>', handler.getApplicationById);
   router.patch('/<id>/approve', handler.approveApplication);

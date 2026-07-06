@@ -4,6 +4,7 @@ class PayoutAccountModel {
   final String? propertyId; // Optional: Link to specific property
   final String accountName;
   final String accountNumber;
+  final String? paystackSubaccountId; // Paystack subaccount
   final String bankName;
   final String bankCode;
   final bool isDefault;
@@ -16,6 +17,7 @@ class PayoutAccountModel {
     this.propertyId,
     required this.accountName,
     required this.accountNumber,
+    this.paystackSubaccountId,
     required this.bankName,
     required this.bankCode,
     this.isDefault = false,
@@ -31,6 +33,7 @@ class PayoutAccountModel {
       accountName: map['accountName'] as String,
       accountNumber: map['accountNumber'] as String,
       bankName: map['bankName'] as String,
+      paystackSubaccountId: map['paystackSubaccountId'],
       bankCode: map['bankCode'] as String,
       isDefault: map['isDefault'] as bool? ?? false,
       createdAt: DateTime.parse(map['createdAt'] as String),
@@ -39,12 +42,13 @@ class PayoutAccountModel {
   }
 
   Map<String, dynamic> toMap() => {
-    'id' : id,
+    'id': id,
     'userId': userId,
     'propertyId': propertyId,
     'accountName': accountName,
     'accountNumber': accountNumber,
     'bankName': bankName,
+    'paystackSubaccountId': paystackSubaccountId,
     'bankCode': bankCode,
     'isDefault': isDefault,
     'createdAt': createdAt.toIso8601String(),
@@ -59,6 +63,7 @@ class PayoutAccountModel {
     String? accountNumber,
     String? bankName,
     String? bankCode,
+    String? paystackSubaccountId,
     bool? isDefault,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -71,6 +76,7 @@ class PayoutAccountModel {
       accountNumber: accountNumber ?? this.accountNumber,
       bankName: bankName ?? this.bankName,
       bankCode: bankCode ?? this.bankCode,
+      paystackSubaccountId: paystackSubaccountId ?? this.paystackSubaccountId,
       isDefault: isDefault ?? this.isDefault,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,

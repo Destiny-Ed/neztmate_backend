@@ -13,7 +13,7 @@ Router paymentRoutes(PaymentHandler handler) {
 
   router.get('/my_payments', handler.getMyPayments);
 
-  router.patch('/<id>/mark-paid', handler.markAsPaid);
+  // router.patch('/<id>/mark-paid', handler.markAsPaid);
 
   // PAYMENTS BY ENTITY
 
@@ -33,13 +33,16 @@ Router paymentRoutes(PaymentHandler handler) {
 
   // WITHDRAWALS
 
-  router.post('/withdrawals', handler.requestWithdrawal);
+  // router.post('/withdrawals', handler.requestWithdrawal);
 
   router.get('/withdrawals/me', handler.getMyWithdrawals);
 
   router.patch('/withdrawals/<id>/approve', handler.approveWithdrawal);
 
   router.patch('/withdrawals/<id>/reject', handler.rejectWithdrawal);
+
+  // Admin Routes
+  router.post('/admin/withdraw-platform-fees', handler.withdrawPlatformFees);
 
   router.post('/payout-accounts/save', handler.savePayoutAccount);
 

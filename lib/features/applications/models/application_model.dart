@@ -8,6 +8,10 @@ class ApplicationModel {
   final String status; // 'Pending', 'Approved', 'Rejected', 'Withdrawn'
   final String? reason;
 
+  final double applicationFee; // NEW: Should be 2000
+  final String? feePaymentReference; // NEW
+  final String? feePaymentStatus; // NEW: Pending, Paid, Failed
+
   final String? message; // Optional tenant note
   final double? proposedRent; // If tenant negotiates
   final DateTime? desiredStartDate;
@@ -28,6 +32,9 @@ class ApplicationModel {
     this.status = 'Pending',
     this.message,
     this.reason,
+    this.applicationFee = 2000.0, // Default application fee
+    this.feePaymentReference,
+    this.feePaymentStatus,
     this.proposedRent,
     this.desiredStartDate,
     this.documents,
@@ -46,6 +53,9 @@ class ApplicationModel {
       status: map['status'] as String? ?? 'Pending',
       message: map['message'] as String?,
       reason: map['reason'] as String?,
+      applicationFee: (map['applicationFee'] as num?)?.toDouble() ?? 2000.0,
+      feePaymentReference: map['feePaymentReference'] as String?,
+      feePaymentStatus: map['feePaymentStatus'] as String?,
       proposedRent: (map['proposedRent'] as num?)?.toDouble(),
       desiredStartDate: map['desiredStartDate'] != null
           ? DateTime.parse(map['desiredStartDate'] as String)
@@ -71,6 +81,9 @@ class ApplicationModel {
     'status': status,
     'message': message,
     'reason': reason,
+    'applicationFee': applicationFee,
+    'feePaymentReference': feePaymentReference,
+    'feePaymentStatus': feePaymentStatus,
     'proposedRent': proposedRent,
     'desiredStartDate': desiredStartDate?.toIso8601String(),
     'documents': documents,
@@ -88,6 +101,9 @@ class ApplicationModel {
     DateTime? appliedAt,
     String? status,
     String? message,
+    double? applicationFee,
+    String? feePaymentReference,
+    String? feePaymentStatus,
     String? reason,
     double? proposedRent,
     DateTime? desiredStartDate,
@@ -103,6 +119,9 @@ class ApplicationModel {
       tenantId: tenantId ?? this.tenantId,
       propertyId: propertyId ?? this.propertyId,
       appliedAt: appliedAt ?? this.appliedAt,
+      applicationFee: applicationFee ?? this.applicationFee,
+      feePaymentReference: feePaymentReference ?? this.feePaymentReference,
+      feePaymentStatus: feePaymentStatus ?? this.feePaymentStatus,
       status: status ?? this.status,
       message: message ?? this.message,
       reason: reason ?? this.reason,

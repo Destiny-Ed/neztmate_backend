@@ -397,6 +397,14 @@ class MaintenanceHandler {
 
       if (artisanId == null || taskId == null) return badRequest('Missing task ID');
 
+      final payoutAccounts = await paymentRepository.getDefaultPayoutAccount(artisanId);
+      if (payoutAccounts == null) {
+        return Response(
+          400,
+          body: jsonEncode({'message': 'Please link a payout account before accepting tasks'}),
+        );
+      }
+
       await maintenanceRepository.acceptTask(taskId, artisanId);
 
       return Response.ok(jsonEncode({'message': 'Task accepted successfully'}));

@@ -86,4 +86,129 @@ class PaystackService {
       return false;
     }
   }
+
+  /// Create Subaccount for a user (called when they add payout account)
+  Future<String?> createSubaccount({
+    required String businessName,
+    required String bankCode,
+    required String accountNumber,
+  }) async {
+    try {
+      final secretKey = Platform.environment['PAYSTACK_SECRET_KEY'] ?? env['PAYSTACK_SECRET_KEY'];
+
+      final response = await http.post(
+        Uri.parse('https://api.paystack.co/subaccount'),
+        headers: {'Authorization': 'Bearer $secretKey', 'Content-Type': 'application/json'},
+        body: jsonEncode({
+          "business_name": businessName,
+          "bank_code": bankCode,
+          "account_number": accountNumber,
+          "percentage_charge": 0, // You can charge extra if needed
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 201 && data['status'] == true) {
+        return data['data']['id'] as String; // subaccount id
+      }
+      print('Failed to create subaccount: ${data['message']}');
+      return null;
+    } catch (e) {
+      print('Error creating subaccount: $e');
+      return null;
+    }
+  }
+
+  /// Transfer to Subaccount (Auto Payout)
+  Future<bool> transferToSubaccount({
+    required double amount, // in Naira
+    required String subaccountId,
+    required String reference,
+    required String reason,
+  }) async {
+    try {
+      final secretKey = Platform.environment['PAYSTACK_SECRET_KEY'] ?? env['PAYSTACK_SECRET_KEY'];
+
+      final response = await http.post(
+        Uri.parse('https://api.paystack.co/transfer'),
+        headers: {'Authorization': 'Bearer $secretKey', 'Content-Type': 'application/json'},
+        body: jsonEncode({
+          "source": "balance",
+          "amount": (amount * 100).toInt(), // to Kobo
+          "recipient": subaccountId,
+          "reason": reason,
+          "reference": reference,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+      if (response.statusCode == 200 && data['status'] == true) {
+        print('✅ Transfer successful: $reference');
+        return true;
+      } else {
+        print('❌ Transfer failed: ${data['message']}');
+        return false;
+      }
+    } catch (e) {
+      print('Error transferring to subaccount: $e');
+      return false;
+    }
+  }
+
+  Future<bool> deleteSubaccount(String subaccountId) async {
+    try {
+      final secretKey = Platform.environment['PAYSTACK_SECRET_KEY'] ?? env['PAYSTACK_SECRET_KEY'];
+
+      final response = await http.delete(
+        Uri.parse('https://api.paystack.co/subaccount/$subaccountId'),
+        headers: {'Authorization': 'Bearer $secretKey', 'Content-Type': 'application/json'},
+      );
+
+      final data = jsonDecode(response.body);
+      return response.statusCode == 200 && data['status'] == true;
+    } catch (e) {
+      print('Error deleting subaccount: $e');
+      return false;
+    }
+  }
+
+  /// Transfer money directly to a bank account (for platform fees)
+  Future<bool> transferToBank({
+    required double amount, // in Naira
+    required String accountNumber,
+    required String bankCode,
+    required String reference,
+    required String reason,
+  }) async {
+    try {
+      final secretKey = Platform.environment['PAYSTACK_SECRET_KEY'] ?? env['PAYSTACK_SECRET_KEY'];
+
+      final response = await http.post(
+        Uri.parse('https://api.paystack.co/transfer'),
+        headers: {'Authorization': 'Bearer $secretKey', 'Content-Type': 'application/json'},
+        body: jsonEncode({
+          "source": "balance",
+          "amount": (amount * 100).toInt(), // Convert to Kobo
+          "recipient": null, // Will be resolved by account details
+          "account_number": accountNumber,
+          "bank_code": bankCode,
+          "reference": reference,
+          "reason": reason,
+        }),
+      );
+
+      final data = jsonDecode(response.body);
+
+      if (response.statusCode == 200 && data['status'] == true) {
+        print('✅ Bank transfer successful: $reference');
+        return true;
+      } else {
+        print('❌ Bank transfer failed: ${data['message']}');
+        return false;
+      }
+    } catch (e) {
+      print('Error transferring to bank: $e');
+      return false;
+    }
+  }
 }

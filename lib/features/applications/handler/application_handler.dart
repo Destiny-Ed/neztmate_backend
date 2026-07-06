@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:neztmate_backend/core/services/payment/paystack_service.dart';
 import 'package:neztmate_backend/features/applications/models/application_model.dart';
 import 'package:neztmate_backend/features/applications/repository/application_repo.dart';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
@@ -30,7 +31,9 @@ class ApplicationHandler {
     required this.notificationRepository,
   });
 
-  /// POST /applications - Tenant submits lease application
+  final paystackService = PaystackService();
+
+  /// POST /applications - Tenant submits lease application (with #2000 application fee)
   Future<Response> submitApplication(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
@@ -98,7 +101,10 @@ class ApplicationHandler {
         propertyId: propertyId,
         appliedAt: DateTime.now(),
         screeningData: ScreeningData.fromMap(body['screeningData'] as Map<String, dynamic>),
-        status: 'Pending',
+        // status: 'Pending',
+        status: 'FeePending',
+        applicationFee: 2000.0,
+        feePaymentStatus: 'Pending',
         message: body['message'] as String?,
         proposedRent: (body['proposedRent'] as num?)?.toDouble(),
         desiredStartDate: body['desiredStartDate'] != null
@@ -110,8 +116,29 @@ class ApplicationHandler {
 
       final created = await applicationRepository.createApplication(application);
 
+      // Initialize ₦2000 payment
+      final paymentRef = 'appfee_${DateTime.now().millisecondsSinceEpoch}';
+
+      final initPayment = await paystackService.initializeTransaction(
+        email: body['email'] ?? 'tenant@example.com',
+        amount: 2000.0,
+        reference: paymentRef,
+        metadata: {
+          'type': 'application_fee',
+          'applicationId': created.id,
+          'tenantId': userId,
+          'unitId': unitId,
+        },
+      );
+
       return Response.ok(
-        jsonEncode({'message': 'Application submitted successfully', 'application': created.toMap()}),
+        jsonEncode({
+          'message': 'Application submitted successfully',
+          'application': created.toMap(),
+          'paymentReference': paymentRef,
+          'paymentUrl': initPayment['data']['authorization_url'],
+          'amount': 2000,
+        }),
         headers: {'Content-Type': 'application/json'},
       );
     } on NotFoundException catch (e) {
@@ -497,6 +524,73 @@ class ApplicationHandler {
     } catch (e, stack) {
       print('Delete error: $e\n$stack');
       return Response.internalServerError(body: jsonEncode({'message': 'Failed to delete application'}));
+    }
+  }
+
+  /// POST /applications/<id>/pay-fee - Pay ₦2,000 application fee
+  Future<Response> payApplicationFee(Request request) async {
+    try {
+      final tenantId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+      final applicationId = request.params['id'];
+
+      if (tenantId == null || role != 'tenant') {
+        return Response(403, body: jsonEncode({'message': 'Only tenants can pay application fees'}));
+      }
+
+      if (applicationId == null) {
+        return badRequest('Application ID is required');
+      }
+
+      final application = await applicationRepository.getApplicationById(applicationId);
+
+      if (application.tenantId != tenantId) {
+        return Response(403, body: jsonEncode({'message': 'This application does not belong to you'}));
+      }
+
+      if (application.status != 'FeePending') {
+        return Response(
+          400,
+          body: jsonEncode({'message': 'Application fee has already been paid or is not pending'}),
+        );
+      }
+
+      // Generate unique reference
+      final reference = 'appfee_${DateTime.now().millisecondsSinceEpoch}_${applicationId}';
+
+      // Initialize Paystack payment for ₦2,000
+      final paymentInit = await paystackService.initializeTransaction(
+        email: (await userRepository.getUserById(tenantId)).email,
+        amount: 2000.0,
+        reference: reference,
+        metadata: {
+          'type': 'application_fee',
+          'applicationId': application.id,
+          'tenantId': tenantId,
+          'unitId': application.unitId,
+          'propertyId': application.propertyId,
+        },
+      );
+
+      // Optionally update application with payment reference
+      await applicationRepository.updateApplication(application.copyWith(status: "Pending"));
+
+      return Response.ok(
+        jsonEncode({
+          'message': 'Application fee payment initialized',
+          'applicationId': application.id,
+          'amount': 2000,
+          'reference': reference,
+          'paymentUrl': paymentInit['data']['authorization_url'],
+          'status': 'FeePending',
+        }),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, stack) {
+      print('Pay application fee error: $e\n$stack');
+      return Response.internalServerError(
+        body: jsonEncode({'message': 'Failed to initialize application fee payment'}),
+      );
     }
   }
 
