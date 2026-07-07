@@ -18,6 +18,8 @@ class PaymentModel {
   final DateTime? updatedAt;
   final String? type; // 'rent', 'task', 'rent-renewal'
 
+
+
   PaymentModel({
     required this.id,
     this.leaseId,

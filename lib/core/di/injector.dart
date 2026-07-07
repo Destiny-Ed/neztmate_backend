@@ -4,6 +4,7 @@ import 'package:get_it/get_it.dart';
 import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
 import 'package:neztmate_backend/core/services/auth/password_service.dart';
 import 'package:neztmate_backend/core/services/database/firebase/firebase.dart';
+import 'package:neztmate_backend/core/services/reputation/reputation_service.dart';
 import 'package:neztmate_backend/features/applications/datasource/application_remote_datasource.dart';
 import 'package:neztmate_backend/features/applications/datasource/firestore/firestore_remote_datasource.dart';
 import 'package:neztmate_backend/features/applications/handler/application_handler.dart';
@@ -61,6 +62,11 @@ import 'package:neztmate_backend/features/properties/datasources/property_remote
 import 'package:neztmate_backend/features/properties/handler/property_handler.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
 import 'package:neztmate_backend/features/properties/repository_impl/property_impl.dart';
+import 'package:neztmate_backend/features/reviews/datasource/firestore/firestore_review_datasource.dart';
+import 'package:neztmate_backend/features/reviews/datasource/review_remote_datasource.dart';
+import 'package:neztmate_backend/features/reviews/handler/user_review_handler.dart';
+import 'package:neztmate_backend/features/reviews/repository/review_repository.dart';
+import 'package:neztmate_backend/features/reviews/repository_impl/review_repository_impl.dart';
 import 'package:neztmate_backend/features/tenants/datasources/firestore/firestore_tenant_datasource.dart';
 import 'package:neztmate_backend/features/tenants/datasources/tenant_remote_datasource.dart';
 import 'package:neztmate_backend/features/tenants/handler/tenant_handler.dart';
@@ -204,6 +210,7 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
       unitRepository: injector<UnitRepository>(),
       leaseRepository: injector<LeaseRepository>(),
       notificationRepository: injector<NotificationRepository>(),
+      userReviewRepository: injector<UserReviewRepository>(),
     ),
   );
 
@@ -275,6 +282,26 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
     () => NotificationHandler(injector<NotificationRepository>()),
   );
 
+  //user reviews
+  injector.registerLazySingleton<UserReviewRemoteDataSource>(
+    () => FirestoreUserReviewDataSource(injector<Firestore>(), injector<UserReputationService>()),
+  );
+  injector.registerLazySingleton<UserReviewRepository>(
+    () => UserReviewRepositoryImpl(injector<UserReviewRemoteDataSource>()),
+  );
+  injector.registerLazySingleton<UserReviewHandler>(
+    () => UserReviewHandler(injector<UserReviewRepository>(), injector<UserRepository>()),
+  );
+
+  //reputation service
+  injector.registerLazySingleton<UserReputationService>(
+    () => UserReputationService(
+      injector<UserRepository>(),
+      injector<PaymentRepository>(),
+      injector<UserReviewRepository>(),
+    ),
+  );
+
   //payments
   injector.registerLazySingleton<PaymentRemoteDataSource>(
     () => FirestorePaymentDataSource(injector<Firestore>()),
@@ -291,6 +318,7 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
       injector<UnitRepository>(),
       injector<MaintenanceRepository>(),
       injector<ApplicationRepository>(),
+      injector<UserReputationService>(),
     ),
   );
 }

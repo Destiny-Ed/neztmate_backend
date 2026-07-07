@@ -10,9 +10,31 @@ class User {
   final bool verifiedEmployment;
   final int? yearsExperience;
   final String? primarySkill;
-  final double rating;
+
+  // === Existing Rating ===
+  final double rating; // Legacy overall rating
+
+  // === NEW: Reputation System ===
+  final double averageRating; // Overall rating from reviews (1.0 - 5.0)
+  final int totalReviews;
+  final int totalRatings;
+
+  // Payment Reliability (mainly for Tenants)
+  final double paymentOnTimeRate; // 0.0 - 1.0 (e.g., 0.95 = 95%)
+  final int totalPaymentsMade;
+  final int onTimePayments;
+
+  // Role-specific Reputation
+  final double tenantReputation;
+  final double landlordReputation;
+  final double artisanReputation;
+
   final DateTime createdAt;
   final DateTime lastLogin;
+  final DateTime? lastReviewedAt;
+
+  final List<String> badges; // e.g., "Reliable_Payer", "Trusted_Landlord"
+
   final String? passwordHash;
   final String? authProvider;
   final String platform;
@@ -30,8 +52,19 @@ class User {
     this.yearsExperience,
     this.primarySkill,
     this.rating = 0.0,
+    this.averageRating = 0.0,
+    this.totalReviews = 0,
+    this.totalRatings = 0,
+    this.paymentOnTimeRate = 1.0,
+    this.totalPaymentsMade = 0,
+    this.onTimePayments = 0,
+    this.tenantReputation = 0.0,
+    this.landlordReputation = 0.0,
+    this.artisanReputation = 0.0,
     required this.createdAt,
     required this.lastLogin,
+    this.lastReviewedAt,
+    this.badges = const [],
     this.passwordHash = '',
     this.authProvider = 'email',
     required this.fcmToken,
@@ -52,13 +85,27 @@ class User {
       yearsExperience: map['yearsExperience'] as int?,
       primarySkill: map['primarySkill'] as String?,
       rating: (map['rating'] as num?)?.toDouble() ?? 0.0,
+
+      // New reputation fields
+      averageRating: (map['averageRating'] as num?)?.toDouble() ?? 0.0,
+      totalReviews: map['totalReviews'] as int? ?? 0,
+      totalRatings: map['totalRatings'] as int? ?? 0,
+      paymentOnTimeRate: (map['paymentOnTimeRate'] as num?)?.toDouble() ?? 1.0,
+      totalPaymentsMade: map['totalPaymentsMade'] as int? ?? 0,
+      onTimePayments: map['onTimePayments'] as int? ?? 0,
+      tenantReputation: (map['tenantReputation'] as num?)?.toDouble() ?? 0.0,
+      landlordReputation: (map['landlordReputation'] as num?)?.toDouble() ?? 0.0,
+      artisanReputation: (map['artisanReputation'] as num?)?.toDouble() ?? 0.0,
+      lastReviewedAt: map['lastReviewedAt'] != null ? DateTime.parse(map['lastReviewedAt']) : null,
+      badges: (map['badges'] as List<dynamic>?)?.cast<String>() ?? [],
+
       createdAt: DateTime.parse(map['createdAt'] as String),
       lastLogin: DateTime.parse(map['lastLogin'] as String),
       passwordHash: map["passwordHash"] as String?,
       authProvider: map['authProvider'] as String? ?? 'email',
-      fcmToken: map["fcmToken"],
-      platform: map['platform'],
-      country: map['country'],
+      fcmToken: map["fcmToken"] ?? '',
+      platform: map['platform'] ?? '',
+      country: map['country'] ?? '',
     );
   }
 
@@ -74,6 +121,20 @@ class User {
     'yearsExperience': yearsExperience,
     'primarySkill': primarySkill,
     'rating': rating,
+
+    // New reputation fields
+    'averageRating': averageRating,
+    'totalReviews': totalReviews,
+    'totalRatings': totalRatings,
+    'paymentOnTimeRate': paymentOnTimeRate,
+    'totalPaymentsMade': totalPaymentsMade,
+    'onTimePayments': onTimePayments,
+    'tenantReputation': tenantReputation,
+    'landlordReputation': landlordReputation,
+    'artisanReputation': artisanReputation,
+    'lastReviewedAt': lastReviewedAt?.toIso8601String(),
+    'badges': badges,
+
     'createdAt': createdAt.toIso8601String(),
     'lastLogin': lastLogin.toIso8601String(),
     'passwordHash': passwordHash,
@@ -83,7 +144,6 @@ class User {
     'country': country,
   };
 
-  /// Creates a copy of this User with the specified fields replaced with new values.
   User copyWith({
     String? id,
     String? email,
@@ -96,8 +156,19 @@ class User {
     int? yearsExperience,
     String? primarySkill,
     double? rating,
+    double? averageRating,
+    int? totalReviews,
+    int? totalRatings,
+    double? paymentOnTimeRate,
+    int? totalPaymentsMade,
+    int? onTimePayments,
+    double? tenantReputation,
+    double? landlordReputation,
+    double? artisanReputation,
     DateTime? createdAt,
     DateTime? lastLogin,
+    DateTime? lastReviewedAt,
+    List<String>? badges,
     String? passwordHash,
     String? authProvider,
     String? platform,
@@ -116,8 +187,19 @@ class User {
       yearsExperience: yearsExperience ?? this.yearsExperience,
       primarySkill: primarySkill ?? this.primarySkill,
       rating: rating ?? this.rating,
+      averageRating: averageRating ?? this.averageRating,
+      totalReviews: totalReviews ?? this.totalReviews,
+      totalRatings: totalRatings ?? this.totalRatings,
+      paymentOnTimeRate: paymentOnTimeRate ?? this.paymentOnTimeRate,
+      totalPaymentsMade: totalPaymentsMade ?? this.totalPaymentsMade,
+      onTimePayments: onTimePayments ?? this.onTimePayments,
+      tenantReputation: tenantReputation ?? this.tenantReputation,
+      landlordReputation: landlordReputation ?? this.landlordReputation,
+      artisanReputation: artisanReputation ?? this.artisanReputation,
       createdAt: createdAt ?? this.createdAt,
       lastLogin: lastLogin ?? this.lastLogin,
+      lastReviewedAt: lastReviewedAt ?? this.lastReviewedAt,
+      badges: badges ?? this.badges,
       passwordHash: passwordHash ?? this.passwordHash,
       authProvider: authProvider ?? this.authProvider,
       fcmToken: fcmToken ?? this.fcmToken,

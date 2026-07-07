@@ -3,7 +3,7 @@ import 'dart:io';
 import 'package:dotenv/dotenv.dart';
 import 'package:neztmate_backend/core/di/injector.dart';
 import 'package:neztmate_backend/core/middleware/auth_middleware.dart';
-import 'package:neztmate_backend/core/scheduler/schedule_service.dart';
+import 'package:neztmate_backend/core/services/scheduler/schedule_service.dart';
 import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
 import 'package:neztmate_backend/core/services/database/firebase/firebase.dart';
 import 'package:neztmate_backend/features/applications/handler/application_handler.dart';
@@ -23,6 +23,7 @@ import 'package:neztmate_backend/features/notifications/repository/notification_
 import 'package:neztmate_backend/features/payments/handler/payment_handler.dart';
 import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
 import 'package:neztmate_backend/features/properties/handler/property_handler.dart';
+import 'package:neztmate_backend/features/reviews/handler/user_review_handler.dart';
 import 'package:neztmate_backend/features/tenants/handler/tenant_handler.dart';
 import 'package:neztmate_backend/features/units/handler/unit_handler.dart';
 import 'package:neztmate_backend/routes/applications_routes.dart';
@@ -39,6 +40,7 @@ import 'package:neztmate_backend/routes/payment_routes.dart';
 import 'package:neztmate_backend/routes/property_routes.dart';
 import 'package:neztmate_backend/routes/tenant_routes.dart';
 import 'package:neztmate_backend/routes/unit_routes.dart';
+import 'package:neztmate_backend/routes/user_review_routes.dart';
 import 'package:neztmate_backend/routes/user_routes.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart';
@@ -192,6 +194,9 @@ void main() async {
         .addMiddleware(authMiddleware(jwtService))
         .addHandler(tenantRoutes(injector<TenantHandler>()).call),
   );
+
+  // Mount review routes
+  router.mount('/reviews/', reviewRoutes(injector<UserReviewHandler>()).call);
 
   //  SWAGGER UI SETUP
 

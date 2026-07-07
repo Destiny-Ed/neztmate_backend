@@ -9,6 +9,7 @@ import 'package:neztmate_backend/features/leases/service/lease_pdf_service.dart'
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
+import 'package:neztmate_backend/features/reviews/repository/review_repository.dart';
 import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
 import 'package:shelf/shelf.dart';
 import 'package:neztmate_backend/core/error.dart';
@@ -21,6 +22,7 @@ class ApplicationHandler {
   final UnitRepository unitRepository;
   final LeaseRepository leaseRepository;
   final NotificationRepository notificationRepository;
+  final UserReviewRepository userReviewRepository;
 
   ApplicationHandler({
     required this.applicationRepository,
@@ -29,6 +31,7 @@ class ApplicationHandler {
     required this.unitRepository,
     required this.leaseRepository,
     required this.notificationRepository,
+    required this.userReviewRepository,
   });
 
   final paystackService = PaystackService();
@@ -346,7 +349,7 @@ class ApplicationHandler {
 
       // Authorization check
       final isApplicant = application.tenantId == userId;
-      final isManagerOrOwner = ['manager', 'landowner'].contains(role);
+      final isManagerOrOwner = ['landowner', 'manager'].contains(role);
 
       if (!isApplicant && !isManagerOrOwner) {
         return Response(403, body: jsonEncode({'message': 'Forbidden'}));
@@ -357,16 +360,32 @@ class ApplicationHandler {
       final property = await propertyRepository.getPropertyById(application.propertyId);
       final unit = await unitRepository.getUnitById(application.unitId);
 
+      // Get tenant's previous reviews (especially from other landlords)
+      final tenantReviews = isManagerOrOwner
+          ? await userReviewRepository.getReviewsForUser(application.tenantId)
+          : [];
+
       final enrichedApplication = {
         ...application.toMap(),
+
         'tenant': {
           'id': tenant.id,
           'fullName': tenant.fullName,
           'email': tenant.email,
           'phone': tenant.phone,
-          'verifiedIdentity': tenant.verifiedIdentity,
           'profilePhotoUrl': tenant.profilePhotoUrl,
+          'verifiedIdentity': tenant.verifiedIdentity,
+          'verifiedEmployment': tenant.verifiedEmployment,
+
+          // === Reputation & Trust Info ===
+          'averageRating': tenant.averageRating,
+          'totalReviews': tenant.totalReviews,
+          'tenantReputation': tenant.tenantReputation,
+          'paymentOnTimeRate': tenant.paymentOnTimeRate,
+          'badges': tenant.badges,
+          'lastReviewedAt': tenant.lastReviewedAt?.toIso8601String(),
         },
+
         'property': {
           'id': property.id,
           'name': property.name,
@@ -374,6 +393,7 @@ class ApplicationHandler {
           'type': property.type,
           'amenities': property.amenities,
         },
+
         'unit': {
           'id': unit.id,
           'unitNumber': unit.unitNumber,
@@ -382,10 +402,23 @@ class ApplicationHandler {
           'yearlyRent': unit.yearlyRent,
           'status': unit.status,
         },
+
+        // === Extra Info for Landowner/Manager ===
+        if (isManagerOrOwner) ...{
+          'tenantReviews': tenantReviews.map((review) => review.toMap()).toList(),
+          'tenantPaymentHistorySummary': {
+            'totalRentPayments': tenant.totalPaymentsMade,
+            'onTimePayments': tenant.onTimePayments,
+            'onTimeRate': tenant.paymentOnTimeRate,
+          },
+        },
       };
 
       return Response.ok(
-        jsonEncode({'application': enrichedApplication}),
+        jsonEncode({
+          'application': enrichedApplication,
+          'message': 'Application details fetched successfully',
+        }),
         headers: {'Content-Type': 'application/json'},
       );
     } on NotFoundException catch (e) {

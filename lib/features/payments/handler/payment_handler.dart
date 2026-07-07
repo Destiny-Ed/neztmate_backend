@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:neztmate_backend/core/error.dart';
 import 'package:neztmate_backend/core/services/payment/paystack_service.dart';
+import 'package:neztmate_backend/core/services/reputation/reputation_service.dart';
 import 'package:neztmate_backend/features/applications/repository/application_repo.dart';
 import 'package:neztmate_backend/features/history/model/user_history_model.dart';
 import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
@@ -27,6 +28,7 @@ class PaymentHandler {
   final NotificationRepository notificationRepository;
   final MaintenanceRepository maintenanceRepository;
   final ApplicationRepository applicationRepository;
+  final UserReputationService userReputationService;
 
   PaymentHandler(
     this.paymentRepository,
@@ -36,6 +38,7 @@ class PaymentHandler {
     this.unitRepository,
     this.maintenanceRepository,
     this.applicationRepository,
+    this.userReputationService,
   );
 
   final PaystackService paystackService = PaystackService();
@@ -447,6 +450,12 @@ class PaymentHandler {
         } else {
           await leaseRepository.updateLeaseStatus(payment.leaseId!, 'Active');
         }
+
+        // Update tenant's reputation
+        await userReputationService.updateUserReputation(payment.payerId);
+
+        // Also update landowner's reputation (for receiving payment on time)
+        await userReputationService.updateUserReputation(lease.landownerId);
 
         await unitRepository.updateUnitStatus(
           unitId: lease.unitId,
