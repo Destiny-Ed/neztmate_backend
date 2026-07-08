@@ -1,4 +1,3 @@
- 
 import 'package:dart_firebase_admin/auth.dart';
 import 'package:dart_firebase_admin/firestore.dart';
 import 'package:neztmate_backend/core/error.dart';
@@ -50,6 +49,7 @@ class AuthRepositoryImpl implements AuthRepository {
       fcmToken: req.fcmToken,
       platform: req.platform,
       country: req.country,
+      primaryRole: req.role,
     );
 
     final created = await userRepository.createUser(user);
@@ -124,6 +124,7 @@ class AuthRepositoryImpl implements AuthRepository {
       fcmToken: req.fcmToken,
       platform: req.platform,
       country: req.country,
+      primaryRole: req.role,
     );
 
     await userRepository.createUser(newUser);

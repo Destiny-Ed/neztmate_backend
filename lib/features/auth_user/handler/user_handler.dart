@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
 import 'package:shelf/shelf.dart';
 import 'package:neztmate_backend/core/error.dart';
 import 'package:neztmate_backend/features/auth_user/models/user_model.dart';
@@ -7,8 +8,9 @@ import 'package:shelf_router/shelf_router.dart';
 
 class UserHandler {
   final UserRepository userRepository;
+  final JwtService jwtService;
 
-  UserHandler(this.userRepository);
+  UserHandler(this.userRepository, this.jwtService);
 
   /// GET /users/me
   Future<Response> getCurrentUser(Request request) async {
@@ -230,6 +232,52 @@ class UserHandler {
     } catch (e, stack) {
       print('Get user stats error: $e\n$stack');
       return Response.internalServerError(body: jsonEncode({'message': 'Failed to fetch statistics'}));
+    }
+  }
+
+  /// PATCH /users/me/switch-role
+  Future<Response> switchRole(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      if (userId == null) return unauthorized("unauthorized");
+
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final newRole = body['role'] as String?;
+
+      if (newRole == null || !['tenant', 'landowner', 'manager', 'artisan'].contains(newRole)) {
+        return badRequest('Valid role is required (Tenant, Landowner, Manager, Artisan)');
+      }
+
+      final user = await userRepository.getUserById(userId);
+
+      List<String> updatedRoles = List.from(user.roles);
+
+      // If user doesn't have this role yet, add it
+      if (!updatedRoles.contains(newRole)) {
+        updatedRoles.add(newRole);
+      }
+
+      final updatedUser = user.copyWith(primaryRole: newRole, role: newRole, roles: updatedRoles);
+
+      await userRepository.updateUser(updatedUser);
+
+      // Generate new token with updated role
+      final newToken = jwtService.generateAccessToken(userId, newRole);
+      final refreshToken = jwtService.generateRefreshToken(userId);
+
+      return Response.ok(
+        jsonEncode({
+          'message': 'Role switched successfully',
+          'newRole': newRole,
+          'allRoles': updatedRoles,
+          'accessToken': newToken,
+          'refreshToken': refreshToken,
+          'user': updatedUser.toMap(),
+        }),
+      );
+    } catch (e, stack) {
+      print('Switch role error: $e\n$stack');
+      return Response.internalServerError();
     }
   }
 

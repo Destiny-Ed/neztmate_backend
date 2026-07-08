@@ -44,6 +44,9 @@ class User {
   final String platform;
   final String country;
 
+  final String primaryRole; // Main role for UI
+  final List<String> roles; // All roles user has (NEW)
+
   User({
     required this.id,
     required this.email,
@@ -78,6 +81,9 @@ class User {
     required this.fcmToken,
     required this.platform,
     required this.country,
+
+    required this.primaryRole,
+    this.roles = const [],
   });
 
   factory User.fromMap(Map<String, dynamic> map) {
@@ -121,6 +127,9 @@ class User {
       fcmToken: map["fcmToken"] ?? '',
       platform: map['platform'] ?? '',
       country: map['country'] ?? '',
+
+      primaryRole: map['primaryRole'] as String? ?? 'Tenant',
+      roles: (map['roles'] as List<dynamic>?)?.cast<String>() ?? [map['role'] ?? 'Tenant'],
     );
   }
 
@@ -161,6 +170,8 @@ class User {
     'fcmToken': fcmToken,
     'platform': platform,
     'country': country,
+    'primaryRole': primaryRole,
+    'roles': roles,
   };
 
   User copyWith({
@@ -197,6 +208,8 @@ class User {
     String? platform,
     String? country,
     String? fcmToken,
+    String? primaryRole,
+    List<String>? roles,
   }) {
     return User(
       id: id ?? this.id,
@@ -232,6 +245,8 @@ class User {
       fcmToken: fcmToken ?? this.fcmToken,
       platform: platform ?? this.platform,
       country: country ?? this.country,
+      primaryRole: primaryRole ?? this.primaryRole,
+      roles: roles ?? this.roles,
     );
   }
 }

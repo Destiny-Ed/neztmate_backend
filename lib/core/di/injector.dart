@@ -5,6 +5,8 @@ import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
 import 'package:neztmate_backend/core/services/auth/password_service.dart';
 import 'package:neztmate_backend/core/services/database/firebase/firebase.dart';
 import 'package:neztmate_backend/core/services/reputation/reputation_service.dart';
+import 'package:neztmate_backend/core/services/verification/veriff_service.dart';
+import 'package:neztmate_backend/core/services/verification/verification_service.dart';
 import 'package:neztmate_backend/features/applications/datasource/application_remote_datasource.dart';
 import 'package:neztmate_backend/features/applications/datasource/firestore/firestore_remote_datasource.dart';
 import 'package:neztmate_backend/features/applications/handler/application_handler.dart';
@@ -31,7 +33,6 @@ import 'package:neztmate_backend/features/leases/handler/lease_handler.dart';
 import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
 import 'package:neztmate_backend/features/leases/repository_impl/lease_repo_impl.dart';
 import 'package:neztmate_backend/features/maintenance/datasource/firestore/firestore_maintenance_remote_datasource.dart';
-import 'package:neztmate_backend/features/maintenance/datasource/maintenance_remote_datasource.dart';
 import 'package:neztmate_backend/features/maintenance/handler/maintenance_handler.dart';
 import 'package:neztmate_backend/features/maintenance/repository/maintenance_repo.dart';
 import 'package:neztmate_backend/features/maintenance/repository_impl/repository_impl.dart';
@@ -77,6 +78,7 @@ import 'package:neztmate_backend/features/units/datasource/unit_remote_datasourc
 import 'package:neztmate_backend/features/units/handler/unit_handler.dart';
 import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
 import 'package:neztmate_backend/features/units/repository_impl/unit_repo_impl.dart';
+import 'package:neztmate_backend/features/verification/handler/verification_handler.dart';
 
 final injector = GetIt.instance;
 
@@ -107,7 +109,9 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
   ///user
   injector.registerLazySingleton<UserRemoteDataSource>(() => FirestoreUserDataSource(injector<Firestore>()));
   injector.registerLazySingleton<UserRepository>(() => UserRepositoryImpl(injector<UserRemoteDataSource>()));
-  injector.registerLazySingleton<UserHandler>(() => UserHandler(injector<UserRepository>()));
+  injector.registerLazySingleton<UserHandler>(
+    () => UserHandler(injector<UserRepository>(), injector<JwtService>()),
+  );
 
   //properties
   injector.registerLazySingleton<PropertyRemoteDataSource>(
@@ -328,5 +332,11 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
       injector<PaymentRepository>(),
       injector<UserReviewRepository>(),
     ),
+  );
+
+  //verification
+  injector.registerLazySingleton<VerificationService>(() => VeriffService());
+  injector.registerLazySingleton<VerificationHandler>(
+    () => VerificationHandler(injector<VerificationService>(), injector<UserRepository>()),
   );
 }

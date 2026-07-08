@@ -11,6 +11,7 @@ Router userRoutes(UserHandler handler) {
   router.get('/stats', handler.getUserStats);
   router.get('/<id>', handler.getUserById);
   router.get('/<email>', handler.getUserByEmail);
+  router.patch('/me/switch-role', handler.switchRole);
 
   return router;
 }
