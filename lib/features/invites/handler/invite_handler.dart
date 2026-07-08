@@ -35,6 +35,8 @@ class InviteHandler {
       final inviteeRole = body['inviteeRole'] as String?;
       final message = body['message'] as String?;
 
+      final commissionType = body['commissionType'] as String?; // "percentage", "flat_fee", "none"
+
       if (inviteeEmail == null || inviteeRole == null) {
         return badRequest('inviteeEmail and inviteeRole are required');
       }
@@ -102,6 +104,33 @@ class InviteHandler {
       }
       // }
 
+      // Validate commission
+      double? commission;
+      double? flatFeeAmount;
+      String? flatFeePeriod;
+
+      if (inviteeRole == "manager") {
+        if (commissionType == 'percentage') {
+          final commissionRate = (body['commissionRate'] as num?)?.toDouble();
+          //check if commissionRate is null or <= 0 and convert to percentage
+          if (commissionRate == null || commissionRate <= 0 || commissionRate >= 100) {
+            return badRequest(
+              'commissionRate is required for percentage and must be greater than 0 and less than 100',
+            );
+          }
+
+          commission = commissionRate / 100; // Convert to decimal
+        } else if (commissionType == 'flat') {
+          flatFeeAmount = (body['flatFeeAmount'] as num?)?.toDouble();
+          flatFeePeriod = body['flatFeePeriod'] as String? ?? 'yearly';
+          if (flatFeeAmount == null || flatFeeAmount <= 0) {
+            return badRequest('flatFeeAmount is required for flat_fee');
+          }
+        } else if (commissionType != 'none') {
+          return badRequest('commissionType must be percentage, flat_fee, or none');
+        }
+      }
+
       // All validations passed → Create invite
       final expiresAt = DateTime.now().add(const Duration(days: 5));
 
@@ -111,6 +140,10 @@ class InviteHandler {
         inviteeEmail: normalizedEmail,
         role: inviteeRole,
         propertyIds: newPropertyIds,
+        commissionType: commissionType ?? 'none',
+        commissionRate: commission,
+        flatFeeAmount: flatFeeAmount,
+        flatFeePeriod: flatFeePeriod,
         message: message ?? "Hello, I would like you to join as $inviteeRole.",
         status: 'Pending',
         createdAt: DateTime.now(),
@@ -214,6 +247,14 @@ class InviteHandler {
         return Response(400, body: jsonEncode({'message': 'This invite has already been processed'}));
       }
 
+      // Verify this user was invited
+      if (invite.inviteeEmail.isNotEmpty) {
+        final user = await userRepository.getUserById(userId);
+        if (user.email.toLowerCase() != invite.inviteeEmail.toLowerCase()) {
+          return Response(403, body: jsonEncode({'message': 'This invite is not for you'}));
+        }
+      }
+
       // Auto-assign user to properties
       if (invite.propertyIds != null && invite.propertyIds!.isNotEmpty) {
         for (var propertyId in invite.propertyIds!) {
@@ -221,6 +262,11 @@ class InviteHandler {
             propertyId: propertyId,
             userId: userId,
             role: invite.role,
+            // Pass commission only for managers
+            commissionType: invite.role == 'Manager' ? invite.commissionType : null,
+            commissionRate: invite.role == 'Manager' ? invite.commissionRate : null,
+            flatFeeAmount: invite.role == 'Manager' ? invite.flatFeeAmount : null,
+            flatFeePeriod: invite.role == 'Manager' ? invite.flatFeePeriod : null,
           );
         }
       }

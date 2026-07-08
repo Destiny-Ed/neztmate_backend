@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
+import 'package:neztmate_backend/features/units/models/unit_comment_model.dart';
 import 'package:neztmate_backend/features/units/models/unit_model.dart';
 import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
 import 'package:shelf/shelf.dart';
@@ -8,8 +10,9 @@ import 'package:uuid/uuid.dart';
 
 class UnitHandler {
   final UnitRepository unitRepository;
+  final UserRepository userRepository;
 
-  UnitHandler(this.unitRepository);
+  UnitHandler(this.unitRepository, this.userRepository);
 
   /// GET /units/property/<propertyId>
   Future<Response> getUnitsByProperty(Request request) async {
@@ -171,6 +174,83 @@ class UnitHandler {
       return Response.internalServerError(
         body: jsonEncode({'message': 'Failed to update unit listing status'}),
       );
+    }
+  }
+
+  /// POST /units/<unitId>/like - Like a unit
+  Future<Response> likeUnit(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final unitId = request.params['unitId'];
+
+      if (userId == null || unitId == null) {
+        return badRequest('Unit ID is required');
+      }
+
+      await unitRepository.toggleLike(unitId, userId);
+
+      return Response.ok(jsonEncode({'message': 'Like updated successfully'}));
+    } catch (e) {
+      return Response.internalServerError();
+    }
+  }
+
+  /// POST /units/<unitId>/comment - Comment on a unit
+  Future<Response> commentOnUnit(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final unitId = request.params['unitId'];
+
+      if (userId == null || unitId == null) {
+        return badRequest('Unit ID is required');
+      }
+
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final commentText = body['comment'] as String?;
+
+      if (commentText == null || commentText.trim().isEmpty) {
+        return badRequest('Comment cannot be empty');
+      }
+
+      final user = await userRepository.getUserById(userId);
+
+      final comment = UnitCommentModel(
+        id: '',
+        unitId: unitId,
+        userId: userId,
+        userName: user?.fullName ?? 'Anonymous',
+        userPhotoUrl: user?.profilePhotoUrl,
+        comment: commentText.trim(),
+        createdAt: DateTime.now(),
+      );
+
+      await unitRepository.addComment(comment);
+
+      return Response.ok(jsonEncode({'message': 'Comment added successfully', 'comment': comment.toMap()}));
+    } catch (e) {
+      return Response.internalServerError();
+    }
+  }
+
+  /// GET /units/<unitId>/comments - Get comments for a unit
+  Future<Response> getUnitComments(Request request) async {
+    try {
+      final unitId = request.params['unitId'];
+      final userId = request.context['userId'] as String?;
+
+      if (unitId == null || userId == null) return badRequest('Unit ID is required');
+
+      final comments = await unitRepository.getCommentsForUnit(unitId);
+
+      return Response.ok(
+        jsonEncode({
+          'unitId': unitId,
+          'commentsCount': comments.length,
+          'comments': comments.map((c) => c.toMap()).toList(),
+        }),
+      );
+    } catch (e) {
+      return Response.internalServerError();
     }
   }
 }

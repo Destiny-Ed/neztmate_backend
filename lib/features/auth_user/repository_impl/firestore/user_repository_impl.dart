@@ -37,4 +37,28 @@ class UserRepositoryImpl implements UserRepository {
   Future<UserStatsModel> getUserStats(String userId, String role) async {
     return await dataSource.getUserStats(userId, role);
   }
+
+  @override
+  Future<User?> getUserByVerificationId(String verificationId) =>
+      dataSource.getUserByVerificationId(verificationId);
+
+  @override
+  Future<void> updateUserVerification({
+    required String userId,
+    required String verificationId,
+    required String provider,
+    required String status,
+  }) async {
+    final user = await dataSource.getUserById(userId);
+
+    final updatedUser = user.copyWith(
+      verificationId: verificationId,
+      verificationProvider: provider,
+      verificationStatus: status,
+      identityVerifiedAt: status == 'approved' ? DateTime.now() : user.identityVerifiedAt,
+      verifiedIdentity: status == 'approved',
+    );
+
+    await dataSource.updateUser(updatedUser);
+  }
 }

@@ -8,6 +8,10 @@ class User {
   final String? profilePhotoUrl;
   final bool verifiedIdentity;
   final bool verifiedEmployment;
+  final String? verificationId; // Generic ID from any provider
+  final String? verificationProvider; // "SmileIdentity", "Veriff", "Onfido", etc.
+  final String? verificationStatus; // 'pending', 'approved', 'rejected', 'failed'
+  final DateTime? identityVerifiedAt;
   final int? yearsExperience;
   final String? primarySkill;
 
@@ -61,6 +65,10 @@ class User {
     this.tenantReputation = 0.0,
     this.landlordReputation = 0.0,
     this.artisanReputation = 0.0,
+    this.verificationId,
+    this.verificationProvider,
+    this.verificationStatus = 'pending',
+    this.identityVerifiedAt,
     required this.createdAt,
     required this.lastLogin,
     this.lastReviewedAt,
@@ -85,6 +93,13 @@ class User {
       yearsExperience: map['yearsExperience'] as int?,
       primarySkill: map['primarySkill'] as String?,
       rating: (map['rating'] as num?)?.toDouble() ?? 0.0,
+
+      verificationId: map['verificationId'] as String?,
+      verificationProvider: map['verificationProvider'] as String?,
+      verificationStatus: map['verificationStatus'] as String? ?? 'pending',
+      identityVerifiedAt: map['identityVerifiedAt'] != null
+          ? DateTime.parse(map['identityVerifiedAt'])
+          : null,
 
       // New reputation fields
       averageRating: (map['averageRating'] as num?)?.toDouble() ?? 0.0,
@@ -121,6 +136,10 @@ class User {
     'yearsExperience': yearsExperience,
     'primarySkill': primarySkill,
     'rating': rating,
+    'verificationId': verificationId,
+    'verificationProvider': verificationProvider,
+    'verificationStatus': verificationStatus,
+    'identityVerifiedAt': identityVerifiedAt?.toIso8601String(),
 
     // New reputation fields
     'averageRating': averageRating,
@@ -153,6 +172,10 @@ class User {
     String? profilePhotoUrl,
     bool? verifiedIdentity,
     bool? verifiedEmployment,
+    String? verificationId,
+    String? verificationProvider,
+    String? verificationStatus,
+    DateTime? identityVerifiedAt,
     int? yearsExperience,
     String? primarySkill,
     double? rating,
@@ -183,6 +206,10 @@ class User {
       phone: phone ?? this.phone,
       profilePhotoUrl: profilePhotoUrl ?? this.profilePhotoUrl,
       verifiedIdentity: verifiedIdentity ?? this.verifiedIdentity,
+      verificationId: verificationId ?? this.verificationId,
+      verificationProvider: verificationProvider ?? this.verificationProvider,
+      verificationStatus: verificationStatus ?? this.verificationStatus,
+      identityVerifiedAt: identityVerifiedAt ?? this.identityVerifiedAt,
       verifiedEmployment: verifiedEmployment ?? this.verifiedEmployment,
       yearsExperience: yearsExperience ?? this.yearsExperience,
       primarySkill: primarySkill ?? this.primarySkill,

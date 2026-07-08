@@ -1,4 +1,5 @@
 import 'package:dart_firebase_admin/firestore.dart';
+import 'package:neztmate_backend/core/cache/app_cache.dart';
 import 'package:neztmate_backend/core/error.dart';
 import 'package:neztmate_backend/features/auth_user/datasources/user_remote_datasource.dart';
 import 'package:neztmate_backend/features/auth_user/models/user_model.dart';
@@ -55,27 +56,34 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
 
   @override
   Future<UserStatsModel> getUserStats(String userId, String role) async {
-    int totalProperties = 0;
-    double totalRevenue = 0.0;
-    int totalTenants = 0;
-    int submittedTasks = 0;
-    int maintenanceRequests = 0;
-    double totalWithdrawn = 0.0;
-
     try {
-      print("The main role ::: $role");
-      // Landowner / Manager stats
-      if (role == 'landowner' || role == 'manager') {
+      final cacheKey = 'user_stats_$userId';
+
+      final cached = AppCache().get<UserStatsModel>(cacheKey);
+      if (cached != null) return cached;
+
+      int totalProperties = 0;
+      double totalRevenue = 0.0;
+      int totalTenants = 0;
+      int submittedTasks = 0;
+      int completedTasks = 0;
+      int maintenanceRequests = 0;
+      double totalWithdrawn = 0.0;
+      double totalCommissionEarned = 0.0; // For managers
+      int activeTasks = 0;
+
+      // LANDOWNER / MANAGER STATS
+      if (role == 'landowner' || role == ',anager') {
         final propertyField = role == 'landowner' ? 'landownerId' : 'managerId';
 
-        // 1. Total properties
+        // 1. Total Properties
         final propertiesSnap = await firestore
             .collection('properties')
             .where(propertyField, WhereFilter.equal, userId)
             .get();
         totalProperties = propertiesSnap.docs.length;
 
-        // 2. Total revenue from paid payments
+        // 2. Total Revenue (from paid payments)
         final paymentsSnap = await firestore
             .collection('payments')
             .where('status', WhereFilter.equal, 'Paid')
@@ -83,11 +91,10 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
 
         for (var doc in paymentsSnap.docs) {
           final data = doc.data() as Map<String, dynamic>;
-          final amount = (data['amount'] as num?)?.toDouble() ?? 0.0;
-          totalRevenue += amount;
+          totalRevenue += (data['amount'] as num?)?.toDouble() ?? 0.0;
         }
 
-        // 3. Total active tenants
+        // 3. Total Active Tenants
         final leasesSnap = await firestore
             .collection('leases')
             .where('landownerId', WhereFilter.equal, userId)
@@ -95,21 +102,27 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
             .get();
         totalTenants = leasesSnap.docs.length;
 
-        // 4. Maintenance requests
+        // 4. Maintenance Requests
         final requestsSnap = await firestore
             .collection('maintenance_requests')
             .where('managerId', WhereFilter.equal, userId)
             .get();
         maintenanceRequests = requestsSnap.docs.length;
 
-        // 5. Submitted tasks (as manager)
+        // 5. Tasks (Submitted & Completed)
         final tasksSnap = await firestore
             .collection('tasks')
             .where('managerId', WhereFilter.equal, userId)
             .get();
         submittedTasks = tasksSnap.docs.length;
 
-        // 6. Total withdrawn
+        for (var doc in tasksSnap.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          if (data['status'] == 'Completed') completedTasks++;
+          if (data['status'] == 'InProgress' || data['status'] == 'Accepted') activeTasks++;
+        }
+
+        // 6. Total Withdrawn
         final withdrawalsSnap = await firestore
             .collection('withdrawals')
             .where('userId', WhereFilter.equal, userId)
@@ -120,8 +133,19 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
           final data = doc.data() as Map<String, dynamic>;
           totalWithdrawn += (data['amount'] as num?)?.toDouble() ?? 0.0;
         }
+
+        // 7. Manager Commission (NEW)
+        final commissionsSnap = await firestore
+            .collection('manager_commissions')
+            .where('managerId', WhereFilter.equal, userId)
+            .get();
+
+        for (var doc in commissionsSnap.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          totalCommissionEarned += (data['commissionAmount'] as num?)?.toDouble() ?? 0.0;
+        }
       }
-      // Tenant stats
+      // TENANT STATS
       else if (role == 'tenant') {
         final requestsSnap = await firestore
             .collection('maintenance_requests')
@@ -131,30 +155,54 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
 
         final tasksSnap = await firestore
             .collection('tasks')
-            .where('artisanId', WhereFilter.equal, userId)
+            .where('tenantId', WhereFilter.equal, userId) // if applicable
             .get();
         submittedTasks = tasksSnap.docs.length;
       }
-      // Artisan stats
+      // ARTISAN STATS
       else if (role == 'artisan') {
         final tasksSnap = await firestore
             .collection('tasks')
             .where('artisanId', WhereFilter.equal, userId)
             .get();
+
         submittedTasks = tasksSnap.docs.length;
+
+        for (var doc in tasksSnap.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          if (data['status'] == 'Completed') completedTasks++;
+          if (data['status'] == 'InProgress' || data['status'] == 'Accepted') activeTasks++;
+        }
       }
 
-      return UserStatsModel(
+      final stats = UserStatsModel(
         totalProperties: totalProperties,
         totalRevenue: totalRevenue,
         totalTenants: totalTenants,
         submittedTasks: submittedTasks,
+        completedTasks: completedTasks,
+        activeTasks: activeTasks,
         maintenanceRequests: maintenanceRequests,
         totalWithdrawn: totalWithdrawn,
+        totalCommissionEarned: totalCommissionEarned,
       );
+
+      AppCache().set(cacheKey, stats, ttl: const Duration(minutes: 2));
+
+      return stats;
     } catch (e, stack) {
       print('getUserStats error: $e\n$stack');
       rethrow;
     }
+  }
+
+  @override
+  Future<User?> getUserByVerificationId(String verificationId) async {
+    final snap = await _users.where('verificationId', WhereFilter.equal, verificationId).limit(1).get();
+
+    if (snap.docs.isEmpty) return null;
+
+    final doc = snap.docs.first;
+    return User.fromMap(doc.data() as Map<String, dynamic>);
   }
 }

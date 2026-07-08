@@ -1,6 +1,7 @@
 import 'package:dart_firebase_admin/firestore.dart';
 import 'package:neztmate_backend/core/error.dart';
 import 'package:neztmate_backend/features/units/datasource/unit_remote_datasource.dart';
+import 'package:neztmate_backend/features/units/models/unit_comment_model.dart';
 import 'package:neztmate_backend/features/units/models/unit_model.dart';
 
 class FirestoreUnitDataSource implements UnitRemoteDataSource {
@@ -9,6 +10,7 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
   FirestoreUnitDataSource(this.firestore);
 
   CollectionReference get _units => firestore.collection('units');
+  CollectionReference get _unitComments => firestore.collection('unit_comments');
 
   @override
   Future<UnitModel> createUnit(UnitModel unit) async {
@@ -160,4 +162,70 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
 
     await firestore.collection('units').doc(unitId).update(updates);
   }
+
+  @override
+  Future<void> toggleLike(String unitId, String userId) async {
+    final unitDoc = _units.doc(unitId);
+    final unit = await unitDoc.get();
+
+    if (!unit.exists) throw NotFoundException('Unit', unitId);
+
+    final currentLikes = (unit.data()?['likes'] as int?) ?? 0;
+    final likedBy = (unit.data()?['likedBy'] as List?)?.cast<String>() ?? [];
+
+    final isLiked = likedBy.contains(userId);
+
+    if (isLiked) {
+      // Unlike
+      await unitDoc.update({
+        'likes': currentLikes - 1,
+        'likedBy': FieldValue.arrayRemove([userId]),
+      });
+    } else {
+      // Like
+      await unitDoc.update({
+        'likes': currentLikes + 1,
+        'likedBy': FieldValue.arrayUnion([userId]),
+      });
+    }
+  }
+
+  @override
+  Future<void> addComment(UnitCommentModel comment) async {
+    final docRef = _unitComments.doc();
+    final newComment = comment.copyWith(id: docRef.id);
+
+    await docRef.set(newComment.toMap());
+
+    // Increment comment count on unit
+    await _units.doc(comment.unitId).update({'commentsCount': FieldValue.increment(1)});
+  }
+
+  @override
+  Future<List<UnitCommentModel>> getCommentsForUnit(String unitId) async {
+    final snap = await _unitComments
+        .where('unitId', WhereFilter.equal, unitId)
+        .orderBy('createdAt', descending: true)
+        .get();
+
+    return snap.docs
+        .map((doc) => UnitCommentModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+        .toList();
+  }
+
+  // @override
+  // Future<void> updateComment(String commentId, String newComment) async {
+  //   await _unitComments.doc(commentId).update({
+  //     'comment': newComment,
+  //     'updatedAt': DateTime.now().toIso8601String(),
+  //   });
+  // }
+
+  // @override
+  // Future<void> deleteComment(String commentId, String unitId) async {
+  //   await _unitComments.doc(commentId).delete();
+
+  //   // Decrement count
+  //   await _units.doc(unitId).update({'commentsCount': FieldValue.increment(-1)});
+  // }
 }

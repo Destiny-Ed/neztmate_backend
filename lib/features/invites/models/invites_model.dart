@@ -11,6 +11,12 @@ class InviteModel {
   final DateTime updatedAt;
   final DateTime expiresAt;
 
+  // === NEW: Commission Structure ===
+  final String commissionType; // "percentage", "flat_fee", "none"
+  final double? commissionRate; // e.g., 0.05 for 5%
+  final double? flatFeeAmount; // e.g., 50000
+  final String? flatFeePeriod; // "yearly", "monthly"
+
   InviteModel({
     required this.id,
     required this.inviterId,
@@ -23,6 +29,11 @@ class InviteModel {
     required this.createdAt,
     required this.updatedAt,
     required this.expiresAt,
+
+    this.commissionType = 'none',
+    this.commissionRate,
+    this.flatFeeAmount,
+    this.flatFeePeriod,
   });
 
   factory InviteModel.fromMap(Map<String, dynamic> map) {
@@ -38,6 +49,11 @@ class InviteModel {
       createdAt: DateTime.parse(map['createdAt'] as String),
       updatedAt: DateTime.parse(map['updatedAt'] as String),
       expiresAt: DateTime.parse(map['expiresAt'] as String),
+
+      commissionType: map['commissionType'] as String? ?? 'none',
+      commissionRate: (map['commissionRate'] as num?)?.toDouble(),
+      flatFeeAmount: (map['flatFeeAmount'] as num?)?.toDouble(),
+      flatFeePeriod: map['flatFeePeriod'] as String?,
     );
   }
 
@@ -55,6 +71,11 @@ class InviteModel {
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': createdAt.toIso8601String(),
     'expiresAt': expiresAt.toIso8601String(),
+
+    'commissionType': commissionType,
+    'commissionRate': commissionRate,
+    'flatFeeAmount': flatFeeAmount,
+    'flatFeePeriod': flatFeePeriod,
   };
 
   InviteModel copyWith({
@@ -70,6 +91,11 @@ class InviteModel {
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? expiresAt,
+
+    String? commissionType,
+    double? commissionRate,
+    double? flatFeeAmount,
+    String? flatFeePeriod,
   }) {
     return InviteModel(
       id: id ?? this.id,
@@ -83,6 +109,11 @@ class InviteModel {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       expiresAt: expiresAt ?? this.expiresAt,
+
+      commissionType: commissionType ?? this.commissionType,
+      commissionRate: commissionRate ?? this.commissionRate,
+      flatFeeAmount: flatFeeAmount ?? this.flatFeeAmount,
+      flatFeePeriod: flatFeePeriod ?? this.flatFeePeriod,
     );
   }
 }

@@ -10,6 +10,7 @@ import 'package:neztmate_backend/features/properties/models/property_model.dart'
 import 'package:neztmate_backend/features/units/datasource/unit_remote_datasource.dart';
 import 'package:neztmate_backend/features/units/models/available_unit_response.dart';
 import 'package:neztmate_backend/features/units/models/owner_unit_response.dart';
+import 'package:neztmate_backend/features/units/models/unit_comment_model.dart';
 import 'package:neztmate_backend/features/units/models/unit_model.dart';
 import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
 
@@ -160,4 +161,14 @@ class UnitRepositoryImpl implements UnitRepository {
     currentTenantId: currentTenantId,
     isListedForRent: isListedForRent,
   );
+
+  @override
+  Future<void> addComment(UnitCommentModel comment) => unitDataSource.addComment(comment);
+
+  @override
+  Future<List<UnitCommentModel>> getCommentsForUnit(String unitId) =>
+      unitDataSource.getCommentsForUnit(unitId);
+
+  @override
+  Future<void> toggleLike(String unitId, String userId) => unitDataSource.toggleLike(unitId, userId);
 }

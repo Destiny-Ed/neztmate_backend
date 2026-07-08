@@ -5,6 +5,9 @@ class UserStatsModel {
   final int submittedTasks;
   final int maintenanceRequests;
   final double totalWithdrawn;
+  final int completedTasks;
+  final int activeTasks;
+  final double totalCommissionEarned;
 
   UserStatsModel({
     required this.totalProperties,
@@ -13,6 +16,10 @@ class UserStatsModel {
     required this.submittedTasks,
     required this.maintenanceRequests,
     required this.totalWithdrawn,
+
+    required this.activeTasks,
+    required this.completedTasks,
+    required this.totalCommissionEarned,
   });
 
   Map<String, dynamic> toJson() => {
@@ -22,5 +29,8 @@ class UserStatsModel {
     'submittedTasks': submittedTasks,
     'maintenanceRequests': maintenanceRequests,
     'totalWithdrawn': totalWithdrawn,
+    'activeTasks': activeTasks,
+    'completedTasks': completedTasks,
+    'totalCommissionEarned': totalCommissionEarned,
   };
 }

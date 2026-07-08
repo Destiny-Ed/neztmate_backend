@@ -136,7 +136,9 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
       injector<LeaseRepository>(),
     ),
   );
-  injector.registerLazySingleton<UnitHandler>(() => UnitHandler(injector<UnitRepository>()));
+  injector.registerLazySingleton<UnitHandler>(
+    () => UnitHandler(injector<UnitRepository>(), injector<UserRepository>()),
+  );
 
   //history
   injector.registerLazySingleton<HistoryRemoteDataSource>(
@@ -193,6 +195,21 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
       userRepository: injector<UserRepository>(),
       tenantRepository: injector<TenantRepository>(),
     ),
+  );
+
+  //user reviews
+  injector.registerLazySingleton<UserReviewRemoteDataSource>(
+    () => FirestoreUserReviewDataSource(
+      injector<Firestore>(),
+      injector<UserRepository>(),
+      injector<PaymentRepository>(),
+    ),
+  );
+  injector.registerLazySingleton<UserReviewRepository>(
+    () => UserReviewRepositoryImpl(injector<UserReviewRemoteDataSource>()),
+  );
+  injector.registerLazySingleton<UserReviewHandler>(
+    () => UserReviewHandler(injector<UserReviewRepository>(), injector<UserRepository>()),
   );
 
   //applications
@@ -282,26 +299,6 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
     () => NotificationHandler(injector<NotificationRepository>()),
   );
 
-  //user reviews
-  injector.registerLazySingleton<UserReviewRemoteDataSource>(
-    () => FirestoreUserReviewDataSource(injector<Firestore>(), injector<UserReputationService>()),
-  );
-  injector.registerLazySingleton<UserReviewRepository>(
-    () => UserReviewRepositoryImpl(injector<UserReviewRemoteDataSource>()),
-  );
-  injector.registerLazySingleton<UserReviewHandler>(
-    () => UserReviewHandler(injector<UserReviewRepository>(), injector<UserRepository>()),
-  );
-
-  //reputation service
-  injector.registerLazySingleton<UserReputationService>(
-    () => UserReputationService(
-      injector<UserRepository>(),
-      injector<PaymentRepository>(),
-      injector<UserReviewRepository>(),
-    ),
-  );
-
   //payments
   injector.registerLazySingleton<PaymentRemoteDataSource>(
     () => FirestorePaymentDataSource(injector<Firestore>()),
@@ -309,6 +306,7 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
   injector.registerLazySingleton<PaymentRepository>(
     () => PaymentRepositoryImpl(injector<PaymentRemoteDataSource>()),
   );
+
   injector.registerLazySingleton<PaymentHandler>(
     () => PaymentHandler(
       injector<PaymentRepository>(),
@@ -319,6 +317,16 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
       injector<MaintenanceRepository>(),
       injector<ApplicationRepository>(),
       injector<UserReputationService>(),
+      injector<PropertyRepository>(),
+    ),
+  );
+
+  //  reputation service
+  injector.registerLazySingleton<UserReputationService>(
+    () => UserReputationService(
+      injector<UserRepository>(),
+      injector<PaymentRepository>(),
+      injector<UserReviewRepository>(),
     ),
   );
 }

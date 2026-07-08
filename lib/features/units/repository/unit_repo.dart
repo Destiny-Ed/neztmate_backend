@@ -1,5 +1,6 @@
 import 'package:neztmate_backend/features/units/models/available_unit_response.dart';
 import 'package:neztmate_backend/features/units/models/owner_unit_response.dart';
+import 'package:neztmate_backend/features/units/models/unit_comment_model.dart';
 import 'package:neztmate_backend/features/units/models/unit_model.dart';
 
 abstract class UnitRepository {
@@ -26,4 +27,8 @@ abstract class UnitRepository {
     String? currentTenantId,
     bool? isListedForRent,
   });
+
+  Future<void> toggleLike(String unitId, String userId);
+  Future<void> addComment(UnitCommentModel comment);
+  Future<List<UnitCommentModel>> getCommentsForUnit(String unitId);
 }

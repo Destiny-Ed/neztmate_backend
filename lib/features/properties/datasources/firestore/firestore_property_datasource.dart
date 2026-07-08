@@ -130,12 +130,31 @@ class FirestorePropertyDataSource implements PropertyRemoteDataSource {
     required String propertyId,
     required String userId,
     required String role,
+    String? commissionType, // "percentage", "flat_fee", "none"
+    double? commissionRate,
+    double? flatFeeAmount,
+    String? flatFeePeriod,
   }) async {
-    await firestore.collection('properties').doc(propertyId).update({
-      if (role == 'manager') 'managerId': userId,
-      if (role == 'artisan') 'artisanIds': FieldValue.arrayUnion([userId]),
-      'updatedAt': DateTime.now().toIso8601String(),
-    });
+    final updateData = <String, dynamic>{'updatedAt': DateTime.now().toIso8601String()};
+
+    if (role.toLowerCase() == 'manager') {
+      updateData['managerId'] = userId;
+
+      // Store commission terms at property level
+      if (commissionType != null) {
+        updateData['managerCommissionType'] = commissionType;
+        if (commissionType == 'percentage' && commissionRate != null) {
+          updateData['managerCommissionRate'] = commissionRate;
+        } else if (commissionType == 'flat') {
+          updateData['managerFlatFeeAmount'] = flatFeeAmount;
+          updateData['managerFlatFeePeriod'] = flatFeePeriod ?? 'yearly';
+        }
+      }
+    } else if (role.toLowerCase() == 'artisan') {
+      updateData['artisanIds'] = FieldValue.arrayUnion([userId]);
+    }
+
+    await firestore.collection('properties').doc(propertyId).update(updateData);
   }
 
   @override

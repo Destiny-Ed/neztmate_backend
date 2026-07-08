@@ -15,6 +15,11 @@ class PropertyModel {
   DateTime updatedAt;
   List<String>? artisanIds;
 
+  final String? managerCommissionType; // "percentage", "flat_fee", "none"
+  final double? managerCommissionRate; // e.g. 0.05
+  final double? managerFlatFeeAmount;
+  final String? managerFlatFeePeriod; // "yearly", "monthly"
+
   PropertyModel({
     required this.id,
     required this.name,
@@ -31,6 +36,11 @@ class PropertyModel {
     required this.proofOfOwnershipUrl,
     required this.documentType,
     this.artisanIds,
+
+    this.managerCommissionType,
+    this.managerCommissionRate,
+    this.managerFlatFeeAmount,
+    this.managerFlatFeePeriod,
   });
 
   factory PropertyModel.fromMap(Map<String, dynamic> map) {
@@ -50,6 +60,11 @@ class PropertyModel {
       updatedAt: DateTime.parse(map['updatedAt'] as String),
       proofOfOwnershipUrl: map['proofOfOwnershipUrl'] as String,
       documentType: map['documentType'] as String,
+
+      managerCommissionType: map['managerCommissionType'] as String?,
+      managerCommissionRate: (map['managerCommissionRate'] as num?)?.toDouble(),
+      managerFlatFeeAmount: (map['managerFlatFeeAmount'] as num?)?.toDouble(),
+      managerFlatFeePeriod: map['managerFlatFeePeriod'] as String?,
     );
   }
 
@@ -69,6 +84,11 @@ class PropertyModel {
     'updatedAt': updatedAt.toIso8601String(),
     'proofOfOwnershipUrl': proofOfOwnershipUrl,
     'documentType': documentType,
+
+    'managerCommissionType': managerCommissionType,
+    'managerCommissionRate': managerCommissionRate,
+    'managerFlatFeeAmount': managerFlatFeeAmount,
+    'managerFlatFeePeriod': managerFlatFeePeriod,
   };
 
   PropertyModel copyWith({
@@ -87,6 +107,11 @@ class PropertyModel {
     double? occupancyRate,
     DateTime? createdAt,
     DateTime? updatedAt,
+
+    String? managerCommissionType,
+    double? managerCommissionRate,
+    double? managerFlatFeeAmount,
+    String? managerFlatFeePeriod,
   }) {
     return PropertyModel(
       id: id ?? this.id,
@@ -104,6 +129,11 @@ class PropertyModel {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       documentType: documentType ?? this.documentType,
+
+      managerCommissionType: managerCommissionType ?? this.managerCommissionType,
+      managerCommissionRate: managerCommissionRate ?? this.managerCommissionRate,
+      managerFlatFeeAmount: managerFlatFeeAmount ?? this.managerFlatFeeAmount,
+      managerFlatFeePeriod: managerFlatFeePeriod ?? this.managerFlatFeePeriod,
     );
   }
 }

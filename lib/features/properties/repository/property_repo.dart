@@ -20,6 +20,10 @@ abstract class PropertyRepository {
     required String propertyId,
     required String userId,
     required String role, // Manager or Artisan
+    String? commissionType, // "percentage", "flat_fee", "none"
+    double? commissionRate,
+    double? flatFeeAmount,
+    String? flatFeePeriod,
   });
 
   Future<void> removeUserFromProperty({

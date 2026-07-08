@@ -1,6 +1,7 @@
 import 'package:dart_firebase_admin/firestore.dart';
 import 'package:neztmate_backend/core/error.dart';
 import 'package:neztmate_backend/features/payments/datasource/remote_datasource.dart';
+import 'package:neztmate_backend/features/payments/models/manager_commission_model.dart';
 import 'package:neztmate_backend/features/payments/models/payment_disbursement_model.dart';
 import 'package:neztmate_backend/features/payments/models/payments.dart';
 import 'package:neztmate_backend/features/payments/models/payout_account_model.dart';
@@ -441,7 +442,7 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
     await Future.wait(updateFutures);
   }
 
-  // ====================== WALLET DEDUCTION (No balance field) ======================
+  //  WALLET DEDUCTION (No balance field)
 
   @override
   Future<void> deductFromPropertyBalance({
@@ -550,5 +551,84 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
         'withdrawalReference': withdrawalReference,
       });
     }
+  }
+
+  //  MANAGER COMMISSION
+
+  @override
+  Future<void> recordManagerCommission(ManagerCommissionModel commission) async {
+    try {
+      final docRef = firestore.collection('manager_commissions').doc();
+      final newCommission = commission.copyWith(id: docRef.id);
+
+      await docRef.set(newCommission.toMap());
+
+      print(
+        '💰 Manager commission recorded: ₦${commission.commissionAmount} for manager ${commission.managerId}',
+      );
+    } catch (e) {
+      print('Error recording manager commission: $e');
+      rethrow;
+    }
+  }
+
+  @override
+  Future<double> getTotalPendingCommission(String managerId) async {
+    try {
+      final snap = await firestore
+          .collection('manager_commissions')
+          .where('managerId', WhereFilter.equal, managerId)
+          .where('status', WhereFilter.equal, 'Pending')
+          .get();
+
+      double total = 0.0;
+      for (var doc in snap.docs) {
+        final data = doc.data() as Map<String, dynamic>;
+        total += (data['commissionAmount'] as num).toDouble();
+      }
+      return total;
+    } catch (e) {
+      print('Error calculating pending commission: $e');
+      return 0.0;
+    }
+  }
+
+  @override
+  Future<List<ManagerCommissionModel>> getManagerCommissions(String managerId) async {
+    final snap = await firestore
+        .collection('manager_commissions')
+        .where('managerId', WhereFilter.equal, managerId)
+        .orderBy('createdAt', descending: true)
+        .get();
+
+    return snap.docs
+        .map((doc) => ManagerCommissionModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+        .toList();
+  }
+
+  @override
+  Future<List<ManagerCommissionModel>> getManagersCommissions() async {
+    final snap = await firestore
+        .collection('manager_commissions')
+        .where('status', WhereFilter.equal, 'Pending')
+        .where(
+          'createdAt',
+          WhereFilter.lessThan,
+          DateTime.now().subtract(const Duration(days: 3)).toIso8601String(),
+        )
+        .get();
+
+    return snap.docs
+        .map((doc) => ManagerCommissionModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
+        .toList();
+  }
+
+  @override
+  Future<void> markCommissionAsPaid(String commissionId, String payoutReference) async {
+    await firestore.collection('manager_commissions').doc(commissionId).update({
+      'status': 'Paid',
+      'paidAt': DateTime.now().toIso8601String(),
+      'payoutReference': payoutReference,
+    });
   }
 }

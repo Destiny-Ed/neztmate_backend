@@ -1,13 +1,18 @@
 import 'package:dart_firebase_admin/firestore.dart';
 import 'package:neztmate_backend/core/services/reputation/reputation_service.dart';
+import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
+import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
 import 'package:neztmate_backend/features/reviews/datasource/review_remote_datasource.dart';
 import 'package:neztmate_backend/features/reviews/models/review_model.dart';
+import 'package:neztmate_backend/features/reviews/repository/review_repository.dart';
+import 'package:neztmate_backend/features/reviews/repository_impl/review_repository_impl.dart';
 
 class FirestoreUserReviewDataSource implements UserReviewRemoteDataSource {
   final Firestore firestore;
-  final UserReputationService reputationService;
+  final UserRepository userRepository;
+  final PaymentRepository paymentRepository;
 
-  FirestoreUserReviewDataSource(this.firestore, this.reputationService);
+  FirestoreUserReviewDataSource(this.firestore, this.userRepository, this.paymentRepository);
 
   CollectionReference get _reviews => firestore.collection('user_reviews');
 
@@ -44,6 +49,8 @@ class FirestoreUserReviewDataSource implements UserReviewRemoteDataSource {
 
   @override
   Future<void> updateUserReputationAfterReview(String reviewedUserId) async {
+    final reviewRepository = UserReviewRepositoryImpl(this);
+    final reputationService = UserReputationService(userRepository, paymentRepository, reviewRepository);
     await reputationService.updateUserReputation(reviewedUserId);
   }
 

@@ -26,6 +26,7 @@ import 'package:neztmate_backend/features/properties/handler/property_handler.da
 import 'package:neztmate_backend/features/reviews/handler/user_review_handler.dart';
 import 'package:neztmate_backend/features/tenants/handler/tenant_handler.dart';
 import 'package:neztmate_backend/features/units/handler/unit_handler.dart';
+import 'package:neztmate_backend/features/verification/handler/verification_handler.dart';
 import 'package:neztmate_backend/routes/applications_routes.dart';
 import 'package:neztmate_backend/routes/auth_routes.dart';
 import 'package:neztmate_backend/routes/community_routes.dart';
@@ -42,6 +43,7 @@ import 'package:neztmate_backend/routes/tenant_routes.dart';
 import 'package:neztmate_backend/routes/unit_routes.dart';
 import 'package:neztmate_backend/routes/user_review_routes.dart';
 import 'package:neztmate_backend/routes/user_routes.dart';
+import 'package:neztmate_backend/routes/verification_routes.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart';
 import 'package:shelf_router/shelf_router.dart';
@@ -178,9 +180,6 @@ void main() async {
         .addHandler(notificationRoutes(injector<NotificationHandler>()).call),
   );
 
-  /// Webhook from Paystack (NO auth middleware - must be public)
-  router.post('/webhook/paystack', injector<PaymentHandler>().paystackWebhook);
-
   router.mount(
     '/payments/',
     Pipeline()
@@ -196,7 +195,26 @@ void main() async {
   );
 
   // Mount review routes
-  router.mount('/reviews/', reviewRoutes(injector<UserReviewHandler>()).call);
+  router.mount(
+    '/reviews/',
+    Pipeline()
+        .addMiddleware(authMiddleware(jwtService))
+        .addHandler(reviewRoutes(injector<UserReviewHandler>()).call),
+  );
+
+  //verification
+  router.mount(
+    '/verification/',
+    Pipeline()
+        .addMiddleware(authMiddleware(jwtService))
+        .addHandler(verificationRoutes(injector<VerificationHandler>()).call),
+  );
+
+  /// Webhook from Paystack (NO auth middleware - must be public)
+  router.post('/webhook/paystack', injector<PaymentHandler>().paystackWebhook);
+
+  /// Webhook from verification (NO auth middleware - must be public)
+  router.post('/webhook/verification', injector<VerificationHandler>().handleWebhook);
 
   //  SWAGGER UI SETUP
 

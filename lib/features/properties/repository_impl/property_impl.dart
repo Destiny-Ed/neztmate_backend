@@ -62,7 +62,19 @@ class PropertyRepositoryImpl implements PropertyRepository {
     required String propertyId,
     required String userId,
     required String role,
-  }) => dataSource.assignUserToProperty(propertyId: propertyId, userId: userId, role: role);
+    String? commissionType,
+    double? commissionRate,
+    double? flatFeeAmount,
+    String? flatFeePeriod,
+  }) => dataSource.assignUserToProperty(
+    propertyId: propertyId,
+    userId: userId,
+    role: role,
+    commissionType: commissionType,
+    commissionRate: commissionRate,
+    flatFeeAmount: flatFeeAmount,
+    flatFeePeriod: flatFeePeriod,
+  );
 
   @override
   Future<void> removeUserFromProperty({

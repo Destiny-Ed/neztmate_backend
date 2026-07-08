@@ -1,3 +1,4 @@
+import 'package:neztmate_backend/features/units/models/unit_comment_model.dart';
 import 'package:neztmate_backend/features/units/models/unit_model.dart';
 
 abstract class UnitRemoteDataSource {
@@ -15,4 +16,8 @@ abstract class UnitRemoteDataSource {
     String? currentTenantId,
     bool? isListedForRent,
   });
+
+  Future<void> toggleLike(String unitId, String userId);
+  Future<void> addComment(UnitCommentModel comment);
+  Future<List<UnitCommentModel>> getCommentsForUnit(String unitId);
 }

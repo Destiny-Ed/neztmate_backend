@@ -16,4 +16,13 @@ abstract class UserRepository {
 
   /// Get dashboard stats based on user role
   Future<UserStatsModel> getUserStats(String userId, String role);
+
+  Future<void> updateUserVerification({
+    required String userId,
+    required String verificationId,
+    required String provider,
+    required String status,
+  });
+
+  Future<User?> getUserByVerificationId(String verificationId);
 }

@@ -1,3 +1,4 @@
+import 'package:neztmate_backend/features/payments/models/manager_commission_model.dart';
 import 'package:neztmate_backend/features/payments/models/payment_disbursement_model.dart';
 import 'package:neztmate_backend/features/payments/models/payments.dart';
 import 'package:neztmate_backend/features/payments/models/payout_account_model.dart';
@@ -69,4 +70,11 @@ abstract class PaymentRepository {
   Future<double> getTotalUnwithdrawnPlatformFees();
   Future<void> markPlatformFeesAsWithdrawn(String withdrawalReference);
   Future<List<PlatformFeeRecord>> getPlatformFeeHistory();
+
+  Future<void> recordManagerCommission(ManagerCommissionModel commission);
+  Future<double> getTotalPendingCommission(String managerId);
+  Future<List<ManagerCommissionModel>> getManagerCommissions(String managerId);
+  Future<void> markCommissionAsPaid(String commissionId, String payoutReference);
+
+  Future<List<ManagerCommissionModel>> getManagersCommissions();
 }

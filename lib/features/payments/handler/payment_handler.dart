@@ -10,12 +10,14 @@ import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
 import 'package:neztmate_backend/features/maintenance/repository/maintenance_repo.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
+import 'package:neztmate_backend/features/payments/models/manager_commission_model.dart';
 import 'package:neztmate_backend/features/payments/models/payment_disbursement_model.dart';
 import 'package:neztmate_backend/features/payments/models/payment_summary_model.dart';
 import 'package:neztmate_backend/features/payments/models/payments.dart';
 import 'package:neztmate_backend/features/payments/models/payout_account_model.dart';
 import 'package:neztmate_backend/features/payments/models/withdrawal_model.dart';
 import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
+import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
 import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
@@ -29,6 +31,7 @@ class PaymentHandler {
   final MaintenanceRepository maintenanceRepository;
   final ApplicationRepository applicationRepository;
   final UserReputationService userReputationService;
+  final PropertyRepository propertyRepository;
 
   PaymentHandler(
     this.paymentRepository,
@@ -39,6 +42,7 @@ class PaymentHandler {
     this.maintenanceRepository,
     this.applicationRepository,
     this.userReputationService,
+    this.propertyRepository,
   );
 
   final PaystackService paystackService = PaystackService();
@@ -106,222 +110,7 @@ class PaymentHandler {
     }
   }
 
-  /// POST /payments/webhook - Paystack sends confirmation
-  // Future<Response> paystackWebhook(Request request) async {
-  //   print("starting webhook");
-
-  //   try {
-  //     final signature = request.headers['x-paystack-signature'];
-  //     final bodyString = await request.readAsString();
-
-  //     print("Paystack event received $bodyString");
-
-  //     if (!paystackService.verifySignature(bodyString, signature)) {
-  //       print('Invalid Paystack signature $signature');
-  //       return Response(400, body: jsonEncode({'message': 'Invalid signature'}));
-  //     }
-  //     print('✅ Signature validation PASSED');
-
-  //     final body = jsonDecode(bodyString);
-  //     final event = body['event'] as String?;
-
-  //     if (event == 'charge.success') {
-  //       final data = body['data'] as Map<String, dynamic>;
-  //       final reference = data['reference'] as String;
-  //       final receiptUrl = data['receipt_url'] as String?;
-  //       final amount = (data['amount'] as num) / 100; // from kobo to Naira
-
-  //       // === IDEMPOTENCY CHECK ===
-  //       final alreadyProcessed = await paymentRepository.isPaymentAlreadyProcessed(reference);
-  //       if (alreadyProcessed) {
-  //         print('Payment already processed (idempotency): $reference');
-  //         return Response.ok('Already processed');
-  //       }
-
-  //       // Mark as processed first (to prevent duplicates)
-  //       await paymentRepository.markPaymentAsProcessed(reference);
-
-  //       // 1. Update payment status
-  //       await paymentRepository.markAsPaidByReference(reference, receiptUrl ?? '', reference);
-
-  //       // 2. Get the payment to know leaseId and tenant
-
-  //       final payment = await paymentRepository.getPaymentByReference(reference);
-
-  //       final platformFee = amount * 0.05; //5 percent platform fee
-  //       final netAmount = amount - platformFee;
-
-  //       String recipientId = '';
-  //       String recipientType = '';
-
-  //       //  TASK PAYMENT HANDLING
-  //       if (payment.type == 'task_payment' && payment.taskId != null) {
-  //         // Update task payment status
-  //         final task = await maintenanceRepository.getTaskById(payment.taskId!);
-
-  //         recipientId = task.artisanId;
-  //         recipientType = 'artisan';
-
-  //         final updatedTask = task.copyWith(
-  //           paymentStatus: 'Paid',
-  //           paymentMethod: 'Paystack',
-  //           paymentReference: reference,
-  //           actualCost: amount,
-  //           paymentApprovedAt: DateTime.now(),
-  //         );
-
-  //         await maintenanceRepository.updateTask(updatedTask);
-
-  //         // Notify Artisan
-  //         await notificationRepository.create(
-  //           NotificationModel(
-  //             userId: task.artisanId,
-  //             type: 'task_payment_success',
-  //             title: 'Payment Received',
-  //             body: '₦${amount.toStringAsFixed(0)} has been paid for task: ${task.title}',
-  //             relatedId: task.id,
-  //             relatedCollection: 'maintenance_tasks',
-  //             createdAt: DateTime.now(),
-  //             id: '',
-  //           ),
-  //         );
-
-  //         // Notify Tenant (optional)
-  //         final maintRequest = await maintenanceRepository.getRequestById(task.maintenanceRequestId);
-  //         await notificationRepository.create(
-  //           NotificationModel(
-  //             userId: maintRequest.tenantId,
-  //             type: 'task_payment_success',
-  //             title: 'Task Payment Completed',
-  //             body: 'Payment for maintenance task has been processed.',
-  //             relatedId: task.id,
-  //             relatedCollection: 'maintenance_tasks',
-  //             createdAt: DateTime.now(),
-  //             id: '',
-  //           ),
-  //         );
-
-  //         // Log to history
-  //         await historyRepository.createHistoryEntry(
-  //           HistoryEntryModel(
-  //             userId: task.artisanId,
-  //             type: 'task_payment_received',
-  //             title: 'Task Payment Received',
-  //             description: '₦${amount.toStringAsFixed(0)} for ${task.title}',
-  //             relatedId: task.id,
-  //             relatedCollection: 'maintenance_tasks',
-  //             timestamp: DateTime.now(),
-  //             id: '',
-  //           ),
-  //         );
-  //       }
-
-  //       if (payment.leaseId != null) {
-  //         // 3. Update Lease status to Active (since payment was made)
-  //         if (payment.type?.toLowerCase() == 'rent-renewal') {
-  //           await leaseRepository.renewLeaseAfterPayment(payment.leaseId!);
-  //         } else if (payment.type?.toLowerCase() == 'rent') {
-  //           //Set as 'Active' if it's a first rent payment, but for task payments we don't change lease status
-  //           await leaseRepository.updateLeaseStatus(payment.leaseId!, "Active");
-  //         }
-
-  //         final lease = await leaseRepository.getLeaseById(payment.leaseId!);
-
-  //         recipientId = lease.landownerId;
-  //         recipientType = 'landowner';
-
-  //         await unitRepository.updateUnitStatus(
-  //           unitId: lease.unitId,
-  //           status: 'occupied',
-  //           currentTenantId: lease.tenantId,
-  //           isListedForRent: false,
-  //         );
-
-  //         // 4. Log History for Tenant
-  // await historyRepository.createHistoryEntry(
-  //   HistoryEntryModel(
-  //     userId: payment.payerId,
-  //     type: payment.type ?? "payment-made",
-  //     title: 'Rent Payment Successful',
-  //     description: '₦${amount.toStringAsFixed(0)} paid for lease ${payment.leaseId}',
-  //     relatedId: payment.id,
-  //     relatedCollection: 'payments',
-  //     timestamp: DateTime.now(),
-  //     id: '',
-  //   ),
-  // );
-
-  //         // 5. Log History for Landowner (if you have landownerId in payment)
-  //         if (payment.receiverId != null) {
-  // await historyRepository.createHistoryEntry(
-  //   HistoryEntryModel(
-  //     userId: payment.receiverId!,
-  //     type: payment.type ?? "rent-received",
-  //     title: 'Rent Payment Received',
-  //     description: '₦${amount.toStringAsFixed(0)} received from tenant',
-  //     relatedId: payment.id,
-  //     relatedCollection: 'payments',
-  //     timestamp: DateTime.now(),
-  //     id: '',
-  //   ),
-  // );
-  //         }
-
-  //         // 6. Send Notifications
-  //         await notificationRepository.create(
-  //           NotificationModel(
-  //             userId: payment.payerId,
-  //             type: payment.type ?? "payment-success",
-  //             title: 'Payment Successful',
-  //             body: 'Your rent payment of ₦${amount.toStringAsFixed(0)} has been processed.',
-  //             relatedId: payment.id,
-  //             relatedCollection: 'payments',
-  //             createdAt: DateTime.now(),
-  //             id: '',
-  //           ),
-  //         );
-
-  //         if (payment.receiverId != null) {
-  //           await notificationRepository.create(
-  //             NotificationModel(
-  //               userId: payment.receiverId!,
-  //               type: payment.type ?? "rent-received",
-  //               title: 'Rent Payment Received',
-  //               body: 'You received ₦${amount.toStringAsFixed(0)} from tenant.',
-  //               relatedId: payment.id,
-  //               relatedCollection: 'payments',
-  //               createdAt: DateTime.now(),
-  //               id: '',
-  //             ),
-  //           );
-  //         }
-  //       }
-
-  //       // Create disbursement with 3 days holding
-  //       final disbursement = PaymentDisbursementModel(
-  //         id: '',
-  //         paymentId: payment.id,
-  //         recipientId: recipientId,
-  //         recipientType: recipientType,
-  //         originalAmount: amount,
-  //         platformFee: platformFee,
-  //         netAmount: netAmount,
-  //         status: 'Held',
-  //         scheduledDate: DateTime.now().add(const Duration(days: 3)),
-  //       );
-
-  //       await paymentRepository.createDisbursement(disbursement);
-  //       await paymentRepository.recordPlatformFee(payment.id, platformFee);
-
-  //     }
-
-  //     return Response.ok('Webhook received successfully');
-  //   } catch (e, stack) {
-  //     print('Webhook error: $e\n$stack');
-  //     return Response.ok('Webhook received with errors');
-  //   }
-  // }
-
+  /// POST /payments/webhook - Paystack Webhook Handler
   Future<Response> paystackWebhook(Request request) async {
     print("Webhook received - Starting processing");
 
@@ -369,12 +158,16 @@ class PaymentHandler {
       String recipientId = '';
       String recipientType = '';
 
+      double managerCommissionAmount = 0.0;
+      double managerCommissionRate = 0.0;
+      String? managerId;
+
+      //  APPLICATION FEE
       if (payment.type == 'application_fee' && data['applicationId'] != null) {
         final appId = data['applicationId'] as String;
 
         final application = await applicationRepository.getApplicationById(appId);
 
-        // Update application status to Pending (ready for review)
         await applicationRepository.updateApplication(application.copyWith(status: 'Pending'));
 
         await notificationRepository.create(
@@ -404,12 +197,18 @@ class PaymentHandler {
           paymentReference: reference,
           actualCost: amount,
           paymentApprovedAt: DateTime.now(),
-          paymentApprovedBy: 'system', // or payment.receiverId
+          paymentApprovedBy: 'system',
         );
 
         await maintenanceRepository.updateTask(updatedTask);
 
-        // Notifications
+        // Manager Commission for Task (if assigned by manager)
+        managerId = task.assignedBy;
+        if (managerId != null) {
+          managerCommissionAmount = amount * 0.10; // 10% for tasks
+        }
+
+        // Notifications & History
         await notificationRepository.create(
           NotificationModel(
             userId: task.artisanId,
@@ -423,7 +222,6 @@ class PaymentHandler {
           ),
         );
 
-        // History
         await historyRepository.createHistoryEntry(
           HistoryEntryModel(
             userId: task.artisanId,
@@ -443,19 +241,14 @@ class PaymentHandler {
 
         recipientId = lease.landownerId;
         recipientType = 'landowner';
+        managerId = lease.managerId;
 
-        // Update lease & unit status
+        // Update lease & unit
         if (payment.type?.toLowerCase() == 'rent-renewal') {
           await leaseRepository.renewLeaseAfterPayment(payment.leaseId!);
         } else {
           await leaseRepository.updateLeaseStatus(payment.leaseId!, 'Active');
         }
-
-        // Update tenant's reputation
-        await userReputationService.updateUserReputation(payment.payerId);
-
-        // Also update landowner's reputation (for receiving payment on time)
-        await userReputationService.updateUserReputation(lease.landownerId);
 
         await unitRepository.updateUnitStatus(
           unitId: lease.unitId,
@@ -464,7 +257,22 @@ class PaymentHandler {
           isListedForRent: false,
         );
 
-        // Notifications & History (Tenant + Landowner)
+        // Reputation updates
+        await userReputationService.updateUserReputation(payment.payerId);
+        await userReputationService.updateUserReputation(lease.landownerId);
+
+        // Manager Commission for Rent
+        if (managerId != null) {
+          final property = await propertyRepository.getPropertyById(lease.propertyId ?? '');
+
+          if (property.managerCommissionType == 'percentage' && property.managerCommissionRate != null) {
+            managerCommissionAmount = amount * property.managerCommissionRate!;
+            managerCommissionRate = property.managerCommissionRate!;
+          } else if (property.managerCommissionType == 'flat' && property.managerFlatFeeAmount != null) {
+            managerCommissionAmount = property.managerFlatFeeAmount!;
+          }
+        }
+
         await _sendRentSuccessNotifications(payment, lease, amount);
       }
 
@@ -486,8 +294,23 @@ class PaymentHandler {
         await paymentRepository.recordPlatformFee(payment.id, platformFee, payment.type ?? 'payment');
 
         print('📅 Disbursement scheduled for $recipientType after 3 days');
-      } else {
-        print('⚠️ No recipient found for auto-disbursement. Manual withdrawal fallback possible.');
+      }
+
+      //  RECORD MANAGER COMMISSION
+      if (managerId != null && managerCommissionAmount > 0) {
+        final commission = ManagerCommissionModel(
+          id: '',
+          paymentId: payment.id,
+          managerId: managerId,
+          relatedId: payment.leaseId ?? payment.taskId ?? '',
+          type: payment.type ?? 'rent',
+          commissionRate: managerCommissionRate,
+          commissionAmount: managerCommissionAmount,
+          createdAt: DateTime.now(),
+        );
+
+        await paymentRepository.recordManagerCommission(commission);
+        print('💰 Manager commission recorded: ₦$managerCommissionAmount');
       }
 
       return Response.ok('Webhook processed successfully');
@@ -775,6 +598,17 @@ class PaymentHandler {
             'action': 'add_payout_account',
           }),
         );
+      }
+
+      // Check available commission for managers
+      if (role == 'Manager') {
+        final pendingCommission = await paymentRepository.getTotalPendingCommission(userId);
+        if (amount > pendingCommission) {
+          return Response(
+            400,
+            body: jsonEncode({'message': 'Insufficient commission balance', 'available': pendingCommission}),
+          );
+        }
       }
 
       // Get current withdrawable balance

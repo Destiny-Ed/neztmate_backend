@@ -17,5 +17,9 @@ Router unitRoutes(UnitHandler handler) {
   // Protected (authenticated users)
   router.get('/<id>', handler.getUnitById);
 
+  router.post('/<unitId>/like', handler.likeUnit);
+  router.post('/<unitId>/comment', handler.commentOnUnit);
+  router.get('/<unitId>/comments', handler.getUnitComments);
+
   return router;
 }

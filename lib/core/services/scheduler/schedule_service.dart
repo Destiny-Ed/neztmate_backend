@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'package:dart_firebase_admin/firestore.dart';
 import 'package:neztmate_backend/core/services/payment/paystack_service.dart';
 import 'package:neztmate_backend/features/invites/repository/invite_repo.dart';
 import 'package:neztmate_backend/features/leases/models/leases_model.dart';
@@ -6,6 +7,7 @@ import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
 import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
+import 'package:neztmate_backend/features/payments/models/manager_commission_model.dart';
 import 'package:neztmate_backend/features/payments/models/payment_disbursement_model.dart';
 import 'package:neztmate_backend/features/payments/models/withdrawal_model.dart';
 import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
@@ -38,8 +40,9 @@ class SchedulerService {
     //   await _cleanupExpiredInvites();
     // });
 
-    _disbursementTimer = Timer.periodic(const Duration(hours: 6), (_) async {
+    _disbursementTimer = Timer.periodic(const Duration(hours: 12), (_) async {
       await _processDueDisbursements();
+      await _processManagerCommissions();
     });
 
     _leaseStatusTimer = Timer.periodic(const Duration(hours: 6), (_) async {
@@ -253,6 +256,28 @@ class SchedulerService {
     } catch (e) {
       print('Failed to process disbursement ${disbursement.id}: $e');
       await paymentRepository.markDisbursementAsFailed(disbursement.id, e.toString());
+    }
+  }
+
+  Future<void> _processManagerCommissions() async {
+    // Get all pending manager commissions older than 3 days
+    final commissions = await paymentRepository.getManagersCommissions();
+
+    for (var commission in commissions) {
+      final account = await paymentRepository.getDefaultPayoutAccount(commission.managerId);
+
+      if (account?.paystackSubaccountId != null) {
+        final success = await paystackService.transferToSubaccount(
+          amount: commission.commissionAmount,
+          subaccountId: account!.paystackSubaccountId!,
+          reference: 'comm_${DateTime.now().millisecondsSinceEpoch}',
+          reason: 'Manager commission payout',
+        );
+
+        if (success) {
+          await paymentRepository.markCommissionAsPaid(commission.id, 'auto');
+        }
+      }
     }
   }
 }

@@ -1,4 +1,3 @@
-// lib/features/unit/models/unit_model.dart
 class UnitModel {
   final String id;
   final String propertyId;

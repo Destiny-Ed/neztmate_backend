@@ -9,4 +9,6 @@ abstract class UserRemoteDataSource {
   Future<void> deleteUser(String id);
 
   Future<UserStatsModel> getUserStats(String userId, String role);
+
+  Future<User?> getUserByVerificationId(String verificationId);
 }
