@@ -73,7 +73,7 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
       int activeTasks = 0;
 
       // LANDOWNER / MANAGER STATS
-      if (role == 'landowner' || role == ',anager') {
+      if (role == 'landowner' || role == 'manager') {
         final propertyField = role == 'landowner' ? 'landownerId' : 'managerId';
 
         // 1. Total Properties

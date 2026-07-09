@@ -9,9 +9,17 @@ Router leaseRoutes(LeaseHandler handler) {
   router.get('/<id>', handler.getLeaseById);
   router.get('/application/<id>', handler.getLeaseByApplicationId);
   router.patch('/<id>/sign', handler.signLease);
-  router.patch('/<id>/terminate', handler.terminateLease);
+  router.patch('/<id>/terminate', handler.terminateLeaseByLandowner);
   router.get('/property/<propertyId>', handler.getLeasesByProperty);
   router.patch('/<id>/status', handler.updateLeaseStatus);
+
+  // Lease Transfer (Tenant-initiated)
+  router.post('/<id>/transfer', handler.requestLeaseTransfer);
+  router.patch('/<id>/approve-transfer', handler.approveLeaseTransfer);
+  router.patch('/<id>/reject-transfer', handler.rejectLeaseTransfer);
+
+  // Early Termination (Tenant-initiated)
+  router.post('/<id>/early-termination', handler.requestEarlyTermination);
 
   return router;
 }

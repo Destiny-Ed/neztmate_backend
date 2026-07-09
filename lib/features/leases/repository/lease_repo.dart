@@ -21,4 +21,20 @@ abstract class LeaseRepository {
   Future<List<LeaseModel>> getExpiringLeases({int withinDays = 5});
 
   Future<int> updateExpiredLeasesToInactive();
+
+  Future<void> requestLeaseTransfer({
+    required String leaseId,
+    required String newTenantId,
+    required String reason,
+  });
+
+  Future<void> approveLeaseTransfer(String leaseId, String approvedBy);
+
+  Future<void> rejectLeaseTransfer(String leaseId, String rejectedBy, String reason);
+
+  Future<void> requestEarlyTermination({
+    required String leaseId,
+    required String reason,
+    required String requestedBy,
+  });
 }

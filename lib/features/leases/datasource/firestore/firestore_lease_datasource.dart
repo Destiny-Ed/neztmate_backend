@@ -68,6 +68,41 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   }
 
   @override
+  Future<void> approveLeaseTransfer(String leaseId, String approvedBy) async {
+    final lease = await getLeaseById(leaseId);
+
+    if (lease.transferToTenantId == null) throw Exception('No transfer request');
+
+    // Create new lease for replacement tenant
+    final newLease = LeaseModel(
+      id: '',
+      unitId: lease.unitId,
+      tenantId: lease.transferToTenantId!,
+      landownerId: lease.landownerId,
+      managerId: lease.managerId,
+      startDate: DateTime.now(),
+      endDate: lease.endDate,
+      yearlyRent: lease.yearlyRent,
+      fees: lease.fees,
+      status: 'Active',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+      applicationId: '',
+      propertyId: lease.propertyId,
+    );
+
+    await createLease(newLease);
+
+    // Terminate old lease
+    await _leases.doc(leaseId).update({
+      'status': 'Transferred',
+      'transferStatus': 'Approved',
+      'approvedBy': approvedBy,
+      'approvedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  @override
   Future<LeaseModel> getLeaseByApplicationId(String applicationId) async {
     final snap = await firestore
         .collection('leases')
@@ -182,5 +217,47 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
       print('Error updating expired leases: $e');
       return 0;
     }
+  }
+
+  @override
+  Future<void> requestLeaseTransfer({
+    required String leaseId,
+    required String newTenantId,
+    required String reason,
+  }) async {
+    await _leases.doc(leaseId).update({
+      'status': 'TransferRequested',
+      'transferToTenantId': newTenantId,
+      'transferStatus': 'Pending',
+      'transferReason': reason,
+      'transferRequestedAt': DateTime.now().toIso8601String(),
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  @override
+  Future<void> rejectLeaseTransfer(String leaseId, String rejectedBy, String reason) async {
+    await _leases.doc(leaseId).update({
+      'transferStatus': 'Rejected',
+      'rejectedBy': rejectedBy,
+      'rejectionReason': reason,
+      'rejectedAt': DateTime.now().toIso8601String(),
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  @override
+  Future<void> requestEarlyTermination({
+    required String leaseId,
+    required String reason,
+    required String requestedBy,
+  }) async {
+    await _leases.doc(leaseId).update({
+      'status': 'EarlyTerminationRequested',
+      'terminationReason': reason,
+      'terminationRequestedBy': requestedBy,
+      'terminationRequestedAt': DateTime.now().toIso8601String(),
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
   }
 }

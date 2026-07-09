@@ -190,7 +190,8 @@ class UnitHandler {
       await unitRepository.toggleLike(unitId, userId);
 
       return Response.ok(jsonEncode({'message': 'Like updated successfully'}));
-    } catch (e) {
+    } catch (e, s) {
+      print("Comment like error $e\n$s");
       return Response.internalServerError();
     }
   }
@@ -218,8 +219,8 @@ class UnitHandler {
         id: '',
         unitId: unitId,
         userId: userId,
-        userName: user?.fullName ?? 'Anonymous',
-        userPhotoUrl: user?.profilePhotoUrl,
+        userName: user.fullName,
+        userPhotoUrl: user.profilePhotoUrl,
         comment: commentText.trim(),
         createdAt: DateTime.now(),
       );
@@ -227,7 +228,9 @@ class UnitHandler {
       await unitRepository.addComment(comment);
 
       return Response.ok(jsonEncode({'message': 'Comment added successfully', 'comment': comment.toMap()}));
-    } catch (e) {
+    } catch (e, s) {
+      print("Error adding comments $e\n$s");
+
       return Response.internalServerError();
     }
   }
@@ -249,7 +252,8 @@ class UnitHandler {
           'comments': comments.map((c) => c.toMap()).toList(),
         }),
       );
-    } catch (e) {
+    } catch (e, s) {
+      print("Error getting comments $e\n$s");
       return Response.internalServerError();
     }
   }

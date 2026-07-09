@@ -4,7 +4,7 @@ import 'package:shelf_router/shelf_router.dart';
 Router reviewRoutes(UserReviewHandler handler) {
   final router = Router();
 
-  router.post('/', handler.createReview);
+  router.post('/create', handler.createReview);
   router.get('/user/<userId>', handler.getUserReviews);
   router.get('/user/<userId>/summary', handler.getUserReputationSummary);
   router.get('/my-reviews', handler.getMyWrittenReviews);

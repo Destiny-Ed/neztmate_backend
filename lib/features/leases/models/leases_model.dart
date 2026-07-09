@@ -35,6 +35,9 @@ class LeaseModel {
   final DateTime? terminatedAt;
   final String? terminatedBy;
 
+  final String? transferToTenantId; // For lease transfer
+  final String? transferStatus; // Pending, Approved, Rejected
+
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -69,6 +72,9 @@ class LeaseModel {
     this.terminationReason,
     this.terminatedAt,
     this.terminatedBy,
+
+    this.transferToTenantId,
+    this.transferStatus,
 
     this.isRenewed = false,
     this.previousLeaseId,
@@ -105,6 +111,9 @@ class LeaseModel {
       terminatedAt: map['terminatedAt'] != null ? DateTime.parse(map['terminatedAt'] as String) : null,
       terminatedBy: map['terminatedBy'] as String?,
 
+      transferStatus: map['transferStatus'] as String?,
+      transferToTenantId: map["transferToTenantId"] as String?,
+
       isRenewed: map['isRenewed'] as bool? ?? false,
       previousLeaseId: map['previousLeaseId'] as String?,
       renewalReason: map['renewalReason'] as String?,
@@ -140,6 +149,9 @@ class LeaseModel {
     'terminatedAt': terminatedAt?.toIso8601String(),
     'terminatedBy': terminatedBy,
 
+    'transferToTenantId': transferToTenantId,
+    'transferStatus': transferStatus,
+
     'isRenewed': isRenewed,
     'previousLeaseId': previousLeaseId,
     'renewalReason': renewalReason,
@@ -166,6 +178,8 @@ class LeaseModel {
     List<UnitFee>? fees,
     DateTime? terminatedAt,
     String? terminatedBy,
+    String? transferStatus,
+    String? transferToTenantId,
     bool? isCustomLease,
     DateTime? signedAt,
     String? signedBy,
@@ -204,6 +218,8 @@ class LeaseModel {
       terminationReason: terminationReason ?? this.terminationReason,
       terminatedAt: terminatedAt ?? this.terminatedAt,
       terminatedBy: terminatedBy ?? this.terminatedBy,
+      transferStatus: transferStatus ?? this.transferStatus,
+      transferToTenantId: transferToTenantId ?? this.transferToTenantId,
       isRenewed: isRenewed ?? this.isRenewed,
       previousLeaseId: previousLeaseId ?? this.previousLeaseId,
       renewalReason: renewalReason ?? this.renewalReason,

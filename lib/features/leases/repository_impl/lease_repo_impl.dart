@@ -56,4 +56,26 @@ class LeaseRepositoryImpl implements LeaseRepository {
       dataSource.getExpiringLeases(withinDays: withinDays);
   @override
   Future<int> updateExpiredLeasesToInactive() => dataSource.updateExpiredLeasesToInactive();
+
+  @override
+  Future<void> approveLeaseTransfer(String leaseId, String approvedBy) =>
+      dataSource.approveLeaseTransfer(leaseId, approvedBy);
+
+  @override
+  Future<void> rejectLeaseTransfer(String leaseId, String rejectedBy, String reason) =>
+      dataSource.rejectLeaseTransfer(leaseId, rejectedBy, reason);
+
+  @override
+  Future<void> requestEarlyTermination({
+    required String leaseId,
+    required String reason,
+    required String requestedBy,
+  }) => dataSource.requestEarlyTermination(leaseId: leaseId, reason: reason, requestedBy: requestedBy);
+
+  @override
+  Future<void> requestLeaseTransfer({
+    required String leaseId,
+    required String newTenantId,
+    required String reason,
+  }) => dataSource.requestLeaseTransfer(leaseId: leaseId, newTenantId: newTenantId, reason: reason);
 }

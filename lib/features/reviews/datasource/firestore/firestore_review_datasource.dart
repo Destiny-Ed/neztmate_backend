@@ -4,7 +4,6 @@ import 'package:neztmate_backend/features/auth_user/repositories/user_repository
 import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
 import 'package:neztmate_backend/features/reviews/datasource/review_remote_datasource.dart';
 import 'package:neztmate_backend/features/reviews/models/review_model.dart';
-import 'package:neztmate_backend/features/reviews/repository/review_repository.dart';
 import 'package:neztmate_backend/features/reviews/repository_impl/review_repository_impl.dart';
 
 class FirestoreUserReviewDataSource implements UserReviewRemoteDataSource {
@@ -78,13 +77,15 @@ class FirestoreUserReviewDataSource implements UserReviewRemoteDataSource {
   @override
   Future<UserReviewModel?> getExistingReview({
     required String reviewerId,
-    required String reviewedUserId,
+    required String reviewedEntityId,
+    required String reviewedEntityType,
     required String reviewType,
   }) async {
     final snap = await _reviews
-        .where('reviewerId', WhereFilter.equal, reviewerId)
-        .where('reviewedUserId', WhereFilter.equal, reviewedUserId)
-        .where('reviewType', WhereFilter.equal, reviewType)
+        .where("reviewerId", WhereFilter.equal, reviewerId)
+        .where("reviewedUserId", WhereFilter.equal, reviewedEntityId)
+        .where("reviewedEntityType", WhereFilter.equal, reviewedEntityType)
+        .where("reviewType", WhereFilter.equal, reviewType)
         .limit(1)
         .get();
 

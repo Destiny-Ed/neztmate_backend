@@ -12,63 +12,101 @@ class UserReviewHandler {
 
   UserReviewHandler(this.reviewRepository, this.userRepository);
 
-  /// POST /reviews - Create a new review (with duplicate prevention)
+  /// POST /reviews
+  /// Creates a review with duplicate prevention
   Future<Response> createReview(Request request) async {
     try {
-      final reviewerId = request.context['userId'] as String?;
-      final reviewerRole = request.context['role'] as String?;
-      if (reviewerId == null) return unauthorized("Missing authentication");
+      final reviewerId = request.context["userId"] as String?;
+      final reviewerRole = request.context["role"] as String?;
+
+      if (reviewerId == null) {
+        return unauthorized("Missing authentication");
+      }
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
 
-      final reviewedUserId = body['reviewedUserId'] as String?;
-      final reviewType = body['reviewType'] as String?;
-      final rating = (body['rating'] as num?)?.toDouble();
-      final comment = body['comment'] as String?;
+      final reviewedEntityId = body["reviewedEntityId"] as String?;
 
-      if (reviewedUserId == null || reviewType == null || rating == null || comment == null) {
-        return badRequest('reviewedUserId, reviewType, rating, and comment are required');
+      final reviewedEntityType = body["reviewedEntityType"] as String?;
+
+      final reviewType = body["reviewType"] as String?;
+
+      final rating = (body["rating"] as num?)?.toDouble();
+
+      final comment = (body["comment"] as String?)?.trim() ?? "";
+
+      final tags = List<String>.from(body["tags"] ?? []);
+
+      final relatedLeaseId = body["relatedLeaseId"] as String?;
+
+      final relatedTaskId = body["relatedTaskId"] as String?;
+
+      if (reviewedEntityId == null || reviewedEntityType == null || reviewType == null || rating == null) {
+        return badRequest("reviewedEntityId, reviewedEntityType, reviewType and rating are required");
       }
 
-      if (rating < 1.0 || rating > 5.0) {
-        return badRequest('rating must be between 1.0 and 5.0');
+      if (rating < 1 || rating > 5) {
+        return badRequest("Rating must be between 1 and 5");
       }
 
-      if (comment.trim().isEmpty) {
-        return badRequest('comment cannot be empty');
+      if (reviewedEntityId == reviewerId && reviewedEntityType == "user") {
+        return badRequest("You cannot review yourself.");
       }
 
-      if (reviewedUserId == reviewerId) {
-        return badRequest('You cannot review yourself');
+      if (rating <= 2 && comment.length < 10) {
+        return badRequest("Please provide more details for low ratings.");
       }
 
-      // === Prevent Duplicate Reviews ===
       final existingReview = await reviewRepository.getExistingReview(
         reviewerId: reviewerId,
-        reviewedUserId: reviewedUserId,
+        reviewedEntityId: reviewedEntityId,
         reviewType: reviewType,
+        reviewedEntityType: reviewedEntityType,
       );
 
       if (existingReview != null) {
         return Response(
           409,
           body: jsonEncode({
-            'message': 'You have already reviewed this user for this category',
-            'existingReviewId': existingReview.id,
+            "message": "You have already submitted this review.",
+            "reviewId": existingReview.id,
           }),
+          headers: {'Content-Type': 'application/json'},
         );
       }
 
+      /// Fetch reviewer profile from database
+      final reviewer = await userRepository.getUserById(reviewerId);
+
       final review = UserReviewModel(
-        id: '',
+        id: "",
+
         reviewerId: reviewerId,
-        reviewedUserId: reviewedUserId,
+        reviewerName: reviewer.fullName,
+        reviewerPhotoUrl: reviewer.profilePhotoUrl,
+
+        reviewerRole: reviewerRole ?? "unknown",
+
+        reviewedUserId: reviewedEntityId,
+        reviewedEntityType: reviewedEntityType,
+
         reviewType: reviewType,
+
         rating: rating,
-        reviewerRole: reviewerRole ?? 'unknown',
-        comment: comment.trim(),
-        relatedLeaseId: body['relatedLeaseId'] as String?,
-        relatedTaskId: body['relatedTaskId'] as String?,
+
+        comment: comment,
+
+        tags: tags,
+
+        relatedLeaseId: relatedLeaseId,
+        relatedTaskId: relatedTaskId,
+
+        isVerified: relatedLeaseId != null || relatedTaskId != null,
+
+        helpfulCount: 0,
+
+        edited: false,
+
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
@@ -76,12 +114,17 @@ class UserReviewHandler {
       final created = await reviewRepository.createReview(review);
 
       return Response.ok(
-        jsonEncode({'message': 'Review submitted successfully', 'review': created.toMap()}),
+        jsonEncode({"message": "Review submitted successfully", "review": created.toMap()}),
         headers: {'Content-Type': 'application/json'},
       );
     } catch (e, stack) {
-      print('Create review error: $e\n$stack');
-      return Response.internalServerError();
+      print(e);
+      print(stack);
+
+      return Response.internalServerError(
+        body: jsonEncode({"message": "Unable to create review."}),
+        headers: {'Content-Type': 'application/json'},
+      );
     }
   }
 

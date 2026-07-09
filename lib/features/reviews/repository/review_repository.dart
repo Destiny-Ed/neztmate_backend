@@ -9,7 +9,8 @@ abstract class UserReviewRepository {
   Future<UserReviewModel?> getReviewById(String id);
   Future<UserReviewModel?> getExistingReview({
     required String reviewerId,
-    required String reviewedUserId,
+    required String reviewedEntityId,
+    required String reviewedEntityType,
     required String reviewType,
   });
   Future<UserReviewModel> updateReview(UserReviewModel review);

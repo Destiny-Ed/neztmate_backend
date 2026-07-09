@@ -6,7 +6,7 @@ class UnitCommentModel {
   final String? userPhotoUrl;
   final String comment;
   final DateTime createdAt;
-  final DateTime? updatedAt; // NEW
+  final DateTime? updatedAt;
 
   UnitCommentModel({
     required this.id,
@@ -19,9 +19,9 @@ class UnitCommentModel {
     this.updatedAt,
   });
 
-  factory UnitCommentModel.fromMap(Map<String, dynamic> map, String id) {
+  factory UnitCommentModel.fromMap(Map<String, dynamic> map) {
     return UnitCommentModel(
-      id: id,
+      id: map['id'],
       unitId: map['unitId'] as String,
       userId: map['userId'] as String,
       userName: map['userName'] as String,
@@ -33,6 +33,7 @@ class UnitCommentModel {
   }
 
   Map<String, dynamic> toMap() => {
+    'id': id,
     'unitId': unitId,
     'userId': userId,
     'userName': userName,

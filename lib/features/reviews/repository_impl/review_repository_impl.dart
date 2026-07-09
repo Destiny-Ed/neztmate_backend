@@ -32,11 +32,13 @@ class UserReviewRepositoryImpl implements UserReviewRepository {
   @override
   Future<UserReviewModel?> getExistingReview({
     required String reviewerId,
-    required String reviewedUserId,
+    required String reviewedEntityId,
+    required String reviewedEntityType,
     required String reviewType,
   }) => dataSource.getExistingReview(
     reviewerId: reviewerId,
-    reviewedUserId: reviewedUserId,
+    reviewedEntityId: reviewedEntityId,
+    reviewedEntityType: reviewedEntityType,
     reviewType: reviewType,
   );
 

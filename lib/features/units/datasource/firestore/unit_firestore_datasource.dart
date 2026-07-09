@@ -208,9 +208,7 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
         .orderBy('createdAt', descending: true)
         .get();
 
-    return snap.docs
-        .map((doc) => UnitCommentModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
-        .toList();
+    return snap.docs.map((doc) => UnitCommentModel.fromMap(doc.data() as Map<String, dynamic>)).toList();
   }
 
   // @override

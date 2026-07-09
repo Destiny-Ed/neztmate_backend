@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:neztmate_backend/core/services/reputation/reputation_service.dart';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
 import 'package:neztmate_backend/features/history/model/user_history_model.dart';
 import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
@@ -20,6 +21,7 @@ class LeaseHandler {
   final PropertyRepository propertyRepository;
   final TenantRepository tenantRepository;
   final UserRepository userRepository;
+  final UserReputationService userReputationService;
 
   LeaseHandler({
     required this.leaseRepository,
@@ -29,6 +31,7 @@ class LeaseHandler {
     required this.propertyRepository,
     required this.userRepository,
     required this.tenantRepository,
+    required this.userReputationService,
   });
 
   //  TENANT ENDPOINTS
@@ -563,8 +566,7 @@ class LeaseHandler {
   }
 
   /// PATCH /leases/<id>/terminate - Landowner or Manager terminates lease
-
-  Future<Response> terminateLease(Request request) async {
+  Future<Response> terminateLeaseByLandowner(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
@@ -573,31 +575,21 @@ class LeaseHandler {
       if (userId == null || leaseId == null) return _unauthorized();
 
       if (!['landowner', 'manager'].contains(role)) {
-        return Response(403, body: jsonEncode({'message': 'Only landowners/managers can terminate leases'}));
+        return Response(403, body: jsonEncode({'message': 'Only landlords/managers can terminate leases'}));
       }
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final reason = body['reason'] as String?;
 
       if (reason == null || reason.trim().isEmpty) {
-        return Response(400, body: jsonEncode({'message': 'Termination reason is required'}));
+        return badRequest('Termination reason is required');
       }
 
       final lease = await leaseRepository.getLeaseById(leaseId);
 
-      if (lease.endDate.isAfter(DateTime.now())) {
-        return Response(
-          400,
-          body: jsonEncode({
-            'message': 'Cannot Terminate this Lease at this time. Current lease has not yet expired.',
-          }),
-        );
-      }
+      await leaseRepository.terminateLease(leaseId, reason, role ?? "");
 
-      // 1. Terminate the lease
-      await leaseRepository.terminateLease(leaseId, reason, userId);
-
-      // 2. Update unit status (vacant + available again)
+      // Update unit to vacant
       await unitRepository.updateUnitStatus(
         unitId: lease.unitId,
         status: 'vacant',
@@ -605,37 +597,9 @@ class LeaseHandler {
         isListedForRent: true,
       );
 
-      // 3. Log history + notifications
+      // Reputation impact (negative for tenant)
+      await userReputationService.updateUserReputation(lease.tenantId);
 
-      // Log history for tenant
-      await historyRepository.createHistoryEntry(
-        HistoryEntryModel(
-          userId: lease.tenantId,
-          type: 'lease_terminated',
-          title: 'Lease Terminated',
-          description: 'Your lease has been terminated. Reason: $reason',
-          relatedId: leaseId,
-          relatedCollection: 'leases',
-          timestamp: DateTime.now(),
-          id: '',
-        ),
-      );
-
-      // Log history for landowner
-      await historyRepository.createHistoryEntry(
-        HistoryEntryModel(
-          userId: userId,
-          type: 'lease_terminated',
-          title: 'Lease Terminated',
-          description: 'You terminated the lease for Unit ${lease.unitId}. Reason: $reason',
-          relatedId: leaseId,
-          relatedCollection: 'leases',
-          timestamp: DateTime.now(),
-          id: '',
-        ),
-      );
-
-      // Send notifications
       await notificationRepository.create(
         NotificationModel(
           userId: lease.tenantId,
@@ -649,12 +613,51 @@ class LeaseHandler {
         ),
       );
 
+      return Response.ok(jsonEncode({'message': 'Lease terminated successfully', 'leaseId': leaseId}));
+    } catch (e, stack) {
+      print('Landlord terminate lease error: $e\n$stack');
+      return Response.internalServerError();
+    }
+  }
+
+  /// POST /leases/<id>/transfer - Tenant requests to transfer lease with replacement
+  Future<Response> requestLeaseTransfer(Request request) async {
+    try {
+      final tenantId = request.context['userId'] as String?;
+      final leaseId = request.params['id'];
+
+      if (tenantId == null || leaseId == null) return _unauthorized();
+
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final newTenantId = body['newTenantId'] as String?;
+      final reason = body['reason'] as String?;
+
+      if (newTenantId == null) {
+        return badRequest('newTenantId (replacement tenant) is required');
+      }
+
+      final lease = await leaseRepository.getLeaseById(leaseId);
+
+      if (lease.tenantId != tenantId) {
+        return Response(403, body: jsonEncode({'message': 'You can only transfer your own lease'}));
+      }
+
+      if (lease.status != 'Active') {
+        return Response(400, body: jsonEncode({'message': 'Only active leases can be transferred'}));
+      }
+
+      await leaseRepository.requestLeaseTransfer(
+        leaseId: leaseId,
+        newTenantId: newTenantId,
+        reason: reason ?? 'Tenant relocation',
+      );
+
       await notificationRepository.create(
         NotificationModel(
-          userId: userId,
-          type: 'lease_terminated',
-          title: 'Lease Terminated Successfully',
-          body: 'You have terminated the lease for Unit ${lease.unitId}',
+          userId: lease.landownerId,
+          type: 'lease_transfer_request',
+          title: 'Lease Transfer Request',
+          body: 'Tenant has requested to transfer lease to new tenant.',
           relatedId: leaseId,
           relatedCollection: 'leases',
           createdAt: DateTime.now(),
@@ -664,14 +667,192 @@ class LeaseHandler {
 
       return Response.ok(
         jsonEncode({
-          'message': 'Lease terminated successfully',
+          'message': 'Lease transfer request submitted. Awaiting landlord approval.',
           'leaseId': leaseId,
-          'unitStatusUpdated': true,
         }),
       );
     } catch (e, stack) {
-      print('Terminate lease error: $e\n$stack');
-      return Response.internalServerError(body: jsonEncode({'message': 'Failed to terminate lease'}));
+      print('Request lease transfer error: $e\n$stack');
+      return Response.internalServerError();
+    }
+  }
+
+  /// PATCH /leases/<id>/approve-transfer - Landlord/Manager approves transfer
+  Future<Response> approveLeaseTransfer(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+      final leaseId = request.params['id'];
+
+      if (userId == null || leaseId == null) return _unauthorized();
+
+      if (!['landowner', 'manager'].contains(role)) {
+        return Response(403, body: jsonEncode({'message': 'Only landlords/managers can approve transfers'}));
+      }
+
+      final lease = await leaseRepository.getLeaseById(leaseId);
+
+      if (lease.transferToTenantId == null) {
+        return Response(400, body: jsonEncode({'message': 'No pending transfer request'}));
+      }
+
+      await leaseRepository.approveLeaseTransfer(leaseId, userId);
+
+      // Update unit
+      await unitRepository.updateUnitStatus(
+        unitId: lease.unitId,
+        status: 'occupied',
+        currentTenantId: lease.transferToTenantId,
+      );
+
+      await notificationRepository.create(
+        NotificationModel(
+          userId: lease.tenantId,
+          type: 'lease_transfer_approved',
+          title: 'Lease Transfer Approved',
+          body: 'Your lease transfer has been approved.',
+          relatedId: leaseId,
+          relatedCollection: 'leases',
+          createdAt: DateTime.now(),
+          id: '',
+        ),
+      );
+
+      return Response.ok(
+        jsonEncode({
+          'message': 'Lease transfer approved successfully',
+          'newTenantId': lease.transferToTenantId,
+        }),
+      );
+    } catch (e, stack) {
+      print('Approve lease transfer error: $e\n$stack');
+      return Response.internalServerError();
+    }
+  }
+
+  /// PATCH /leases/<id>/reject-transfer - Landlord rejects lease transfer
+  Future<Response> rejectLeaseTransfer(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+      final leaseId = request.params['id'];
+
+      if (userId == null || leaseId == null) {
+        return _unauthorized();
+      }
+
+      if (!['landowner', 'manager'].contains(role)) {
+        return Response(
+          403,
+          body: jsonEncode({'message': 'Only landlords or managers can reject lease transfers'}),
+        );
+      }
+
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final reason = body['reason'] as String?;
+
+      if (reason == null || reason.trim().isEmpty) {
+        return badRequest('Rejection reason is required');
+      }
+
+      final lease = await leaseRepository.getLeaseById(leaseId);
+
+      if (lease.transferStatus != 'Pending') {
+        return Response(400, body: jsonEncode({'message': 'No pending transfer request to reject'}));
+      }
+
+      await leaseRepository.rejectLeaseTransfer(leaseId, userId, reason);
+
+      // Notify original tenant
+      await notificationRepository.create(
+        NotificationModel(
+          userId: lease.tenantId,
+          type: 'lease_transfer_rejected',
+          title: 'Lease Transfer Rejected',
+          body: 'Your lease transfer request was rejected. Reason: $reason',
+          relatedId: leaseId,
+          relatedCollection: 'leases',
+          createdAt: DateTime.now(),
+          id: '',
+        ),
+      );
+
+      // Log history
+      await historyRepository.createHistoryEntry(
+        HistoryEntryModel(
+          userId: lease.tenantId,
+          type: 'lease_transfer_rejected',
+          title: 'Lease Transfer Rejected',
+          description: 'Transfer request was rejected by landlord. Reason: $reason',
+          relatedId: leaseId,
+          relatedCollection: 'leases',
+          timestamp: DateTime.now(),
+          id: '',
+        ),
+      );
+
+      await historyRepository.createHistoryEntry(
+        HistoryEntryModel(
+          userId: userId,
+          type: 'lease_transfer_rejected',
+          title: 'Lease Transfer Rejected',
+          description: 'You rejected the lease transfer request for Unit ${lease.unitId}',
+          relatedId: leaseId,
+          relatedCollection: 'leases',
+          timestamp: DateTime.now(),
+          id: '',
+        ),
+      );
+
+      return Response.ok(jsonEncode({'message': 'Lease transfer rejected successfully', 'leaseId': leaseId}));
+    } catch (e, stack) {
+      print('Reject lease transfer error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to reject lease transfer'}));
+    }
+  }
+
+  /// POST /leases/<id>/terminate - Tenant requests early termination
+  Future<Response> requestEarlyTermination(Request request) async {
+    try {
+      final tenantId = request.context['userId'] as String?;
+      final leaseId = request.params['id'];
+
+      if (tenantId == null || leaseId == null) return _unauthorized();
+
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final reason = body['reason'] as String?;
+
+      if (reason == null || reason.trim().isEmpty) {
+        return badRequest('Reason for early termination is required');
+      }
+
+      final lease = await leaseRepository.getLeaseById(leaseId);
+
+      if (lease.tenantId != tenantId) {
+        return Response(403, body: jsonEncode({'message': 'You can only terminate your own lease'}));
+      }
+
+      await leaseRepository.requestEarlyTermination(leaseId: leaseId, reason: reason, requestedBy: 'tenant');
+
+      await notificationRepository.create(
+        NotificationModel(
+          userId: lease.landownerId,
+          type: 'early_termination_request',
+          title: 'Early Termination Request',
+          body: 'Tenant has requested early termination.',
+          relatedId: leaseId,
+          relatedCollection: 'leases',
+          createdAt: DateTime.now(),
+          id: '',
+        ),
+      );
+
+      return Response.ok(
+        jsonEncode({'message': 'Early termination request submitted. Awaiting landlord review.'}),
+      );
+    } catch (e, stack) {
+      print('Request early termination error: $e\n$stack');
+      return Response.internalServerError();
     }
   }
 
