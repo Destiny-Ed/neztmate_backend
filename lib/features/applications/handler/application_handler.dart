@@ -126,7 +126,7 @@ class ApplicationHandler {
         appliedAt: DateTime.now(),
         screeningData: ScreeningData.fromMap(body['screeningData'] as Map<String, dynamic>),
         // status: 'Pending',
-        status: 'Fee_Pending',
+        status: 'fee_pending',
         applicationFee: 2000.0,
         feePaymentStatus: 'Pending',
         message: body['message'] as String?,
@@ -184,14 +184,16 @@ class ApplicationHandler {
         amount: 2000.0,
         status: 'Pending',
         method: 'Paystack',
-        transactionRef: paymentRef,
+        transactionRef: initPayment['reference'],
         type: 'application_fee',
         createdAt: DateTime.now(),
       );
 
       await paymentRepository.createPayment(pendingPayment);
 
-      await applicationRepository.updateApplication(created.copyWith(feePaymentReference: paymentRef));
+      await applicationRepository.updateApplication(
+        created.copyWith(feePaymentReference: pendingPayment.transactionRef),
+      );
     }
 
     print("Init payment response:::: $initPayment");
@@ -200,7 +202,7 @@ class ApplicationHandler {
       jsonEncode({
         'message': message ?? 'Application submitted successfully',
         'application': created.toMap(),
-        'paymentReference': created.feePaymentReference ?? paymentRef,
+        'paymentReference': created.feePaymentReference ?? initPayment['reference'],
         'paymentUrl': initPayment['authorization_url'],
         'amount': 2000.0,
       }),

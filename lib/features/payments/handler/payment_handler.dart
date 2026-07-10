@@ -144,13 +144,13 @@ class PaymentHandler {
         return Response.ok('Already processed');
       }
 
+      final payment = await paymentRepository.getPaymentByReference(reference);
+
       // Mark as processed immediately
       await paymentRepository.markPaymentAsProcessed(reference);
 
       // Update main payment record
       await paymentRepository.markAsPaidByReference(reference, receiptUrl ?? '', reference);
-
-      final payment = await paymentRepository.getPaymentByReference(reference);
 
       // final platformFee = amount * 0.05; // 5% platform fee
       // final netAmount = amount - platformFee;
