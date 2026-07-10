@@ -12,119 +12,77 @@ class UserReviewHandler {
 
   UserReviewHandler(this.reviewRepository, this.userRepository);
 
-  /// POST /reviews
-  /// Creates a review with duplicate prevention
+  /// POST /reviews - Create a review
   Future<Response> createReview(Request request) async {
     try {
-      final reviewerId = request.context["userId"] as String?;
-      final reviewerRole = request.context["role"] as String?;
+      final reviewerId = request.context['userId'] as String?;
+      final reviewerRole = request.context['role'] as String?;
 
-      if (reviewerId == null) {
-        return unauthorized("Missing authentication");
-      }
+      if (reviewerId == null) return unauthorized("You're not authorized");
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
 
-      final reviewedEntityId = body["reviewedEntityId"] as String?;
-
-      final reviewedEntityType = body["reviewedEntityType"] as String?;
-
-      final reviewType = body["reviewType"] as String?;
-
-      final rating = (body["rating"] as num?)?.toDouble();
-
-      final comment = (body["comment"] as String?)?.trim() ?? "";
-
-      final tags = List<String>.from(body["tags"] ?? []);
-
-      final relatedLeaseId = body["relatedLeaseId"] as String?;
-
-      final relatedTaskId = body["relatedTaskId"] as String?;
+      final reviewedEntityId = body['reviewedEntityId'] as String?;
+      final reviewedEntityType = body['reviewedEntityType'] as String?;
+      final reviewType = body['reviewType'] as String?;
+      final rating = (body['rating'] as num?)?.toDouble();
+      final comment = (body['comment'] as String?)?.trim() ?? '';
 
       if (reviewedEntityId == null || reviewedEntityType == null || reviewType == null || rating == null) {
-        return badRequest("reviewedEntityId, reviewedEntityType, reviewType and rating are required");
+        return badRequest('reviewedEntityId, reviewedEntityType, reviewType and rating are required');
       }
 
-      if (rating < 1 || rating > 5) {
-        return badRequest("Rating must be between 1 and 5");
+      if (rating < 1.0 || rating > 5.0) {
+        return badRequest('Rating must be between 1.0 and 5.0');
       }
 
-      if (reviewedEntityId == reviewerId && reviewedEntityType == "user") {
-        return badRequest("You cannot review yourself.");
+      if (comment.isEmpty) {
+        return badRequest('Comment is required');
       }
 
-      if (rating <= 2 && comment.length < 10) {
-        return badRequest("Please provide more details for low ratings.");
+      // Prevent self-review for users
+      if (reviewedEntityType == 'user' && reviewedEntityId == reviewerId) {
+        return badRequest('You cannot review yourself');
       }
 
-      final existingReview = await reviewRepository.getExistingReview(
+      final existing = await reviewRepository.getExistingReview(
         reviewerId: reviewerId,
         reviewedEntityId: reviewedEntityId,
-        reviewType: reviewType,
         reviewedEntityType: reviewedEntityType,
+        reviewType: reviewType,
       );
 
-      if (existingReview != null) {
+      if (existing != null) {
         return Response(
           409,
-          body: jsonEncode({
-            "message": "You have already submitted this review.",
-            "reviewId": existingReview.id,
-          }),
-          headers: {'Content-Type': 'application/json'},
+          body: jsonEncode({'message': 'You have already reviewed this entity', 'reviewId': existing.id}),
         );
       }
 
-      /// Fetch reviewer profile from database
       final reviewer = await userRepository.getUserById(reviewerId);
 
       final review = UserReviewModel(
-        id: "",
-
+        id: '',
         reviewerId: reviewerId,
         reviewerName: reviewer.fullName,
         reviewerPhotoUrl: reviewer.profilePhotoUrl,
-
-        reviewerRole: reviewerRole ?? "unknown",
-
-        reviewedUserId: reviewedEntityId,
+        reviewerRole: reviewerRole ?? 'unknown',
+        reviewedEntityId: reviewedEntityId,
         reviewedEntityType: reviewedEntityType,
-
         reviewType: reviewType,
-
         rating: rating,
-
         comment: comment,
-
-        tags: tags,
-
-        relatedLeaseId: relatedLeaseId,
-        relatedTaskId: relatedTaskId,
-
-        isVerified: relatedLeaseId != null || relatedTaskId != null,
-
-        helpfulCount: 0,
-
-        edited: false,
-
+        tags: List<String>.from(body['tags'] ?? []),
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
 
       final created = await reviewRepository.createReview(review);
 
-      return Response.ok(
-        jsonEncode({"message": "Review submitted successfully", "review": created.toMap()}),
-        headers: {'Content-Type': 'application/json'},
-      );
+      return Response.ok(jsonEncode({'message': 'Review submitted successfully', 'review': created.toMap()}));
     } catch (e, stack) {
-      print(e);
-      print(stack);
-
-      return Response.internalServerError(
-        body: jsonEncode({"message": "Unable to create review."}),
-        headers: {'Content-Type': 'application/json'},
-      );
+      print('Create review error: $e\n$stack');
+      return Response.internalServerError();
     }
   }
 
@@ -134,19 +92,15 @@ class UserReviewHandler {
       final reviewerId = request.context['userId'] as String?;
       final reviewId = request.params['id'];
 
-      if (reviewerId == null || reviewId == null) {
-        return badRequest('Review ID is required');
-      }
+      if (reviewerId == null || reviewId == null) return badRequest('Review ID is required');
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
 
       final existingReview = await reviewRepository.getReviewById(reviewId);
-
       if (existingReview == null) {
         return Response(404, body: jsonEncode({'message': 'Review not found'}));
       }
 
-      // Only the original reviewer can edit
       if (existingReview.reviewerId != reviewerId) {
         return Response(403, body: jsonEncode({'message': 'You can only edit your own reviews'}));
       }
@@ -159,10 +113,7 @@ class UserReviewHandler {
 
       final result = await reviewRepository.updateReview(updatedReview);
 
-      return Response.ok(
-        jsonEncode({'message': 'Review updated successfully', 'review': result.toMap()}),
-        headers: {'Content-Type': 'application/json'},
-      );
+      return Response.ok(jsonEncode({'message': 'Review updated successfully', 'review': result.toMap()}));
     } catch (e, stack) {
       print('Update review error: $e\n$stack');
       return Response.internalServerError();
@@ -175,12 +126,9 @@ class UserReviewHandler {
       final reviewerId = request.context['userId'] as String?;
       final reviewId = request.params['id'];
 
-      if (reviewerId == null || reviewId == null) {
-        return badRequest('Review ID is required');
-      }
+      if (reviewerId == null || reviewId == null) return badRequest('Review ID is required');
 
       final existingReview = await reviewRepository.getReviewById(reviewId);
-
       if (existingReview == null) {
         return Response(404, body: jsonEncode({'message': 'Review not found'}));
       }
@@ -202,9 +150,7 @@ class UserReviewHandler {
   Future<Response> getUserReviews(Request request) async {
     try {
       final userId = request.params['userId'];
-      if (userId == null) {
-        return badRequest('User ID is required');
-      }
+      if (userId == null) return badRequest('User ID is required');
 
       final reviews = await reviewRepository.getReviewsForUser(userId);
       final averageRating = await reviewRepository.calculateAverageRating(userId);
@@ -216,7 +162,6 @@ class UserReviewHandler {
           'totalReviews': reviews.length,
           'reviews': reviews.map((r) => r.toMap()).toList(),
         }),
-        headers: {'Content-Type': 'application/json'},
       );
     } catch (e, stack) {
       print('Get user reviews error: $e\n$stack');
@@ -224,7 +169,39 @@ class UserReviewHandler {
     }
   }
 
-  /// GET /reviews/user/<userId>/summary - Get only reputation summary
+  /// NEW: GET /reviews/entity/<entityType>/<entityId> - Get reviews for any entity (property, unit, etc.)
+  Future<Response> getReviewsByEntity(Request request) async {
+    try {
+      final entityType = request.params['entityType'];
+      final entityId = request.params['entityId'];
+
+      if (entityType == null || entityId == null) {
+        return badRequest('Entity type and ID are required');
+      }
+
+      final reviews = await reviewRepository.getReviewsForEntity(entityId: entityId, entityType: entityType);
+
+      final averageRating = await reviewRepository.calculateAverageRatingForEntity(
+        entityId: entityId,
+        entityType: entityType,
+      );
+
+      return Response.ok(
+        jsonEncode({
+          'entityId': entityId,
+          'entityType': entityType,
+          'averageRating': averageRating,
+          'totalReviews': reviews.length,
+          'reviews': reviews.map((r) => r.toMap()).toList(),
+        }),
+      );
+    } catch (e, stack) {
+      print('Get entity reviews error: $e\n$stack');
+      return Response.internalServerError();
+    }
+  }
+
+  /// GET /reviews/user/<userId>/summary - Get reputation summary
   Future<Response> getUserReputationSummary(Request request) async {
     try {
       final userId = request.params['userId'];
@@ -236,7 +213,8 @@ class UserReviewHandler {
         jsonEncode({
           'userId': user.id,
           'fullName': user.fullName,
-          'role': user.role,
+          'primaryRole': user.primaryRole,
+          'roles': user.roles,
           'averageRating': user.averageRating,
           'totalReviews': user.totalReviews,
           'tenantReputation': user.tenantReputation,
@@ -245,7 +223,6 @@ class UserReviewHandler {
           'paymentOnTimeRate': user.paymentOnTimeRate,
           'badges': user.badges,
         }),
-        headers: {'Content-Type': 'application/json'},
       );
     } catch (e) {
       return Response.internalServerError();
@@ -256,13 +233,12 @@ class UserReviewHandler {
   Future<Response> getMyWrittenReviews(Request request) async {
     try {
       final reviewerId = request.context['userId'] as String?;
-      if (reviewerId == null) return unauthorized("Missing authentication");
+      if (reviewerId == null) return unauthorized("You're not authorised");
 
       final reviews = await reviewRepository.getReviewsByReviewer(reviewerId);
 
       return Response.ok(
         jsonEncode({'reviewsWritten': reviews.length, 'reviews': reviews.map((r) => r.toMap()).toList()}),
-        headers: {'Content-Type': 'application/json'},
       );
     } catch (e) {
       return Response.internalServerError();

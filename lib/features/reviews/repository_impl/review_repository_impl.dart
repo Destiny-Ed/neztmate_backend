@@ -8,26 +8,20 @@ class UserReviewRepositoryImpl implements UserReviewRepository {
   UserReviewRepositoryImpl(this.dataSource);
 
   @override
-  Future<double> calculateAverageRating(String userId) {
-    return dataSource.calculateAverageRating(userId);
-  }
+  Future<UserReviewModel> createReview(UserReviewModel review) => dataSource.createReview(review);
 
   @override
-  Future<UserReviewModel> createReview(UserReviewModel review) {
-    return dataSource.createReview(review);
-  }
+  Future<UserReviewModel?> getReviewById(String id) => dataSource.getReviewById(id);
 
   @override
-  Future<List<UserReviewModel>> getReviewsForUser(String userId) {
-    return dataSource.getReviewsForUser(userId);
-  }
+  Future<List<UserReviewModel>> getReviewsForUser(String userId) => dataSource.getReviewsForUser(userId);
 
   @override
-  Future<void> updateUserReputationAfterReview(String reviewedUserId) =>
-      dataSource.updateUserReputationAfterReview(reviewedUserId);
+  Future<List<UserReviewModel>> getReviewsByReviewer(String reviewerId) =>
+      dataSource.getReviewsByReviewer(reviewerId);
 
   @override
-  Future<void> deleteReview(String id) => dataSource.deleteReview(id);
+  Future<double> calculateAverageRating(String userId) => dataSource.calculateAverageRating(userId);
 
   @override
   Future<UserReviewModel?> getExistingReview({
@@ -43,12 +37,20 @@ class UserReviewRepositoryImpl implements UserReviewRepository {
   );
 
   @override
-  Future<UserReviewModel?> getReviewById(String id) => dataSource.getReviewById(id);
-
-  @override
   Future<UserReviewModel> updateReview(UserReviewModel review) => dataSource.updateReview(review);
 
   @override
-  Future<List<UserReviewModel>> getReviewsByReviewer(String reviewerId) =>
-      dataSource.getReviewsByReviewer(reviewerId);
+  Future<void> deleteReview(String id) => dataSource.deleteReview(id);
+
+  @override
+  Future<void> updateUserReputationAfterReview(String reviewedUserId) =>
+      dataSource.updateUserReputationAfterReview(reviewedUserId);
+
+  @override
+  Future<List<UserReviewModel>> getReviewsForEntity({required String entityId, required String entityType}) =>
+      dataSource.getReviewsForEntity(entityId: entityId, entityType: entityType);
+
+  @override
+  Future<double> calculateAverageRatingForEntity({required String entityId, required String entityType}) =>
+      dataSource.calculateAverageRatingForEntity(entityId: entityId, entityType: entityType);
 }

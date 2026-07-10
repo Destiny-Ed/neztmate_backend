@@ -4,6 +4,7 @@ import 'package:neztmate_backend/features/auth_user/repositories/user_repository
 import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
 import 'package:neztmate_backend/features/reviews/datasource/review_remote_datasource.dart';
 import 'package:neztmate_backend/features/reviews/models/review_model.dart';
+import 'package:neztmate_backend/features/reviews/repository/review_repository.dart';
 import 'package:neztmate_backend/features/reviews/repository_impl/review_repository_impl.dart';
 
 class FirestoreUserReviewDataSource implements UserReviewRemoteDataSource {
@@ -19,38 +20,79 @@ class FirestoreUserReviewDataSource implements UserReviewRemoteDataSource {
   Future<UserReviewModel> createReview(UserReviewModel review) async {
     final docRef = _reviews.doc();
     final newReview = review.copyWith(id: docRef.id);
+
     await docRef.set(newReview.toMap());
-    await updateUserReputationAfterReview(review.reviewedUserId);
+
+    // Update reputation
+    await updateUserReputationAfterReview(review.reviewedEntityId);
+
     return newReview;
+  }
+
+  @override
+  Future<UserReviewModel?> getReviewById(String id) async {
+    final doc = await _reviews.doc(id).get();
+    if (!doc.exists) return null;
+    return UserReviewModel.fromMap(doc.data() as Map<String, dynamic>);
   }
 
   @override
   Future<List<UserReviewModel>> getReviewsForUser(String userId) async {
     final snap = await _reviews
-        .where('reviewedUserId', WhereFilter.equal, userId)
+        .where('reviewedEntityId', WhereFilter.equal, userId)
+        .where('reviewedEntityType', WhereFilter.equal, 'user')
         .orderBy('createdAt', descending: true)
         .get();
 
-    return snap.docs.map((doc) => UserReviewModel.fromMap(doc.data())).toList();
+    return snap.docs.map((doc) => UserReviewModel.fromMap(doc.data() as Map<String, dynamic>)).toList();
+  }
+
+  @override
+  Future<List<UserReviewModel>> getReviewsByReviewer(String reviewerId) async {
+    final snap = await _reviews
+        .where('reviewerId', WhereFilter.equal, reviewerId)
+        .orderBy('createdAt', descending: true)
+        .get();
+
+    return snap.docs.map((doc) => UserReviewModel.fromMap(doc.data() as Map<String, dynamic>)).toList();
   }
 
   @override
   Future<double> calculateAverageRating(String userId) async {
-    final snap = await _reviews.where('reviewedUserId', WhereFilter.equal, userId).get();
+    final snap = await _reviews
+        .where('reviewedEntityId', WhereFilter.equal, userId)
+        .where('reviewedEntityType', WhereFilter.equal, 'user')
+        .get();
+
     if (snap.docs.isEmpty) return 0.0;
 
     double sum = 0.0;
     for (var doc in snap.docs) {
-      sum += (doc.data()['rating'] as num).toDouble();
+      final data = doc.data() as Map<String, dynamic>;
+      sum += (data['rating'] as num).toDouble();
     }
     return sum / snap.docs.length;
   }
 
   @override
-  Future<void> updateUserReputationAfterReview(String reviewedUserId) async {
-    final reviewRepository = UserReviewRepositoryImpl(this);
-    final reputationService = UserReputationService(userRepository, paymentRepository, reviewRepository);
-    await reputationService.updateUserReputation(reviewedUserId);
+  Future<UserReviewModel?> getExistingReview({
+    required String reviewerId,
+    required String reviewedEntityId,
+    required String reviewedEntityType,
+    required String reviewType,
+  }) async {
+    final snap = await _reviews
+        .where('reviewerId', WhereFilter.equal, reviewerId)
+        .where('reviewedEntityId', WhereFilter.equal, reviewedEntityId)
+        .where('reviewedEntityType', WhereFilter.equal, reviewedEntityType)
+        .where('reviewType', WhereFilter.equal, reviewType)
+        .limit(1)
+        .get();
+
+    if (snap.docs.isEmpty) return null;
+
+    final doc = snap.docs.first;
+    return UserReviewModel.fromMap(doc.data() as Map<String, dynamic>);
   }
 
   @override
@@ -65,9 +107,20 @@ class FirestoreUserReviewDataSource implements UserReviewRemoteDataSource {
   }
 
   @override
-  Future<List<UserReviewModel>> getReviewsByReviewer(String reviewerId) async {
+  Future<void> updateUserReputationAfterReview(String reviewedUserId) async {
+    final reviewRepository = UserReviewRepositoryImpl(this);
+    final reputationService = UserReputationService(userRepository, paymentRepository, reviewRepository);
+    await reputationService.updateUserReputation(reviewedUserId);
+  }
+
+  @override
+  Future<List<UserReviewModel>> getReviewsForEntity({
+    required String entityId,
+    required String entityType,
+  }) async {
     final snap = await _reviews
-        .where('reviewerId', WhereFilter.equal, reviewerId)
+        .where('reviewedEntityId', WhereFilter.equal, entityId)
+        .where('reviewedEntityType', WhereFilter.equal, entityType)
         .orderBy('createdAt', descending: true)
         .get();
 
@@ -75,31 +128,22 @@ class FirestoreUserReviewDataSource implements UserReviewRemoteDataSource {
   }
 
   @override
-  Future<UserReviewModel?> getExistingReview({
-    required String reviewerId,
-    required String reviewedEntityId,
-    required String reviewedEntityType,
-    required String reviewType,
+  Future<double> calculateAverageRatingForEntity({
+    required String entityId,
+    required String entityType,
   }) async {
     final snap = await _reviews
-        .where("reviewerId", WhereFilter.equal, reviewerId)
-        .where("reviewedUserId", WhereFilter.equal, reviewedEntityId)
-        .where("reviewedEntityType", WhereFilter.equal, reviewedEntityType)
-        .where("reviewType", WhereFilter.equal, reviewType)
-        .limit(1)
+        .where('reviewedEntityId', WhereFilter.equal, entityId)
+        .where('reviewedEntityType', WhereFilter.equal, entityType)
         .get();
 
-    if (snap.docs.isEmpty) return null;
+    if (snap.docs.isEmpty) return 0.0;
 
-    final doc = snap.docs.first;
-    return UserReviewModel.fromMap(doc.data() as Map<String, dynamic>);
-  }
-
-  @override
-  Future<UserReviewModel?> getReviewById(String id) async {
-    final doc = await _reviews.doc(id).get();
-    if (!doc.exists) return null;
-
-    return UserReviewModel.fromMap(doc.data() as Map<String, dynamic>);
+    double sum = 0.0;
+    for (var doc in snap.docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      sum += (data['rating'] as num).toDouble();
+    }
+    return sum / snap.docs.length;
   }
 }
