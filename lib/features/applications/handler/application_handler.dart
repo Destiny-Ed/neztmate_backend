@@ -154,60 +154,66 @@ class ApplicationHandler {
 
   Future<Response> _completePayment(
     Map<String, dynamic> body,
-    ApplicationModel created,
+    ApplicationModel application,
     String userId,
     String unitId, {
     String? message,
   }) async {
-    final paymentRef = 'appfee_${created.id}_${DateTime.now().millisecondsSinceEpoch}';
+    try {
+      final paymentRef = 'appfee_${application.id}_${DateTime.now().millisecondsSinceEpoch}';
 
-    final initPayment = await paystackService.initializeTransaction(
-      email: body['email'] ?? 'tenant@example.com',
-      amount: 2000.0,
-      reference: paymentRef,
-      metadata: {
-        'type': 'application_fee',
-        'applicationId': created.id,
-        'tenantId': userId,
-        'unitId': unitId,
-      },
-    );
-
-    if (created.feePaymentReference == null) {
-      //     // Save pending payment
-      final pendingPayment = PaymentModel(
-        id: '',
-        leaseId: "",
-        payerId: userId,
-        propertyId: "",
-        unitId: unitId,
+      final initPayment = await paystackService.initializeTransaction(
+        email: body['email'] ?? 'tenant@example.com',
         amount: 2000.0,
-        status: 'Pending',
-        method: 'Paystack',
-        transactionRef: initPayment['reference'],
-        type: 'application_fee',
-        createdAt: DateTime.now(),
+        reference: application.feePaymentReference ?? paymentRef,
+        metadata: {
+          'type': 'application_fee',
+          'applicationId': application.id,
+          'tenantId': userId,
+          'unitId': unitId,
+        },
       );
 
-      await paymentRepository.createPayment(pendingPayment);
+      // Save pending payment if not already saved
+      if (application.feePaymentReference == null) {
+        final pendingPayment = PaymentModel(
+          id: '',
+          leaseId: "",
+          payerId: userId,
+          propertyId: application.propertyId,
+          unitId: unitId,
+          amount: 2000.0,
+          status: 'Pending',
+          method: 'Paystack',
+          transactionRef: initPayment['reference'],
+          type: 'application_fee',
+          createdAt: DateTime.now(),
+        );
 
-      await applicationRepository.updateApplication(
-        created.copyWith(feePaymentReference: pendingPayment.transactionRef),
+        await paymentRepository.createPayment(pendingPayment);
+
+        // Update application with payment reference
+        await applicationRepository.updateApplication(
+          application.copyWith(feePaymentReference: pendingPayment.transactionRef),
+        );
+      }
+
+      return Response.ok(
+        jsonEncode({
+          'message': message ?? 'Application submitted successfully. Complete payment to activate.',
+          'application': application.toMap(),
+          'paymentReference': application.feePaymentReference ?? initPayment['reference'],
+          'paymentUrl': initPayment['authorization_url'],
+          'amount': 2000.0,
+        }),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, stack) {
+      print('Complete payment error: $e\n$stack');
+      return Response.internalServerError(
+        body: jsonEncode({'message': 'Failed to initialize payment. Please try again.'}),
       );
     }
-
-    print("Init payment response:::: $initPayment");
-
-    return Response.ok(
-      jsonEncode({
-        'message': message ?? 'Application submitted successfully',
-        'application': created.toMap(),
-        'paymentReference': created.feePaymentReference ?? initPayment['reference'],
-        'paymentUrl': initPayment['authorization_url'],
-        'amount': 2000.0,
-      }),
-      headers: {'Content-Type': 'application/json'},
-    );
   }
 
   /// PATCH /applications/{id}/withdraw - Tenant withdraws their application

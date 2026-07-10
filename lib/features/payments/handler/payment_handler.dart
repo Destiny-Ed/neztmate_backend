@@ -126,6 +126,8 @@ class PaymentHandler {
       final body = jsonDecode(bodyString);
       final event = body['event'] as String?;
 
+      print(body);
+
       if (event != 'charge.success') {
         return Response.ok('Event ignored');
       }
