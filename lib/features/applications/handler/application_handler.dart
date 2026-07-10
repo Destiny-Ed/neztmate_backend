@@ -8,6 +8,8 @@ import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
 import 'package:neztmate_backend/features/leases/service/lease_pdf_service.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
+import 'package:neztmate_backend/features/payments/models/payments.dart';
+import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
 import 'package:neztmate_backend/features/reviews/repository/review_repository.dart';
 import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
@@ -23,6 +25,7 @@ class ApplicationHandler {
   final LeaseRepository leaseRepository;
   final NotificationRepository notificationRepository;
   final UserReviewRepository userReviewRepository;
+  final PaymentRepository paymentRepository;
 
   ApplicationHandler({
     required this.applicationRepository,
@@ -32,6 +35,7 @@ class ApplicationHandler {
     required this.leaseRepository,
     required this.notificationRepository,
     required this.userReviewRepository,
+    required this.paymentRepository,
   });
 
   final paystackService = PaystackService();
@@ -84,6 +88,23 @@ class ApplicationHandler {
         );
       }
 
+      // Check for Fee Pending applications
+      final feePendingApplication = existingApplications.cast<ApplicationModel?>().firstWhere(
+        (app) => app?.unitId == unitId && app?.status.toLowerCase() == 'fee_pending',
+        orElse: () => null,
+      );
+
+      if (feePendingApplication != null) {
+        // Resume payment for existing fee-pending application
+        return await _completePayment(
+          body,
+          feePendingApplication,
+          userId,
+          unitId,
+          message: "Resume payment to activate your application",
+        );
+      }
+
       // Optional: Check if unit is already occupied
       final unit = await unitRepository.getUnitById(unitId);
 
@@ -105,7 +126,7 @@ class ApplicationHandler {
         appliedAt: DateTime.now(),
         screeningData: ScreeningData.fromMap(body['screeningData'] as Map<String, dynamic>),
         // status: 'Pending',
-        status: 'FeePending',
+        status: 'Fee_Pending',
         applicationFee: 2000.0,
         feePaymentStatus: 'Pending',
         message: body['message'] as String?,
@@ -120,30 +141,7 @@ class ApplicationHandler {
       final created = await applicationRepository.createApplication(application);
 
       // Initialize ₦2000 payment
-      final paymentRef = 'appfee_${DateTime.now().millisecondsSinceEpoch}';
-
-      final initPayment = await paystackService.initializeTransaction(
-        email: body['email'] ?? 'tenant@example.com',
-        amount: 2000.0,
-        reference: paymentRef,
-        metadata: {
-          'type': 'application_fee',
-          'applicationId': created.id,
-          'tenantId': userId,
-          'unitId': unitId,
-        },
-      );
-
-      return Response.ok(
-        jsonEncode({
-          'message': 'Application submitted successfully',
-          'application': created.toMap(),
-          'paymentReference': paymentRef,
-          'paymentUrl': initPayment['data']['authorization_url'],
-          'amount': 2000,
-        }),
-        headers: {'Content-Type': 'application/json'},
-      );
+      return await _completePayment(body, created, userId, unitId);
     } on NotFoundException catch (e) {
       return Response(404, body: jsonEncode({'message': e.message}));
     } on ValidationException catch (e) {
@@ -152,6 +150,62 @@ class ApplicationHandler {
       print('Submit application error: $e\n$stack');
       return Response.internalServerError(body: jsonEncode({'message': 'Failed to submit application'}));
     }
+  }
+
+  Future<Response> _completePayment(
+    Map<String, dynamic> body,
+    ApplicationModel created,
+    String userId,
+    String unitId, {
+    String? message,
+  }) async {
+    final paymentRef = 'appfee_${created.id}_${DateTime.now().millisecondsSinceEpoch}';
+
+    final initPayment = await paystackService.initializeTransaction(
+      email: body['email'] ?? 'tenant@example.com',
+      amount: 2000.0,
+      reference: paymentRef,
+      metadata: {
+        'type': 'application_fee',
+        'applicationId': created.id,
+        'tenantId': userId,
+        'unitId': unitId,
+      },
+    );
+
+    if (created.feePaymentReference == null) {
+      //     // Save pending payment
+      final pendingPayment = PaymentModel(
+        id: '',
+        leaseId: "",
+        payerId: userId,
+        propertyId: "",
+        unitId: unitId,
+        amount: 2000.0,
+        status: 'Pending',
+        method: 'Paystack',
+        transactionRef: paymentRef,
+        type: 'application_fee',
+        createdAt: DateTime.now(),
+      );
+
+      await paymentRepository.createPayment(pendingPayment);
+
+      await applicationRepository.updateApplication(created.copyWith(feePaymentReference: paymentRef));
+    }
+
+    print("Init payment response:::: $initPayment");
+
+    return Response.ok(
+      jsonEncode({
+        'message': message ?? 'Application submitted successfully',
+        'application': created.toMap(),
+        'paymentReference': created.feePaymentReference ?? paymentRef,
+        'paymentUrl': initPayment['authorization_url'],
+        'amount': 2000.0,
+      }),
+      headers: {'Content-Type': 'application/json'},
+    );
   }
 
   /// PATCH /applications/{id}/withdraw - Tenant withdraws their application
@@ -592,7 +646,7 @@ class ApplicationHandler {
         return Response(403, body: jsonEncode({'message': 'This application does not belong to you'}));
       }
 
-      if (application.status != 'FeePending') {
+      if (application.status.toLowerCase() != 'fee_pending') {
         return Response(
           400,
           body: jsonEncode({'message': 'Application fee has already been paid or is not pending'}),
@@ -616,17 +670,14 @@ class ApplicationHandler {
         },
       );
 
-      // Optionally update application with payment reference
-      await applicationRepository.updateApplication(application.copyWith(status: "Pending"));
-
       return Response.ok(
         jsonEncode({
           'message': 'Application fee payment initialized',
           'applicationId': application.id,
-          'amount': 2000,
+          'amount': 2000.0,
           'reference': reference,
-          'paymentUrl': paymentInit['data']['authorization_url'],
-          'status': 'FeePending',
+          'paymentUrl': paymentInit['authorization_url'],
+          'status': 'fee_pending',
         }),
         headers: {'Content-Type': 'application/json'},
       );

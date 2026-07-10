@@ -105,7 +105,10 @@ class FirestoreApplicationDataSource implements ApplicationRemoteDataSource {
   @override
   Future<List<ApplicationModel>> getApplicationsForManagerOrOwner(String userId, String role) async {
     try {
-      final snap = await _applications.get();
+      final snap = await _applications.where('status', WhereFilter.notIn, [
+        'fee_pending',
+        'Fee_Pending', 'withdrawn', 'Withdrawns'
+      ]).get();
       if (snap.docs.isEmpty) return [];
 
       final allApplications = snap.docs

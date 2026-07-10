@@ -11,6 +11,8 @@ Router reviewRoutes(UserReviewHandler handler) {
   router.get('/user/<userId>', handler.getUserReviews);
   router.get('/user/<userId>/summary', handler.getUserReputationSummary);
   router.get('/my-reviews', handler.getMyWrittenReviews);
+  router.delete('/<id>', handler.deleteReview);
+  router.patch('/<id>', handler.updateReview);
 
   // NEW: Get reviews for any entity (property, unit, etc.)
   router.get('/entity/<entityType>/<entityId>', handler.getReviewsByEntity);
