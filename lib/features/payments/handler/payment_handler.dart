@@ -169,7 +169,7 @@ class PaymentHandler {
 
       //  APPLICATION FEE
       if (payment.type == 'application_fee' && metadata['applicationId'] != null) {
-        final appId = data['applicationId'] as String;
+        final appId = metadata['applicationId'] as String;
 
         final application = await applicationRepository.getApplicationById(appId);
 
