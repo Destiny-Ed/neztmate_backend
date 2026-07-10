@@ -133,12 +133,14 @@ class PaymentHandler {
       }
 
       final data = body['data'] as Map<String, dynamic>;
-      final metadata = body['metadata'] as Map<String, dynamic>;
+      final metadata = data['metadata'] as Map<String, dynamic>;
       final reference = data['reference'] as String;
       final amount = (data['amount'] as num) / 100.0; // Convert from Kobo to Naira
       final receiptUrl = data['receipt_url'] as String?;
 
       print('✅ Charge Success - Reference: $reference, Amount: ₦$amount');
+
+      print("metadata : $metadata");
 
       // === IDEMPOTENCY CHECK ===
       final alreadyProcessed = await paymentRepository.isPaymentAlreadyProcessed(reference);
