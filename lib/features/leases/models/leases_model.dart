@@ -15,6 +15,8 @@ class LeaseModel {
 
   final double yearlyRent;
   final int? rentTermInMonths;
+  final double? monthlyRentEquivalent;
+
   final List<UnitFee>? fees;
 
   final String
@@ -55,6 +57,7 @@ class LeaseModel {
     this.managerId,
     required this.startDate,
     required this.endDate,
+    this.monthlyRentEquivalent,
     this.nextDueDate,
     required this.yearlyRent,
     this.fees,
@@ -90,6 +93,7 @@ class LeaseModel {
       landownerId: map['landownerId'] as String,
       propertyId: map['propertyId'] as String,
       managerId: map['managerId'] as String?,
+      monthlyRentEquivalent: map['monthlyRentEquivalent'] as double?,
       startDate: DateTime.parse(map['startDate'] as String),
       endDate: DateTime.parse(map['endDate'] as String),
       nextDueDate: map['nextDueDate'] != null ? DateTime.parse(map['nextDueDate'] as String) : null,
@@ -133,7 +137,7 @@ class LeaseModel {
     'nextDueDate': nextDueDate?.toIso8601String(),
     'yearlyRent': yearlyRent,
     'fees': fees?.map((e) => e.toMap()).toList(),
-
+    'monthlyRentEquivalent' : monthlyRentEquivalent,
     'rentTermInMonths': rentTermInMonths,
     'status': status,
     'generatedLeasePdfUrl': generatedLeasePdfUrl,
@@ -167,6 +171,7 @@ class LeaseModel {
     String? managerId,
     DateTime? startDate,
     DateTime? endDate,
+    double? monthlyRentEquivalent,
     DateTime? nextDueDate,
     double? yearlyRent,
     int? rentTermInMonths,
@@ -198,6 +203,7 @@ class LeaseModel {
       tenantId: tenantId ?? this.tenantId,
       landownerId: landownerId ?? this.landownerId,
       managerId: managerId ?? this.managerId,
+      monthlyRentEquivalent: monthlyRentEquivalent ?? this.monthlyRentEquivalent,
       propertyId: propertyId ?? this.propertyId,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,

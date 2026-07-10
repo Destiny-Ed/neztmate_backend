@@ -1,7 +1,10 @@
 import 'package:dart_firebase_admin/firestore.dart';
 import 'package:neztmate_backend/core/error.dart';
 import 'package:neztmate_backend/features/leases/datasource/lease_remote_datasource.dart';
+import 'package:neztmate_backend/features/leases/models/lease_settlement_agreement_model.dart';
+import 'package:neztmate_backend/features/leases/models/lease_termination_request.dart';
 import 'package:neztmate_backend/features/leases/models/leases_model.dart';
+import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
 
 class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   final Firestore firestore;
@@ -259,5 +262,209 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
       'terminationRequestedAt': DateTime.now().toIso8601String(),
       'updatedAt': DateTime.now().toIso8601String(),
     });
+  }
+
+  @override
+  Future<Map<String, dynamic>> calculateEarlyTerminationSettlement(
+    String leaseId,
+    UnitRepository unitRepo,
+  ) async {
+    final lease = await getLeaseById(leaseId);
+    final unit = await unitRepo.getUnitById(lease.unitId); // Get unit for fees
+
+    final now = DateTime.now();
+    final totalLeaseDays = lease.endDate.difference(lease.startDate).inDays;
+    final remainingDays = lease.endDate.difference(now).inDays.clamp(0, totalLeaseDays);
+
+    final yearlyRent = lease.yearlyRent;
+    final dailyRent = yearlyRent / 365;
+
+    // Prorated rent for remaining period
+    final proratedRentDue = (dailyRent * remainingDays).roundToDouble();
+
+    // Other fees from unit (service charges, etc.)
+    double additionalFeesDue = 0.0;
+    if (unit.fees != null) {
+      for (var fee in unit.fees!) {
+        if (fee.isOneTime == false) {
+          // recurring fees
+          additionalFeesDue += fee.amount;
+        }
+      }
+    }
+
+    // Penalty for early termination (e.g., 10% of remaining rent)
+    double penalty = (proratedRentDue * 0.10).roundToDouble();
+
+    // If tenant provides replacement, waive penalty
+    final hasReplacement = lease.transferToTenantId != null;
+    if (hasReplacement) {
+      penalty = 0.0;
+    }
+
+    final netBalanceDueFromTenant = proratedRentDue + additionalFeesDue + penalty;
+    final netRefundToTenant = 0.0; // No security deposit
+
+    return {
+      'remainingDays': remainingDays,
+      'proratedRentDue': proratedRentDue,
+      'additionalFeesDue': additionalFeesDue,
+      'penalty': penalty,
+      'hasReplacement': hasReplacement,
+      'netBalanceDueFromTenant': netBalanceDueFromTenant,
+      'netRefundToTenant': netRefundToTenant,
+      'notes': hasReplacement
+          ? 'Penalty waived due to replacement tenant'
+          : 'Early termination penalty applied (10% of remaining rent)',
+      'recommendation': 'Landlord and tenant should settle directly or through the app.',
+    };
+  }
+
+  @override
+  Future<List<LeaseTerminationRequest>> getTerminationRequests(String userId) async {
+    final snap = await firestore
+        .collection('leases')
+        .where('landownerId', WhereFilter.equal, userId)
+        .where('status', WhereFilter.isIn, ['EarlyTerminationRequested', 'TransferRequested'])
+        .orderBy('updatedAt', descending: true)
+        .get();
+
+    return snap.docs.map((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      return LeaseTerminationRequest.fromMap(data);
+    }).toList();
+  }
+
+  // SETTLEMENT AGREEMENTS
+
+  @override
+  Future<void> proposeSettlement(LeaseSettlementAgreement settlement) async {
+    final docRef = firestore.collection('lease_settlements').doc();
+    final newSettlement = settlement.copyWith(id: docRef.id);
+
+    await docRef.set(newSettlement.toMap());
+
+    // Link settlement to lease
+    await _leases.doc(settlement.leaseId).update({
+      'currentSettlementId': newSettlement.id,
+      'settlementStatus': 'Proposed',
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  @override
+  Future<void> acceptSettlement(String leaseId, String acceptedBy) async {
+    // Find latest settlement for this lease
+    final snap = await firestore
+        .collection('lease_settlements')
+        .where('leaseId', WhereFilter.equal, leaseId)
+        .orderBy('createdAt', descending: true)
+        .limit(1)
+        .get();
+
+    if (snap.docs.isEmpty) throw NotFoundException('Settlement', leaseId);
+
+    final settlementDoc = snap.docs.first;
+    final settlementId = settlementDoc.id;
+
+    await firestore.collection('lease_settlements').doc(settlementId).update({
+      'status': 'Agreed',
+      'agreedAt': DateTime.now().toIso8601String(),
+      'agreedBy': acceptedBy,
+    });
+
+    // Update lease status
+    await _leases.doc(leaseId).update({
+      'settlementStatus': 'Agreed',
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  @override
+  Future<void> disputeSettlement({
+    required String leaseId,
+    required String disputedBy,
+    required String reason,
+  }) async {
+    final snap = await firestore
+        .collection('lease_settlements')
+        .where('leaseId', WhereFilter.equal, leaseId)
+        .orderBy('createdAt', descending: true)
+        .limit(1)
+        .get();
+
+    if (snap.docs.isEmpty) throw NotFoundException('Settlement', leaseId);
+
+    final settlementDoc = snap.docs.first;
+    final settlementId = settlementDoc.id;
+
+    await firestore.collection('lease_settlements').doc(settlementId).update({
+      'status': 'Disputed',
+      'disputedBy': disputedBy,
+      'disputeReason': reason,
+      'disputedAt': DateTime.now().toIso8601String(),
+    });
+
+    await _leases.doc(leaseId).update({
+      'settlementStatus': 'Disputed',
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  @override
+  Future<void> resolveSettlementDispute({
+    required String leaseId,
+    required String resolvedBy,
+    required String resolution, // 'accept', 'reject', 'modify'
+    double? finalAmount,
+    String? notes,
+  }) async {
+    final snap = await firestore
+        .collection('lease_settlements')
+        .where('leaseId', WhereFilter.equal, leaseId)
+        .orderBy('createdAt', descending: true)
+        .limit(1)
+        .get();
+
+    if (snap.docs.isEmpty) throw NotFoundException('Settlement', leaseId);
+
+    final settlementDoc = snap.docs.first;
+    final settlementId = settlementDoc.id;
+
+    await firestore.collection('lease_settlements').doc(settlementId).update({
+      'status': resolution == 'accept' ? 'Agreed' : 'Rejected',
+      'resolvedBy': resolvedBy,
+      'resolution': resolution,
+      'finalAmount': finalAmount,
+      'resolutionNotes': notes,
+      'resolvedAt': DateTime.now().toIso8601String(),
+    });
+
+    await _leases.doc(leaseId).update({
+      'settlementStatus': resolution == 'accept' ? 'Agreed' : 'Rejected',
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  @override
+  Future<void> confirmPaymentAndActivate(String leaseId, String confirmedBy) async {
+    final lease = await getLeaseById(leaseId);
+
+    await _leases.doc(leaseId).update({
+      'status': 'Active',
+      'paymentConfirmedAt': DateTime.now().toIso8601String(),
+      'paymentConfirmedBy': confirmedBy,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+
+    // Update unit to occupied with new tenant
+    await firestore.collection('units').doc(lease.unitId).update({
+      'status': 'occupied',
+      'currentTenantId': lease.tenantId,
+      'isListedForRent': false,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+
+    print('✅ Lease activated and tenant added to unit after payment confirmation');
   }
 }

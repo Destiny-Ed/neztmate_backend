@@ -7,7 +7,7 @@ Router paymentRoutes(PaymentHandler handler) {
   // PAYMENTS
 
   /// Initialize payment (Tenant starts rent/task payment)
-  router.post('/initialize_payment', handler.initializePayment);
+  // router.post('/initialize_payment', handler.initializePayment);
 
   // router.post('/record_payment', handler.recordPayment);
 

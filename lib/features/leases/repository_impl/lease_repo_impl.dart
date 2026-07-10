@@ -1,6 +1,9 @@
 import 'package:neztmate_backend/features/leases/datasource/lease_remote_datasource.dart';
+import 'package:neztmate_backend/features/leases/models/lease_settlement_agreement_model.dart';
+import 'package:neztmate_backend/features/leases/models/lease_termination_request.dart';
 import 'package:neztmate_backend/features/leases/models/leases_model.dart';
 import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
+import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
 
 class LeaseRepositoryImpl implements LeaseRepository {
   final LeaseRemoteDataSource dataSource;
@@ -78,4 +81,40 @@ class LeaseRepositoryImpl implements LeaseRepository {
     required String newTenantId,
     required String reason,
   }) => dataSource.requestLeaseTransfer(leaseId: leaseId, newTenantId: newTenantId, reason: reason);
+
+  @override
+  Future<List<LeaseTerminationRequest>> getTerminationRequests(String userId) =>
+      dataSource.getTerminationRequests(userId);
+
+  @override
+  Future<Map<String, dynamic>> calculateEarlyTerminationSettlement(String leaseId, UnitRepository unitRepo) =>
+      dataSource.calculateEarlyTerminationSettlement(leaseId, unitRepo);
+
+  @override
+  Future<void> acceptSettlement(String leaseId, String acceptedBy) =>
+      dataSource.acceptSettlement(leaseId, acceptedBy);
+
+  @override
+  Future<void> proposeSettlement(LeaseSettlementAgreement settlement) =>
+      dataSource.proposeSettlement(settlement);
+
+  @override
+  Future<void> disputeSettlement({
+    required String leaseId,
+    required String disputedBy,
+    required String reason,
+  }) => dataSource.disputeSettlement(leaseId: leaseId, disputedBy: disputedBy, reason: reason);
+
+  @override
+  Future<void> resolveSettlementDispute({
+    required String leaseId,
+    required String resolvedBy,
+    required String resolution,
+    double? finalAmount,
+    String? notes,
+  }) => dataSource.resolveSettlementDispute(leaseId: leaseId, resolvedBy: resolvedBy, resolution: resolution);
+
+  @override
+  Future<void> confirmPaymentAndActivate(String leaseId, String confirmedBy) =>
+      dataSource.confirmPaymentAndActivate(leaseId, confirmedBy);
 }

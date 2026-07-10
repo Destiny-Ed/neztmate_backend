@@ -3,6 +3,7 @@ import 'package:neztmate_backend/core/services/reputation/reputation_service.dar
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
 import 'package:neztmate_backend/features/history/model/user_history_model.dart';
 import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
+import 'package:neztmate_backend/features/leases/models/lease_settlement_agreement_model.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
@@ -587,6 +588,9 @@ class LeaseHandler {
 
       final lease = await leaseRepository.getLeaseById(leaseId);
 
+      //calculate settlement
+      final settlement = await leaseRepository.calculateEarlyTerminationSettlement(leaseId, unitRepository);
+
       await leaseRepository.terminateLease(leaseId, reason, role ?? "");
 
       // Update unit to vacant
@@ -613,7 +617,13 @@ class LeaseHandler {
         ),
       );
 
-      return Response.ok(jsonEncode({'message': 'Lease terminated successfully', 'leaseId': leaseId}));
+      return Response.ok(
+        jsonEncode({
+          'message': 'Lease terminated successfully',
+          'leaseId': leaseId,
+          'settlement': settlement,
+        }),
+      );
     } catch (e, stack) {
       print('Landlord terminate lease error: $e\n$stack');
       return Response.internalServerError();
@@ -673,6 +683,252 @@ class LeaseHandler {
       );
     } catch (e, stack) {
       print('Request lease transfer error: $e\n$stack');
+      return Response.internalServerError();
+    }
+  }
+
+  /// PATCH /leases/<id>/approve-termination - Landlord approves early termination
+  Future<Response> approveEarlyTermination(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+      final leaseId = request.params['id'];
+
+      if (userId == null || leaseId == null) return _unauthorized();
+
+      if (!['landowner', 'manager'].contains(role)) {
+        return Response(
+          403,
+          body: jsonEncode({'message': 'Only landlords/managers can approve termination'}),
+        );
+      }
+
+      final lease = await leaseRepository.getLeaseById(leaseId);
+
+      final settlement = await leaseRepository.calculateEarlyTerminationSettlement(leaseId, unitRepository);
+
+      await leaseRepository.terminateLease(leaseId, 'Approved early termination', role ?? "");
+
+      // Update unit to vacant
+      await unitRepository.updateUnitStatus(
+        unitId: lease.unitId,
+        status: 'vacant',
+        currentTenantId: null,
+        isListedForRent: true,
+      );
+
+      // Notify tenant
+      await notificationRepository.create(
+        NotificationModel(
+          userId: lease.tenantId,
+          type: 'early_termination_approved',
+          title: 'Early Termination Approved',
+          body: 'Your early termination request has been approved.',
+          relatedId: leaseId,
+          relatedCollection: 'leases',
+          createdAt: DateTime.now(),
+          id: '',
+        ),
+      );
+
+      return Response.ok(
+        jsonEncode({'message': 'Early termination approved', 'leaseId': leaseId, 'settlement': settlement}),
+      );
+    } catch (e, stack) {
+      print('Approve early termination error: $e\n$stack');
+      return Response.internalServerError();
+    }
+  }
+
+  /// POST /leases/<id>/settlement - Propose settlement amount
+  Future<Response> proposeSettlement(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+      final leaseId = request.params['id'];
+
+      if (userId == null || leaseId == null) return _unauthorized();
+
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final agreedAmount = (body['agreedAmount'] as num?)?.toDouble();
+      final paymentMethod = body['paymentMethod'] as String?;
+
+      if (agreedAmount == null || paymentMethod == null) {
+        return badRequest('agreedAmount and paymentMethod are required');
+      }
+
+      final lease = await leaseRepository.getLeaseById(leaseId);
+
+      final isTenant = lease.tenantId == userId;
+      final isLandowner = lease.landownerId == userId;
+
+      if (!isTenant && !isLandowner) {
+        return Response(403, body: jsonEncode({'message': 'Forbidden'}));
+      }
+
+      final settlement = LeaseSettlementAgreement(
+        id: '',
+        leaseId: leaseId,
+        initiatedBy: isTenant ? 'tenant' : 'landowner',
+        agreedAmount: agreedAmount,
+        paymentMethod: paymentMethod,
+        createdAt: DateTime.now(),
+      );
+
+      await leaseRepository.proposeSettlement(settlement);
+
+      // Notify the other party
+      final otherPartyId = isTenant ? lease.landownerId : lease.tenantId;
+
+      await notificationRepository.create(
+        NotificationModel(
+          userId: otherPartyId,
+          type: 'settlement_proposed',
+          title: 'Settlement Proposal',
+          body: '${isTenant ? "Tenant" : "Landlord"} proposed settlement of ₦$agreedAmount',
+          relatedId: leaseId,
+          relatedCollection: 'leases',
+          createdAt: DateTime.now(),
+          id: '',
+        ),
+      );
+
+      return Response.ok(
+        jsonEncode({'message': 'Settlement proposal sent', 'settlement': settlement.toMap()}),
+      );
+    } catch (e, stack) {
+      print('Propose settlement error: $e\n$stack');
+      return Response.internalServerError();
+    }
+  }
+
+  /// PATCH /leases/<id>/settlement/accept - Accept settlement
+  Future<Response> acceptSettlement(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final leaseId = request.params['id'];
+
+      if (userId == null || leaseId == null) return _unauthorized();
+
+      final lease = await leaseRepository.getLeaseById(leaseId);
+
+      await leaseRepository.acceptSettlement(leaseId, userId);
+
+      // Mark lease as terminated after settlement agreement
+      await leaseRepository.terminateLease(leaseId, 'Settlement agreed', 'system');
+
+      await unitRepository.updateUnitStatus(
+        unitId: lease.unitId,
+        status: 'vacant',
+        currentTenantId: null,
+        isListedForRent: true,
+      );
+
+      return Response.ok(
+        jsonEncode({'message': 'Settlement accepted. Lease terminated successfully.', 'leaseId': leaseId}),
+      );
+    } catch (e, stack) {
+      print('Accept settlement error: $e\n$stack');
+      return Response.internalServerError();
+    }
+  }
+
+  /// PATCH /leases/<id>/settlement/dispute - Dispute settlement proposal
+  Future<Response> disputeSettlement(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final leaseId = request.params['id'];
+
+      if (userId == null || leaseId == null) return _unauthorized();
+
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final disputeReason = body['disputeReason'] as String?;
+
+      if (disputeReason == null || disputeReason.trim().isEmpty) {
+        return badRequest('Dispute reason is required');
+      }
+
+      final lease = await leaseRepository.getLeaseById(leaseId);
+
+      await leaseRepository.disputeSettlement(leaseId: leaseId, disputedBy: userId, reason: disputeReason);
+
+      // Notify the other party
+      final otherPartyId = lease.tenantId == userId ? lease.landownerId : lease.tenantId;
+
+      await notificationRepository.create(
+        NotificationModel(
+          userId: otherPartyId,
+          type: 'settlement_disputed',
+          title: 'Settlement Disputed',
+          body: 'The other party has disputed the settlement proposal.',
+          relatedId: leaseId,
+          relatedCollection: 'leases',
+          createdAt: DateTime.now(),
+          id: '',
+        ),
+      );
+
+      return Response.ok(jsonEncode({'message': 'Settlement disputed successfully', 'leaseId': leaseId}));
+    } catch (e, stack) {
+      print('Dispute settlement error: $e\n$stack');
+      return Response.internalServerError();
+    }
+  }
+
+  /// PATCH /leases/<id>/settlement/resolve - Resolve dispute (Landlord/Manager only)
+  Future<Response> resolveSettlementDispute(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+      final leaseId = request.params['id'];
+
+      if (userId == null || leaseId == null) return _unauthorized();
+
+      if (!['landowner', 'manager'].contains(role)) {
+        return Response(403, body: jsonEncode({'message': 'Only landlords/managers can resolve disputes'}));
+      }
+
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final resolution = body['resolution'] as String?; // 'accept', 'reject', 'modify'
+      final finalAmount = (body['finalAmount'] as num?)?.toDouble();
+      final notes = body['notes'] as String?;
+
+      if (resolution == null) {
+        return badRequest('resolution (accept/reject/modify) is required');
+      }
+
+      await leaseRepository.resolveSettlementDispute(
+        leaseId: leaseId,
+        resolvedBy: userId,
+        resolution: resolution,
+        finalAmount: finalAmount,
+        notes: notes,
+      );
+
+      final lease = await leaseRepository.getLeaseById(leaseId);
+
+      await notificationRepository.create(
+        NotificationModel(
+          userId: lease.tenantId,
+          type: 'settlement_resolved',
+          title: 'Settlement Dispute Resolved',
+          body: 'The dispute has been resolved by the landlord.',
+          relatedId: leaseId,
+          relatedCollection: 'leases',
+          createdAt: DateTime.now(),
+          id: '',
+        ),
+      );
+
+      return Response.ok(
+        jsonEncode({
+          'message': 'Settlement dispute resolved',
+          'resolution': resolution,
+          'finalAmount': finalAmount,
+        }),
+      );
+    } catch (e, stack) {
+      print('Resolve settlement dispute error: $e\n$stack');
       return Response.internalServerError();
     }
   }
@@ -811,7 +1067,7 @@ class LeaseHandler {
     }
   }
 
-  /// POST /leases/<id>/terminate - Tenant requests early termination
+  /// POST /leases/<id>/early-termination - Tenant requests early termination
   Future<Response> requestEarlyTermination(Request request) async {
     try {
       final tenantId = request.context['userId'] as String?;
@@ -832,14 +1088,22 @@ class LeaseHandler {
         return Response(403, body: jsonEncode({'message': 'You can only terminate your own lease'}));
       }
 
+      if (lease.status != 'Active') {
+        return Response(400, body: jsonEncode({'message': 'Only active leases can be terminated early'}));
+      }
+
+      // Calculate settlement
+      final settlement = await leaseRepository.calculateEarlyTerminationSettlement(leaseId, unitRepository);
+
       await leaseRepository.requestEarlyTermination(leaseId: leaseId, reason: reason, requestedBy: 'tenant');
 
+      // Notify Landlord
       await notificationRepository.create(
         NotificationModel(
           userId: lease.landownerId,
           type: 'early_termination_request',
           title: 'Early Termination Request',
-          body: 'Tenant has requested early termination.',
+          body: 'Tenant has requested early termination. Reason: $reason',
           relatedId: leaseId,
           relatedCollection: 'leases',
           createdAt: DateTime.now(),
@@ -848,7 +1112,11 @@ class LeaseHandler {
       );
 
       return Response.ok(
-        jsonEncode({'message': 'Early termination request submitted. Awaiting landlord review.'}),
+        jsonEncode({
+          'message': 'Early termination request submitted',
+          'leaseId': leaseId,
+          'settlement': settlement,
+        }),
       );
     } catch (e, stack) {
       print('Request early termination error: $e\n$stack');
@@ -1025,7 +1293,7 @@ class LeaseHandler {
 
       // 4. Cannot set back to Pending Signature after signing
       if (newStatus.toLowerCase() == 'pending signature' &&
-          ['active', 'pending Payment', 'terminated'].contains(lease.status.toLowerCase())) {
+          ['active', 'pending payment', 'terminated'].contains(lease.status.toLowerCase())) {
         return Response(
           400,
           body: jsonEncode({'message': 'Cannot revert to Pending Signature after signing'}),
@@ -1165,6 +1433,75 @@ class LeaseHandler {
     } catch (e, stack) {
       print('Update lease status error: $e\n$stack');
       return Response.internalServerError(body: jsonEncode({'message': 'Failed to update lease status'}));
+    }
+  }
+
+  /// GET /leases/termination-requests - Get all termination/transfer requests (for landowner/manager)
+  Future<Response> getTerminationRequests(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+
+      if (userId == null || !['landowner', 'manager'].contains(role)) {
+        return Response(
+          403,
+          body: jsonEncode({'message': 'Only landlords/managers can view termination requests'}),
+        );
+      }
+
+      final requests = await leaseRepository.getTerminationRequests(userId);
+
+      return Response.ok(jsonEncode({'terminationRequests': requests.map((req) => req.toMap()).toList()}));
+    } catch (e, stack) {
+      print('Get termination requests error: $e\n$stack');
+      return Response.internalServerError();
+    }
+  }
+
+  /// PATCH /leases/<id>/confirm-payment - Landlord confirms payment received
+  Future<Response> confirmPaymentReceived(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+      final leaseId = request.params['id'];
+
+      if (userId == null || leaseId == null) return _unauthorized();
+
+      if (!['landowner', 'manager'].contains(role)) {
+        return Response(403, body: jsonEncode({'message': 'Only landlords/managers can confirm payment'}));
+      }
+
+      final lease = await leaseRepository.getLeaseById(leaseId);
+
+      if (lease.status != 'Pending Payment') {
+        return Response(400, body: jsonEncode({'message': 'Lease is not awaiting payment confirmation'}));
+      }
+
+      // Confirm payment and activate lease
+      await leaseRepository.confirmPaymentAndActivate(leaseId, userId);
+
+      // Add tenant to unit
+      await unitRepository.updateUnitStatus(
+        unitId: lease.unitId,
+        status: 'occupied',
+        currentTenantId: lease.tenantId,
+        isListedForRent: false,
+      );
+
+      // Notifications
+      // await notificationRepository.create(/* tenant notification */);
+      // await notificationRepository.create(/* landlord confirmation */);
+
+      return Response.ok(
+        jsonEncode({
+          'message': 'Payment confirmed. Tenant officially added to unit.',
+          'leaseId': leaseId,
+          'unitUpdated': true,
+        }),
+      );
+    } catch (e, stack) {
+      print('Confirm payment error: $e\n$stack');
+      return Response.internalServerError();
     }
   }
 

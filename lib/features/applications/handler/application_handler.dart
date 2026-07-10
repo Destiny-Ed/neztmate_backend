@@ -436,12 +436,20 @@ class ApplicationHandler {
       final role = request.context['role'] as String?;
       final appId = request.params['id'];
 
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+
+      final durationMonths = body['durationMonths'] as int?;
+
       if (approverId == null || appId == null) {
         return Response(400, body: jsonEncode({'message': 'Missing ID'}));
       }
 
       if (!['manager', 'landowner'].contains(role)) {
         return Response(403, body: jsonEncode({'message': 'Only managers or landowners can approve'}));
+      }
+
+      if (durationMonths == null || ![12, 24, 36].contains(durationMonths)) {
+        return badRequest('durationMonths must be 12, 24, or 36');
       }
 
       // 1. Approve the application
@@ -452,6 +460,9 @@ class ApplicationHandler {
       // 2. Create Lease Record
       final leaseService = LeasePdfService();
 
+      final startDate = application.desiredStartDate ?? DateTime.now().add(const Duration(days: 7));
+      final endDate = startDate.add(Duration(days: durationMonths * 30));
+
       final lease = LeaseModel(
         id: '',
         applicationId: appId,
@@ -460,8 +471,8 @@ class ApplicationHandler {
         propertyId: application.propertyId,
         landownerId: role == 'landowner' ? approverId : application.landownerId,
         managerId: role == 'manager' ? approverId : null,
-        startDate: application.desiredStartDate ?? DateTime.now().add(const Duration(days: 7)),
-        endDate: DateTime.now().add(const Duration(days: 365)), // 1 year default
+        startDate: startDate,
+        endDate: endDate,
         yearlyRent: application.proposedRent ?? unit.yearlyRent,
         fees: unit.fees,
         status: 'Pending Signature',

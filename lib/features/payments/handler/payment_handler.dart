@@ -48,67 +48,67 @@ class PaymentHandler {
   final PaystackService paystackService = PaystackService();
 
   /// POST /payments/initialize - Tenant starts rent payment
-  Future<Response> initializePayment(Request request) async {
-    try {
-      final userId = request.context['userId'] as String?;
-      if (userId == null) return unauthorized("User not found");
+  // Future<Response> initializePayment(Request request) async {
+  //   try {
+  //     final userId = request.context['userId'] as String?;
+  //     if (userId == null) return unauthorized("User not found");
 
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
-      final leaseId = body['leaseId'] as String?;
-      final propertyId = body['propertyId'] as String?;
-      final unitId = body['unitId'] as String?;
-      final amount = (body['amount'] as num).toDouble();
-      final email = (body['email'] as String?);
-      final paymentType = (body['paymentType'] as String?);
+  //     final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+  //     final leaseId = body['leaseId'] as String?;
+  //     final propertyId = body['propertyId'] as String?;
+  //     final unitId = body['unitId'] as String?;
+  //     final amount = (body['amount'] as num).toDouble();
+  //     final email = (body['email'] as String?);
+  //     final paymentType = (body['paymentType'] as String?);
 
-      if (leaseId == null || email == null || propertyId == null || unitId == null || amount <= 0) {
-        return badRequest('leaseId, propertyId, unitId, email and valid amount are required');
-      }
+  //     if (leaseId == null || email == null || propertyId == null || unitId == null || amount <= 0) {
+  //       return badRequest('leaseId, propertyId, unitId, email and valid amount are required');
+  //     }
 
-      if (!['rent', 'task', 'rent-renewal'].contains(paymentType)) {
-        return badRequest('Invalid paymentType');
-      }
+  //     if (!['rent', 'task', 'rent-renewal'].contains(paymentType)) {
+  //       return badRequest('Invalid paymentType');
+  //     }
 
-      final reference = 'nm_${DateTime.now().millisecondsSinceEpoch}';
+  //     final reference = 'nm_${DateTime.now().millisecondsSinceEpoch}';
 
-      final initData = await paystackService.initializeTransaction(
-        email: email,
-        amount: amount,
-        reference: reference,
-        metadata: {
-          'userId': userId,
-          'leaseId': leaseId,
-          'unitId': unitId,
-          'propertyId': propertyId,
-          'type': paymentType,
-        },
-      );
+  //     final initData = await paystackService.initializeTransaction(
+  //       email: email,
+  //       amount: amount,
+  //       reference: reference,
+  //       metadata: {
+  //         'userId': userId,
+  //         'leaseId': leaseId,
+  //         'unitId': unitId,
+  //         'propertyId': propertyId,
+  //         'type': paymentType,
+  //       },
+  //     );
 
-      // Save pending payment
-      final pendingPayment = PaymentModel(
-        id: '',
-        leaseId: leaseId,
-        payerId: userId,
-        propertyId: propertyId,
-        unitId: unitId,
-        amount: amount,
-        status: 'Pending',
-        method: 'Paystack',
-        transactionRef: reference,
-        type: paymentType,
-        createdAt: DateTime.now(),
-      );
+  //     // Save pending payment
+  //     final pendingPayment = PaymentModel(
+  //       id: '',
+  //       leaseId: leaseId,
+  //       payerId: userId,
+  //       propertyId: propertyId,
+  //       unitId: unitId,
+  //       amount: amount,
+  //       status: 'Pending',
+  //       method: 'Paystack',
+  //       transactionRef: reference,
+  //       type: paymentType,
+  //       createdAt: DateTime.now(),
+  //     );
 
-      await paymentRepository.createPayment(pendingPayment);
+  //     await paymentRepository.createPayment(pendingPayment);
 
-      return Response.ok(
-        jsonEncode({'authorization_url': initData['authorization_url'], 'reference': reference}),
-      );
-    } catch (e) {
-      print("Error initializing payment: $e");
-      return Response.internalServerError();
-    }
-  }
+  //     return Response.ok(
+  //       jsonEncode({'authorization_url': initData['authorization_url'], 'reference': reference}),
+  //     );
+  //   } catch (e) {
+  //     print("Error initializing payment: $e");
+  //     return Response.internalServerError();
+  //   }
+  // }
 
   /// POST /payments/webhook - Paystack Webhook Handler
   Future<Response> paystackWebhook(Request request) async {
@@ -152,15 +152,15 @@ class PaymentHandler {
 
       final payment = await paymentRepository.getPaymentByReference(reference);
 
-      final platformFee = amount * 0.05; // 5% platform fee
-      final netAmount = amount - platformFee;
+      // final platformFee = amount * 0.05; // 5% platform fee
+      // final netAmount = amount - platformFee;
 
-      String recipientId = '';
-      String recipientType = '';
+      // String recipientId = '';
+      // String recipientType = '';
 
-      double managerCommissionAmount = 0.0;
-      double managerCommissionRate = 0.0;
-      String? managerId;
+      // double managerCommissionAmount = 0.0;
+      // double managerCommissionRate = 0.0;
+      // String? managerId;
 
       //  APPLICATION FEE
       if (payment.type == 'application_fee' && data['applicationId'] != null) {
@@ -183,135 +183,128 @@ class PaymentHandler {
           ),
         );
       }
-
       //  TASK PAYMENT
-      if (payment.type == 'task_payment' && payment.taskId != null) {
-        final task = await maintenanceRepository.getTaskById(payment.taskId!);
-
-        recipientId = task.artisanId;
-        recipientType = 'artisan';
-
-        final updatedTask = task.copyWith(
-          paymentStatus: 'Paid',
-          paymentMethod: 'Paystack',
-          paymentReference: reference,
-          actualCost: amount,
-          paymentApprovedAt: DateTime.now(),
-          paymentApprovedBy: 'system',
-        );
-
-        await maintenanceRepository.updateTask(updatedTask);
-
-        // Manager Commission for Task (if assigned by manager)
-        managerId = task.assignedBy;
-        if (managerId != null) {
-          managerCommissionAmount = amount * 0.10; // 10% for tasks
-        }
-
-        // Notifications & History
-        await notificationRepository.create(
-          NotificationModel(
-            userId: task.artisanId,
-            type: 'task_payment_success',
-            title: 'Payment Received',
-            body: '₦${amount.toStringAsFixed(0)} has been paid for your task.',
-            relatedId: task.id,
-            relatedCollection: 'maintenance_tasks',
-            createdAt: DateTime.now(),
-            id: '',
-          ),
-        );
-
-        await historyRepository.createHistoryEntry(
-          HistoryEntryModel(
-            userId: task.artisanId,
-            type: 'task_payment_received',
-            title: 'Task Payment Received',
-            description: '₦${amount.toStringAsFixed(0)} for ${task.title}',
-            relatedId: task.id,
-            relatedCollection: 'maintenance_tasks',
-            timestamp: DateTime.now(),
-            id: '',
-          ),
-        );
-      }
+      // if (payment.type == 'task_payment' && payment.taskId != null) {
+      //   final task = await maintenanceRepository.getTaskById(payment.taskId!);
+      //   recipientId = task.artisanId;
+      //   recipientType = 'artisan';
+      //   final updatedTask = task.copyWith(
+      //     paymentStatus: 'Paid',
+      //     paymentMethod: 'Paystack',
+      //     paymentReference: reference,
+      //     actualCost: amount,
+      //     paymentApprovedAt: DateTime.now(),
+      //     paymentApprovedBy: 'system',
+      //   );
+      //   await maintenanceRepository.updateTask(updatedTask);
+      //   // Manager Commission for Task (if assigned by manager)
+      //   managerId = task.assignedBy;
+      //   if (managerId != null) {
+      //     managerCommissionAmount = amount * 0.10; // 10% for tasks
+      //   }
+      //   // Notifications & History
+      //   await notificationRepository.create(
+      //     NotificationModel(
+      //       userId: task.artisanId,
+      //       type: 'task_payment_success',
+      //       title: 'Payment Received',
+      //       body: '₦${amount.toStringAsFixed(0)} has been paid for your task.',
+      //       relatedId: task.id,
+      //       relatedCollection: 'maintenance_tasks',
+      //       createdAt: DateTime.now(),
+      //       id: '',
+      //     ),
+      //   );
+      //   await historyRepository.createHistoryEntry(
+      //     HistoryEntryModel(
+      //       userId: task.artisanId,
+      //       type: 'task_payment_received',
+      //       title: 'Task Payment Received',
+      //       description: '₦${amount.toStringAsFixed(0)} for ${task.title}',
+      //       relatedId: task.id,
+      //       relatedCollection: 'maintenance_tasks',
+      //       timestamp: DateTime.now(),
+      //       id: '',
+      //     ),
+      //   );
+      // }
       //  RENT PAYMENT
-      else if (payment.leaseId != null) {
-        final lease = await leaseRepository.getLeaseById(payment.leaseId!);
+      // else if (payment.leaseId != null) {
+      //   final lease = await leaseRepository.getLeaseById(payment.leaseId!);
 
-        recipientId = lease.landownerId;
-        recipientType = 'landowner';
-        managerId = lease.managerId;
+      //   recipientId = lease.landownerId;
+      //   recipientType = 'landowner';
+      //   managerId = lease.managerId;
 
-        // Update lease & unit
-        if (payment.type?.toLowerCase() == 'rent-renewal') {
-          await leaseRepository.renewLeaseAfterPayment(payment.leaseId!);
-        } else {
-          await leaseRepository.updateLeaseStatus(payment.leaseId!, 'Active');
-        }
+      //   // Update lease & unit
+      //   if (payment.type?.toLowerCase() == 'rent-renewal') {
+      //     await leaseRepository.renewLeaseAfterPayment(payment.leaseId!);
+      //   } else {
+      //     await leaseRepository.updateLeaseStatus(payment.leaseId!, 'Active');
+      //   }
 
-        await unitRepository.updateUnitStatus(
-          unitId: lease.unitId,
-          status: 'occupied',
-          currentTenantId: lease.tenantId,
-          isListedForRent: false,
-        );
+      //   await unitRepository.updateUnitStatus(
+      //     unitId: lease.unitId,
+      //     status: 'occupied',
+      //     currentTenantId: lease.tenantId,
+      //     isListedForRent: false,
+      //   );
 
-        // Reputation updates
-        await userReputationService.updateUserReputation(payment.payerId);
-        await userReputationService.updateUserReputation(lease.landownerId);
+      //   // Reputation updates
+      //   await userReputationService.updateUserReputation(payment.payerId);
+      //   await userReputationService.updateUserReputation(lease.landownerId);
 
-        // Manager Commission for Rent
-        if (managerId != null) {
-          final property = await propertyRepository.getPropertyById(lease.propertyId ?? '');
+      //   // Manager Commission for Rent
+      //   if (managerId != null) {
+      //     final property = await propertyRepository.getPropertyById(lease.propertyId ?? '');
 
-          if (property.managerCommissionType == 'percentage' && property.managerCommissionRate != null) {
-            managerCommissionAmount = amount * property.managerCommissionRate!;
-            managerCommissionRate = property.managerCommissionRate!;
-          } else if (property.managerCommissionType == 'flat' && property.managerFlatFeeAmount != null) {
-            managerCommissionAmount = property.managerFlatFeeAmount!;
-          }
-        }
+      //     if (property.managerCommissionType == 'percentage' && property.managerCommissionRate != null) {
+      //       managerCommissionAmount = amount * property.managerCommissionRate!;
+      //       managerCommissionRate = property.managerCommissionRate!;
+      //     } else if (property.managerCommissionType == 'flat' && property.managerFlatFeeAmount != null) {
+      //       managerCommissionAmount = property.managerFlatFeeAmount!;
+      //     }
+      //   }
 
-        await _sendRentSuccessNotifications(payment, lease, amount);
-      }
+      //   await _sendRentSuccessNotifications(payment, lease, amount);
+      // }
 
       //  CREATE DISBURSEMENT (3 Days Holding)
-      if (recipientId.isNotEmpty) {
-        final disbursement = PaymentDisbursementModel(
-          id: '',
-          paymentId: payment.id,
-          recipientId: recipientId,
-          recipientType: recipientType,
-          originalAmount: amount,
-          platformFee: platformFee,
-          netAmount: netAmount,
-          status: 'Held',
-          scheduledDate: DateTime.now().add(const Duration(days: 3)),
-        );
+      // if (recipientId.isNotEmpty) {
+      //   final disbursement = PaymentDisbursementModel(
+      //     id: '',
+      //     paymentId: payment.id,
+      //     recipientId: recipientId,
+      //     recipientType: recipientType,
+      //     originalAmount: amount,
+      //     platformFee: platformFee,
+      //     netAmount: netAmount,
+      //     status: 'Held',
+      //     scheduledDate: DateTime.now().add(const Duration(days: 3)),
+      //   );
 
-        await paymentRepository.createDisbursement(disbursement);
-        await paymentRepository.recordPlatformFee(payment.id, platformFee, payment.type ?? 'payment');
+      //   await paymentRepository.createDisbursement(disbursement);
+      //   await paymentRepository.recordPlatformFee(payment.id, platformFee, payment.type ?? 'payment');
 
-        print('📅 Disbursement scheduled for $recipientType after 3 days');
-      }
+      //   print('📅 Disbursement scheduled for $recipientType after 3 days');
+      // }
 
       //  RECORD MANAGER COMMISSION
-      if (managerId != null && managerCommissionAmount > 0) {
-        final commission = ManagerCommissionModel(
-          id: '',
-          paymentId: payment.id,
-          managerId: managerId,
-          relatedId: payment.leaseId ?? payment.taskId ?? '',
-          type: payment.type ?? 'rent',
-          commissionRate: managerCommissionRate,
-          commissionAmount: managerCommissionAmount,
-          createdAt: DateTime.now(),
-        );
+      // if (managerId != null && managerCommissionAmount > 0) {
+      //   final commission = ManagerCommissionModel(
+      //     id: '',
+      //     paymentId: payment.id,
+      //     managerId: managerId,
+      //     relatedId: payment.leaseId ?? payment.taskId ?? '',
+      //     type: payment.type ?? 'rent',
+      //     commissionRate: managerCommissionRate,
+      //     commissionAmount: managerCommissionAmount,
+      //     createdAt: DateTime.now(),
+      //   );
 
-        await paymentRepository.recordManagerCommission(commission);
-        print('💰 Manager commission recorded: ₦$managerCommissionAmount');
-      }
+      //   await paymentRepository.recordManagerCommission(commission);
+      //   print('💰 Manager commission recorded: ₦$managerCommissionAmount');
+      // }
 
       return Response.ok('Webhook processed successfully');
     } catch (e, stack) {

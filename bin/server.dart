@@ -3,7 +3,6 @@ import 'dart:io';
 import 'package:dotenv/dotenv.dart';
 import 'package:neztmate_backend/core/di/injector.dart';
 import 'package:neztmate_backend/core/middleware/auth_middleware.dart';
-import 'package:neztmate_backend/core/services/scheduler/schedule_service.dart';
 import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
 import 'package:neztmate_backend/core/services/database/firebase/firebase.dart';
 import 'package:neztmate_backend/features/applications/handler/application_handler.dart';
@@ -11,17 +10,12 @@ import 'package:neztmate_backend/features/auth_user/handler/auth_handler.dart';
 import 'package:neztmate_backend/features/auth_user/handler/user_handler.dart';
 import 'package:neztmate_backend/features/community/handler/community_handler.dart';
 import 'package:neztmate_backend/features/history/handler/history_handler.dart';
-import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
 import 'package:neztmate_backend/features/invites/handler/invite_handler.dart';
-import 'package:neztmate_backend/features/invites/repository/invite_repo.dart';
 import 'package:neztmate_backend/features/leases/handler/lease_handler.dart';
-import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
 import 'package:neztmate_backend/features/maintenance/handler/maintenance_handler.dart';
 import 'package:neztmate_backend/features/messages/handler/messages_handler.dart';
 import 'package:neztmate_backend/features/notifications/handler/handler.dart';
-import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
 import 'package:neztmate_backend/features/payments/handler/payment_handler.dart';
-import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
 import 'package:neztmate_backend/features/properties/handler/property_handler.dart';
 import 'package:neztmate_backend/features/reviews/handler/user_review_handler.dart';
 import 'package:neztmate_backend/features/tenants/handler/tenant_handler.dart';
@@ -37,7 +31,6 @@ import 'package:neztmate_backend/routes/lease_routes.dart';
 import 'package:neztmate_backend/routes/maintenance_routes.dart';
 import 'package:neztmate_backend/routes/message_routes.dart';
 import 'package:neztmate_backend/routes/notifications_routes.dart';
-import 'package:neztmate_backend/routes/payment_routes.dart';
 import 'package:neztmate_backend/routes/property_routes.dart';
 import 'package:neztmate_backend/routes/tenant_routes.dart';
 import 'package:neztmate_backend/routes/unit_routes.dart';
@@ -180,12 +173,12 @@ void main() async {
         .addHandler(notificationRoutes(injector<NotificationHandler>()).call),
   );
 
-  router.mount(
-    '/payments/',
-    Pipeline()
-        .addMiddleware(authMiddleware(jwtService))
-        .addHandler(paymentRoutes(injector<PaymentHandler>()).call),
-  );
+  // router.mount(
+  //   '/payments/',
+  //   Pipeline()
+  //       .addMiddleware(authMiddleware(jwtService))
+  //       .addHandler(paymentRoutes(injector<PaymentHandler>()).call),
+  // );
 
   router.mount(
     '/tenants/',

@@ -1,4 +1,7 @@
+import 'package:neztmate_backend/features/leases/models/lease_settlement_agreement_model.dart';
+import 'package:neztmate_backend/features/leases/models/lease_termination_request.dart';
 import 'package:neztmate_backend/features/leases/models/leases_model.dart';
+import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
 
 abstract class LeaseRemoteDataSource {
   Future<LeaseModel> createLease(LeaseModel lease);
@@ -38,4 +41,27 @@ abstract class LeaseRemoteDataSource {
     required String reason,
     required String requestedBy,
   });
+
+  Future<List<LeaseTerminationRequest>> getTerminationRequests(String userId);
+
+  Future<Map<String, dynamic>> calculateEarlyTerminationSettlement(String leaseId, UnitRepository unitRepo);
+
+  Future<void> proposeSettlement(LeaseSettlementAgreement settlement);
+  Future<void> acceptSettlement(String leaseId, String acceptedBy);
+
+  Future<void> disputeSettlement({
+    required String leaseId,
+    required String disputedBy,
+    required String reason,
+  });
+
+  Future<void> resolveSettlementDispute({
+    required String leaseId,
+    required String resolvedBy,
+    required String resolution, // 'accept', 'reject', 'modify'
+    double? finalAmount,
+    String? notes,
+  });
+
+  Future<void> confirmPaymentAndActivate(String leaseId, String confirmedBy);
 }
