@@ -133,6 +133,7 @@ class PaymentHandler {
       }
 
       final data = body['data'] as Map<String, dynamic>;
+      final metadata = body['metadata'] as Map<String, dynamic>;
       final reference = data['reference'] as String;
       final amount = (data['amount'] as num) / 100.0; // Convert from Kobo to Naira
       final receiptUrl = data['receipt_url'] as String?;
@@ -165,7 +166,7 @@ class PaymentHandler {
       // String? managerId;
 
       //  APPLICATION FEE
-      if (payment.type == 'application_fee' && data['metadata']['applicationId'] != null) {
+      if (payment.type == 'application_fee' && metadata['applicationId'] != null) {
         final appId = data['applicationId'] as String;
 
         final application = await applicationRepository.getApplicationById(appId);
