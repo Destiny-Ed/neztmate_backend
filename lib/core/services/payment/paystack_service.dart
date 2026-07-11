@@ -32,6 +32,8 @@ class PaystackService {
       }),
     );
 
+    print(response.body);
+
     final data = jsonDecode(response.body);
     if (response.statusCode != 200) {
       throw Exception(data['message'] ?? 'Failed to initialize payment');

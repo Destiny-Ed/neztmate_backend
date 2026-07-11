@@ -6,6 +6,7 @@ class UnitModel {
   final double yearlyRent;
   final int? bedrooms;
   final double? bathrooms;
+  final int? durationMonths;
   final int likes;
   final int commentsCount;
   final int? squareFeet;
@@ -33,6 +34,7 @@ class UnitModel {
     required this.yearlyRent,
     this.bedrooms,
     this.bathrooms,
+    this.durationMonths = 12, //1 year default
     this.likes = 0,
     this.commentsCount = 0,
     this.squareFeet,
@@ -62,6 +64,7 @@ class UnitModel {
       likes: map['likes'] as int? ?? 0,
       commentsCount: map['commentsCount'] as int? ?? 0,
       squareFeet: map['squareFeet'] as int?,
+      durationMonths: (map['durationMonths'] as num?)?.toInt(),
       features: (map['features'] as List?)?.cast<String>(),
       customFeatures: (map['customFeatures'] as Map?)?.map(
         (key, value) => MapEntry(key.toString(), value as bool),
@@ -90,6 +93,8 @@ class UnitModel {
     'yearlyRent': yearlyRent,
     'bedrooms': bedrooms,
     'bathrooms': bathrooms,
+    'durationMonths': durationMonths,
+
     'likes': likes,
     'commentsCount': commentsCount,
     'squareFeet': squareFeet,
@@ -122,6 +127,8 @@ class UnitModel {
     int? commentsCount,
     int? squareFeet,
     List<String>? features,
+    int? durationMonths,
+
     Map<String, bool>? customFeatures,
     List<UnitFee>? fees,
     List<String>? photoUrls,
@@ -150,6 +157,8 @@ class UnitModel {
       fees: fees ?? this.fees,
       photoUrls: photoUrls ?? this.photoUrls,
       videoUrl: videoUrl ?? this.videoUrl,
+      durationMonths: durationMonths ?? this.durationMonths,
+
       isListedForRent: isListedForRent ?? this.isListedForRent,
       listedAt: listedAt ?? this.listedAt,
       rentDueDate: rentDueDate ?? this.rentDueDate,

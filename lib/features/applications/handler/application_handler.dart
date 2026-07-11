@@ -88,6 +88,9 @@ class ApplicationHandler {
         );
       }
 
+      // === Get current application fee (configurable) ===
+      final int applicationFee = await _getCurrentApplicationFee(); // From config or DB
+
       // Check for Fee Pending applications
       final feePendingApplication = existingApplications.cast<ApplicationModel?>().firstWhere(
         (app) => app?.unitId == unitId && app?.status.toLowerCase() == 'fee_pending',
@@ -97,10 +100,10 @@ class ApplicationHandler {
       if (feePendingApplication != null) {
         // Resume payment for existing fee-pending application
         return await _completePayment(
-          body,
           feePendingApplication,
           userId,
           unitId,
+          applicationFee: applicationFee,
           message: "Resume payment to activate your application",
         );
       }
@@ -125,10 +128,9 @@ class ApplicationHandler {
         propertyId: propertyId,
         appliedAt: DateTime.now(),
         screeningData: ScreeningData.fromMap(body['screeningData'] as Map<String, dynamic>),
-        // status: 'Pending',
-        status: 'fee_pending',
+        status: applicationFee > 0 ? 'fee_pending' : 'pending',
         applicationFee: 2000.0,
-        feePaymentStatus: 'Pending',
+        feePaymentStatus: applicationFee > 0 ? 'Pending' : 'Paid',
         message: body['message'] as String?,
         proposedRent: (body['proposedRent'] as num?)?.toDouble(),
         desiredStartDate: body['desiredStartDate'] != null
@@ -140,8 +142,19 @@ class ApplicationHandler {
 
       final created = await applicationRepository.createApplication(application);
 
+      // If no fee required, activate immediately
+      if (applicationFee <= 0) {
+        return Response.ok(
+          jsonEncode({
+            'message': 'Application submitted successfully (No fee required).',
+            'application': created.toMap(),
+            'status': 'Pending',
+          }),
+        );
+      }
+
       // Initialize ₦2000 payment
-      return await _completePayment(body, created, userId, unitId);
+      return await _completePayment(created, userId, unitId, applicationFee: applicationFee);
     } on NotFoundException catch (e) {
       return Response(404, body: jsonEncode({'message': e.message}));
     } on ValidationException catch (e) {
@@ -153,19 +166,21 @@ class ApplicationHandler {
   }
 
   Future<Response> _completePayment(
-    Map<String, dynamic> body,
     ApplicationModel application,
     String userId,
     String unitId, {
     String? message,
+    required int applicationFee,
   }) async {
     try {
       final paymentRef = 'appfee_${application.id}_${DateTime.now().millisecondsSinceEpoch}';
 
+      final user = await userRepository.getUserById(userId);
+
       final initPayment = await paystackService.initializeTransaction(
-        email: body['email'] ?? 'tenant@example.com',
-        amount: 2000.0,
-        reference: application.feePaymentReference ?? paymentRef,
+        email: user.email,
+        amount: applicationFee.toDouble(),
+        reference: paymentRef,
         metadata: {
           'type': 'application_fee',
           'applicationId': application.id,
@@ -174,37 +189,38 @@ class ApplicationHandler {
         },
       );
 
-      // Save pending payment if not already saved
-      if (application.feePaymentReference == null) {
-        final pendingPayment = PaymentModel(
-          id: '',
-          leaseId: "",
-          payerId: userId,
-          propertyId: application.propertyId,
-          unitId: unitId,
-          amount: 2000.0,
-          status: 'Pending',
-          method: 'Paystack',
-          transactionRef: initPayment['reference'],
-          type: 'application_fee',
-          createdAt: DateTime.now(),
-        );
+      // Save pending payment
+      final pendingPayment = PaymentModel(
+        id: '',
+        leaseId: "",
+        payerId: userId,
+        propertyId: application.propertyId,
+        unitId: unitId,
+        amount: applicationFee.toDouble(),
+        status: 'Pending',
+        method: 'Paystack',
+        transactionRef: initPayment['reference'],
+        type: 'application_fee',
+        createdAt: DateTime.now(),
+      );
 
-        await paymentRepository.createPayment(pendingPayment);
+      await paymentRepository.createPayment(pendingPayment);
 
-        // Update application with payment reference
-        await applicationRepository.updateApplication(
-          application.copyWith(feePaymentReference: pendingPayment.transactionRef),
-        );
-      }
+      // Update application with payment reference
+      await applicationRepository.updateApplication(
+        application.copyWith(feePaymentReference: pendingPayment.transactionRef),
+      );
 
       return Response.ok(
         jsonEncode({
-          'message': message ?? 'Application submitted successfully. Complete payment to activate.',
+          'message':
+              message ??
+              'Application submitted successfully. Please complete the application fee payment to proceed.',
           'application': application.toMap(),
-          'paymentReference': application.feePaymentReference ?? initPayment['reference'],
+          'requiresPayment': true,
+          'applicationFee': applicationFee,
+          'paymentReference': pendingPayment.transactionRef,
           'paymentUrl': initPayment['authorization_url'],
-          'amount': 2000.0,
         }),
         headers: {'Content-Type': 'application/json'},
       );
@@ -365,7 +381,6 @@ class ApplicationHandler {
               'email': tenant.email,
               'phone': tenant.phone,
               'verifiedIdentity': tenant.verifiedIdentity,
-
               'profilePhotoUrl': tenant.profilePhotoUrl,
             },
             'property': {
@@ -501,6 +516,9 @@ class ApplicationHandler {
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
 
       final durationMonths = body['durationMonths'] as int?;
+      final customLeasePdfUrl = body['customLeasePdfUrl'] as String?;
+
+      final isCustomLease = customLeasePdfUrl != null;
 
       if (approverId == null || appId == null) {
         return Response(400, body: jsonEncode({'message': 'Missing ID'}));
@@ -515,8 +533,9 @@ class ApplicationHandler {
       }
 
       // 1. Approve the application
-      final application = await applicationRepository.getApplicationById(appId);
       await applicationRepository.approveApplication(appId, approverId);
+      final application = await applicationRepository.getApplicationById(appId);
+
       final unit = await unitRepository.getUnitById(application.unitId);
 
       // 2. Create Lease Record
@@ -535,6 +554,7 @@ class ApplicationHandler {
         managerId: role == 'manager' ? approverId : null,
         startDate: startDate,
         endDate: endDate,
+        durationMonths: durationMonths,
         yearlyRent: application.proposedRent ?? unit.yearlyRent,
         fees: unit.fees,
         status: 'Pending Signature',
@@ -547,16 +567,28 @@ class ApplicationHandler {
       // 3. Generate PDF (Auto-generated)
       // Note: You need to fetch tenant, landowner, unit, property here in real code
       // For now, we simulate
-      final generatedPdfUrl = await leaseService.generateLeasePdf(
-        lease: createdLease,
-        unit: await unitRepository.getUnitById(application.unitId),
-        property: await propertyRepository.getPropertyById(application.propertyId),
-        tenant: await userRepository.getUserById(application.tenantId),
-        landowner: await userRepository.getUserById(lease.landownerId),
-      );
+      String? generatedPdfUrl;
+
+      if (!isCustomLease) {
+        generatedPdfUrl = await leaseService.generateLeasePdf(
+          lease: createdLease,
+          unit: await unitRepository.getUnitById(application.unitId),
+          property: await propertyRepository.getPropertyById(application.propertyId),
+          tenant: await userRepository.getUserById(application.tenantId),
+          landowner: await userRepository.getUserById(lease.landownerId),
+        );
+      }
 
       // Update lease with generated PDF
-      await leaseRepository.updateLease(createdLease.copyWith(generatedLeasePdfUrl: generatedPdfUrl));
+      await leaseRepository.updateLease(
+        createdLease.copyWith(
+          generatedLeasePdfUrl: generatedPdfUrl,
+          isCustomLease: isCustomLease,
+          customLeasePdfUrl: customLeasePdfUrl,
+        ),
+      );
+
+      await applicationRepository.updateApplication(application.copyWith(leaseId: createdLease.id));
 
       // 4. Notify Tenant
       await notificationRepository.create(
@@ -650,6 +682,9 @@ class ApplicationHandler {
 
       final application = await applicationRepository.getApplicationById(applicationId);
 
+      // === Get current application fee (configurable) ===
+      final int applicationFee = await _getCurrentApplicationFee(); // From config or DB
+
       if (application.tenantId != tenantId) {
         return Response(403, body: jsonEncode({'message': 'This application does not belong to you'}));
       }
@@ -661,33 +696,12 @@ class ApplicationHandler {
         );
       }
 
-      // Generate unique reference
-      final reference = 'appfee_${DateTime.now().millisecondsSinceEpoch}_${applicationId}';
-
-      // Initialize Paystack payment for ₦2,000
-      final paymentInit = await paystackService.initializeTransaction(
-        email: (await userRepository.getUserById(tenantId)).email,
-        amount: 2000.0,
-        reference: reference,
-        metadata: {
-          'type': 'application_fee',
-          'applicationId': application.id,
-          'tenantId': tenantId,
-          'unitId': application.unitId,
-          'propertyId': application.propertyId,
-        },
-      );
-
-      return Response.ok(
-        jsonEncode({
-          'message': 'Application fee payment initialized',
-          'applicationId': application.id,
-          'amount': 2000.0,
-          'reference': reference,
-          'paymentUrl': paymentInit['authorization_url'],
-          'status': 'fee_pending',
-        }),
-        headers: {'Content-Type': 'application/json'},
+      return await _completePayment(
+        application,
+        tenantId,
+        application.unitId,
+        applicationFee: applicationFee,
+        message: "Application fee payment initialized",
       );
     } catch (e, stack) {
       print('Pay application fee error: $e\n$stack');
@@ -699,4 +713,9 @@ class ApplicationHandler {
 
   Response _badRequest(String message) =>
       Response(400, body: jsonEncode({'message': message}), headers: {'Content-Type': 'application/json'});
+
+  Future<int> _getCurrentApplicationFee() async {
+    // TODO: Make this configurable (from DB or env)
+    return 2000; // Default fee
+  }
 }

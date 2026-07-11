@@ -14,7 +14,7 @@ class LeaseModel {
   final DateTime? nextDueDate;
 
   final double yearlyRent;
-  final int? rentTermInMonths;
+  final int? durationMonths;
   final double? monthlyRentEquivalent;
 
   final List<UnitFee>? fees;
@@ -61,7 +61,7 @@ class LeaseModel {
     this.nextDueDate,
     required this.yearlyRent,
     this.fees,
-    this.rentTermInMonths,
+    this.durationMonths,
     this.status = 'Pending Signature',
     this.generatedLeasePdfUrl,
     this.customLeasePdfUrl,
@@ -98,7 +98,7 @@ class LeaseModel {
       endDate: DateTime.parse(map['endDate'] as String),
       nextDueDate: map['nextDueDate'] != null ? DateTime.parse(map['nextDueDate'] as String) : null,
       yearlyRent: (map['yearlyRent'] as num).toDouble(),
-      rentTermInMonths: (map['rentTermInMonths'] as num?)?.toInt(),
+      durationMonths: (map['durationMonths'] as num?)?.toInt(),
       fees: (map['fees'] as List?)?.map((e) => UnitFee.fromMap(e)).toList(),
 
       status: map['status'] as String? ?? 'Pending Signature',
@@ -137,8 +137,8 @@ class LeaseModel {
     'nextDueDate': nextDueDate?.toIso8601String(),
     'yearlyRent': yearlyRent,
     'fees': fees?.map((e) => e.toMap()).toList(),
-    'monthlyRentEquivalent' : monthlyRentEquivalent,
-    'rentTermInMonths': rentTermInMonths,
+    'monthlyRentEquivalent': monthlyRentEquivalent,
+    'durationMonths': durationMonths,
     'status': status,
     'generatedLeasePdfUrl': generatedLeasePdfUrl,
     'customLeasePdfUrl': customLeasePdfUrl,
@@ -174,7 +174,7 @@ class LeaseModel {
     double? monthlyRentEquivalent,
     DateTime? nextDueDate,
     double? yearlyRent,
-    int? rentTermInMonths,
+    int? durationMonths,
     String? status,
     String? generatedLeasePdfUrl,
     String? customLeasePdfUrl,
@@ -210,7 +210,7 @@ class LeaseModel {
       nextDueDate: nextDueDate ?? this.nextDueDate,
       yearlyRent: yearlyRent ?? this.yearlyRent,
       fees: fees ?? this.fees,
-      rentTermInMonths: rentTermInMonths ?? this.rentTermInMonths,
+      durationMonths: durationMonths ?? this.durationMonths,
       status: status ?? this.status,
       generatedLeasePdfUrl: generatedLeasePdfUrl ?? this.generatedLeasePdfUrl,
       customLeasePdfUrl: customLeasePdfUrl ?? this.customLeasePdfUrl,

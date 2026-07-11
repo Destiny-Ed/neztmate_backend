@@ -1,6 +1,7 @@
 class ApplicationModel {
   final String id;
   final String unitId;
+  final String? leaseId;
   final String tenantId;
   final String landownerId;
   final String propertyId;
@@ -32,6 +33,7 @@ class ApplicationModel {
     this.status = 'Pending',
     this.message,
     this.reason,
+    this.leaseId,
     this.applicationFee = 2000.0, // Default application fee
     this.feePaymentReference,
     this.feePaymentStatus,
@@ -48,6 +50,7 @@ class ApplicationModel {
       id: map['id'] as String,
       unitId: map['unitId'] as String,
       tenantId: map['tenantId'] as String,
+      leaseId: map['leaseId'] as String?,
       propertyId: map['propertyId'] as String,
       appliedAt: DateTime.parse(map['appliedAt'] as String),
       status: map['status'] as String? ?? 'Pending',
@@ -81,6 +84,7 @@ class ApplicationModel {
     'status': status,
     'message': message,
     'reason': reason,
+    'leaseId': leaseId,
     'applicationFee': applicationFee,
     'feePaymentReference': feePaymentReference,
     'feePaymentStatus': feePaymentStatus,
@@ -101,6 +105,7 @@ class ApplicationModel {
     DateTime? appliedAt,
     String? status,
     String? message,
+    String? leaseId,
     double? applicationFee,
     String? feePaymentReference,
     String? feePaymentStatus,
@@ -124,6 +129,7 @@ class ApplicationModel {
       feePaymentStatus: feePaymentStatus ?? this.feePaymentStatus,
       status: status ?? this.status,
       message: message ?? this.message,
+      leaseId: leaseId ?? this.leaseId,
       reason: reason ?? this.reason,
       proposedRent: proposedRent ?? this.proposedRent,
       desiredStartDate: desiredStartDate ?? this.desiredStartDate,
