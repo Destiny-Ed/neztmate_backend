@@ -4,6 +4,7 @@ import 'package:neztmate_backend/features/auth_user/repositories/user_repository
 import 'package:neztmate_backend/features/history/model/user_history_model.dart';
 import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
 import 'package:neztmate_backend/features/leases/models/lease_settlement_agreement_model.dart';
+import 'package:neztmate_backend/features/leases/service/lease_payment_calculator_service.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
@@ -286,6 +287,8 @@ class LeaseHandler {
           final property = await propertyRepository.getPropertyById(lease.propertyId);
           final tenantNeighbors = await tenantRepository.getTenantNeighbors(lease.propertyId, lease.tenantId);
 
+          final paymentSummary = LeasePaymentCalculatorService.calculate(lease: lease, unit: unit);
+
           return {
             ...lease.toMap(),
             'tenant': {
@@ -296,7 +299,6 @@ class LeaseHandler {
               "profilePhotoUrl": tenant.profilePhotoUrl,
             },
             'neighbors': tenantNeighbors.map((e) => e.toMap()).toList(),
-
             'manager': {
               'id': manager.id,
               'fullName': manager.fullName,
@@ -318,6 +320,7 @@ class LeaseHandler {
               'endDate': lease.endDate.toIso8601String(),
               'monthsRemaining': lease.endDate.difference(DateTime.now()).inDays ~/ 30,
             },
+            'paymentSummary': paymentSummary,
           };
         }),
       );

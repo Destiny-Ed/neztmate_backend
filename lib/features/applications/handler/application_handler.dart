@@ -104,7 +104,7 @@ class ApplicationHandler {
           userId,
           unitId,
           applicationFee: applicationFee,
-          message: "Resume payment to activate your application",
+          message: "Application fee is required to activate your application",
         );
       }
 
@@ -146,8 +146,9 @@ class ApplicationHandler {
       if (applicationFee <= 0) {
         return Response.ok(
           jsonEncode({
-            'message': 'Application submitted successfully (No fee required).',
+            'message': 'Application submitted successfully.',
             'application': created.toMap(),
+            'requiresPayment': false,
             'status': 'Pending',
           }),
         );
@@ -716,6 +717,6 @@ class ApplicationHandler {
 
   Future<int> _getCurrentApplicationFee() async {
     // TODO: Make this configurable (from DB or env)
-    return 2000; // Default fee
+    return 0; // Default fee
   }
 }
