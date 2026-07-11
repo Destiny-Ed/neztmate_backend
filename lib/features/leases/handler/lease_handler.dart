@@ -7,6 +7,7 @@ import 'package:neztmate_backend/features/leases/models/lease_settlement_agreeme
 import 'package:neztmate_backend/features/leases/service/lease_payment_calculator_service.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
+import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
 import 'package:neztmate_backend/features/tenants/repository/tenant_respository.dart';
 import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
@@ -24,6 +25,7 @@ class LeaseHandler {
   final TenantRepository tenantRepository;
   final UserRepository userRepository;
   final UserReputationService userReputationService;
+  final PaymentRepository paymentRepository;
 
   LeaseHandler({
     required this.leaseRepository,
@@ -34,6 +36,7 @@ class LeaseHandler {
     required this.userRepository,
     required this.tenantRepository,
     required this.userReputationService,
+    required this.paymentRepository,
   });
 
   //  TENANT ENDPOINTS
@@ -136,6 +139,12 @@ class LeaseHandler {
           final property = await propertyRepository.getPropertyById(lease.propertyId);
           final tenantNeighbors = await tenantRepository.getTenantNeighbors(lease.propertyId, lease.tenantId);
 
+          final paymentSummary = LeasePaymentCalculatorService.calculate(lease: lease, unit: unit);
+
+          final payoutAccount = await paymentRepository.getDefaultPayoutAccount(
+            lease.managerId ?? lease.landownerId,
+          );
+
           return {
             ...lease.toMap(),
             'tenant': {
@@ -167,6 +176,19 @@ class LeaseHandler {
               'endDate': lease.endDate.toIso8601String(),
               'monthsRemaining': lease.endDate.difference(DateTime.now()).inDays ~/ 30,
             },
+            'paymentSummary': paymentSummary,
+            'paymentAccount': payoutAccount == null
+                ? null
+                : {
+                    'id': payoutAccount.id,
+                    'ownerId': payoutAccount.userId,
+                    'ownerType': payoutAccount.userId == lease.managerId ? "Manager" : "Landowner",
+                    "accountName": payoutAccount.accountName,
+                    "accountNumber": payoutAccount.accountNumber,
+                    "bankName": payoutAccount.bankName,
+                    "bankCode": payoutAccount.bankCode,
+                    "currency": 'NGN',
+                  },
           };
         }),
       );
@@ -289,6 +311,10 @@ class LeaseHandler {
 
           final paymentSummary = LeasePaymentCalculatorService.calculate(lease: lease, unit: unit);
 
+          final payoutAccount = await paymentRepository.getDefaultPayoutAccount(
+            lease.managerId ?? lease.landownerId,
+          );
+
           return {
             ...lease.toMap(),
             'tenant': {
@@ -321,6 +347,18 @@ class LeaseHandler {
               'monthsRemaining': lease.endDate.difference(DateTime.now()).inDays ~/ 30,
             },
             'paymentSummary': paymentSummary,
+            'paymentAccount': payoutAccount == null
+                ? null
+                : {
+                    'id': payoutAccount.id,
+                    'ownerId': payoutAccount.userId,
+                    'ownerType': payoutAccount.userId == lease.managerId ? "Manager" : "Landowner",
+                    "accountName": payoutAccount.accountName,
+                    "accountNumber": payoutAccount.accountNumber,
+                    "bankName": payoutAccount.bankName,
+                    "bankCode": payoutAccount.bankCode,
+                    "currency": 'NGN',
+                  },
           };
         }),
       );
