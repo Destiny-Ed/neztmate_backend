@@ -303,6 +303,8 @@ class ApplicationHandler {
                 'fullName': tenant.fullName,
                 'email': tenant.email,
                 'phone': tenant.phone,
+                'averageRating': tenant.averageRating,
+
                 'verifiedIdentity': tenant.verifiedIdentity,
                 'profilePhotoUrl': tenant.profilePhotoUrl,
               },
@@ -381,6 +383,8 @@ class ApplicationHandler {
               'fullName': tenant.fullName,
               'email': tenant.email,
               'phone': tenant.phone,
+              'averageRating': tenant.averageRating,
+
               'verifiedIdentity': tenant.verifiedIdentity,
               'profilePhotoUrl': tenant.profilePhotoUrl,
             },
@@ -443,6 +447,35 @@ class ApplicationHandler {
           ? await userReviewRepository.getReviewsForUser(application.tenantId)
           : [];
 
+      // === NEW: Get tenant's lease history (only for managers/landowners) ===
+      List<Map<String, dynamic>> tenantLeaseHistory = [];
+      if (isManagerOrOwner) {
+        final tenantLeases = await leaseRepository.getLeasesByTenant(application.tenantId);
+
+        tenantLeaseHistory = await Future.wait(
+          tenantLeases.map((lease) async {
+            final unitInfo = await unitRepository.getUnitById(lease.unitId);
+            final propertyInfo = await propertyRepository.getPropertyById(lease.propertyId);
+
+            return {
+              'leaseId': lease.id,
+              'unitNumber': unitInfo.unitNumber,
+              'propertyName': propertyInfo.name,
+              'status': lease.status,
+              'startDate': lease.startDate.toIso8601String(),
+              'endDate': lease.endDate.toIso8601String(),
+              'yearlyRent': lease.yearlyRent,
+              'isActive': lease.status == 'active',
+              'isCompleted': lease.status == 'expired' || lease.status == 'terminated',
+              'isCancelled': lease.status == 'cancelled' || lease.status == 'terminated',
+              'hasDispute': lease.status == 'disputed',
+              'terminatedAt': lease.terminatedAt?.toIso8601String(),
+              'reason': lease.terminationReason,
+            };
+          }),
+        );
+      }
+
       final enrichedApplication = {
         ...application.toMap(),
 
@@ -454,6 +487,7 @@ class ApplicationHandler {
           'profilePhotoUrl': tenant.profilePhotoUrl,
           'verifiedIdentity': tenant.verifiedIdentity,
           'verifiedEmployment': tenant.verifiedEmployment,
+          'occupation': tenant.occupation,
 
           // === Reputation & Trust Info ===
           'averageRating': tenant.averageRating,
@@ -470,6 +504,7 @@ class ApplicationHandler {
           'address': property.address,
           'type': property.type,
           'amenities': property.amenities,
+          'photoUrls': property.photoUrls,
         },
 
         'unit': {
@@ -488,6 +523,14 @@ class ApplicationHandler {
             'totalRentPayments': tenant.totalPaymentsMade,
             'onTimePayments': tenant.onTimePayments,
             'onTimeRate': tenant.paymentOnTimeRate,
+          },
+          'tenantLeaseHistory': tenantLeaseHistory,
+          'leaseSummary': {
+            'totalLeases': tenantLeaseHistory.length,
+            'activeLeases': tenantLeaseHistory.where((l) => l['isActive'] == true).length,
+            'completedLeases': tenantLeaseHistory.where((l) => l['isCompleted'] == true).length,
+            'cancelledLeases': tenantLeaseHistory.where((l) => l['isCancelled'] == true).length,
+            'disputedLeases': tenantLeaseHistory.where((l) => l['hasDispute'] == true).length,
           },
         },
       };

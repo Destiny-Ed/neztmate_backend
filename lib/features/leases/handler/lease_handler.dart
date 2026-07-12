@@ -4,6 +4,7 @@ import 'package:neztmate_backend/features/auth_user/repositories/user_repository
 import 'package:neztmate_backend/features/history/model/user_history_model.dart';
 import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
 import 'package:neztmate_backend/features/leases/models/lease_settlement_agreement_model.dart';
+import 'package:neztmate_backend/features/leases/models/leases_model.dart';
 import 'package:neztmate_backend/features/leases/service/lease_payment_calculator_service.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
@@ -49,13 +50,17 @@ class LeaseHandler {
 
       if (userId == null) return _unauthorized();
 
-      if (role != 'tenant') {
-        return Response(403, body: jsonEncode({'message': 'Only tenants can view their leases'}));
+      if (!['tenant', 'manager', 'landowner'].contains(role)) {
+        return Response(403, body: jsonEncode({'message': 'You are not authorized to view leases'}));
       }
-
-      // final leases = await leaseRepository.getActiveLeasesByTenant(userId);
-      final leases = await leaseRepository.getLeasesByTenant(userId);
-
+      List<LeaseModel> leases = [];
+      if (role == 'manager') {
+        leases = await leaseRepository.getLeasesByManager(userId);
+      } else if (role == 'landowner') {
+        leases = await leaseRepository.getLeasesByLandowner(userId);
+      } else {
+        leases = await leaseRepository.getLeasesByTenant(userId);
+      }
       final enrichedLeases = await Future.wait(
         leases.map((lease) async {
           final tenant = await userRepository.getUserById(lease.tenantId);
@@ -64,7 +69,11 @@ class LeaseHandler {
           final unit = await unitRepository.getUnitById(lease.unitId);
           final property = await propertyRepository.getPropertyById(lease.propertyId);
           final tenantNeighbors = await tenantRepository.getTenantNeighbors(lease.propertyId, lease.tenantId);
+          final paymentSummary = LeasePaymentCalculatorService.calculate(lease: lease, unit: unit);
 
+          final payoutAccount = await paymentRepository.getDefaultPayoutAccount(
+            lease.managerId ?? lease.landownerId,
+          );
           return {
             ...lease.toMap(),
             'tenant': {
@@ -96,6 +105,19 @@ class LeaseHandler {
               'endDate': lease.endDate.toIso8601String(),
               'monthsRemaining': lease.endDate.difference(DateTime.now()).inDays ~/ 30,
             },
+            'paymentSummary': paymentSummary,
+            'paymentAccount': payoutAccount == null
+                ? null
+                : {
+                    'id': payoutAccount.id,
+                    'ownerId': payoutAccount.userId,
+                    'ownerType': payoutAccount.userId == lease.managerId ? "Manager" : "Landowner",
+                    "accountName": payoutAccount.accountName,
+                    "accountNumber": payoutAccount.accountNumber,
+                    "bankName": payoutAccount.bankName,
+                    "bankCode": payoutAccount.bankCode,
+                    "currency": 'NGN',
+                  },
           };
         }),
       );
@@ -395,9 +417,34 @@ class LeaseHandler {
         return Response(400, body: jsonEncode({'message': 'signedPdfUrl is required'}));
       }
 
-      await leaseRepository.markLeaseAsSigned(leaseId, signedPdfUrl, userId);
-
       final lease = await leaseRepository.getLeaseById(leaseId);
+
+      // === ACTIVE LEASE CHECK ===
+      final activeLeases = await leaseRepository.getActiveLeasesByTenant(userId);
+
+      if (activeLeases.isNotEmpty) {
+        final currentLease = activeLeases.first;
+
+        // If current lease is still far from expiry, block new signing
+        final daysUntilExpiry = currentLease.endDate.difference(DateTime.now()).inDays;
+
+        if (daysUntilExpiry > 30) {
+          // Adjust threshold as needed (e.g., 30 days)
+          return Response(
+            400,
+            body: jsonEncode({
+              'message':
+                  'You already have an active lease. Please complete or terminate your current lease before signing a new one.',
+              'currentLeaseId': currentLease.id,
+              'currentLeaseEndDate': currentLease.endDate.toIso8601String(),
+              'daysRemaining': daysUntilExpiry,
+            }),
+          );
+        }
+      }
+
+      // Sign the lease
+      await leaseRepository.markLeaseAsSigned(leaseId, signedPdfUrl, userId);
 
       // Log history
       await historyRepository.createHistoryEntry(
@@ -457,7 +504,7 @@ class LeaseHandler {
         jsonEncode({
           'message': 'Lease signed successfully',
           'leaseId': leaseId,
-          'status': 'Pending Payment',
+          'status': 'pending payment',
           'signedAgreementPdfUrl': signedPdfUrl,
         }),
         headers: {'Content-Type': 'application/json'},
@@ -1514,7 +1561,7 @@ class LeaseHandler {
 
       final lease = await leaseRepository.getLeaseById(leaseId);
 
-      if (lease.status != 'Pending Payment') {
+      if (lease.status.toLowerCase() != 'pending payment') {
         return Response(400, body: jsonEncode({'message': 'Lease is not awaiting payment confirmation'}));
       }
 

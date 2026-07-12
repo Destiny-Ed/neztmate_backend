@@ -35,10 +35,15 @@ class LeaseModel {
 
   final String? terminationReason;
   final DateTime? terminatedAt;
+  final DateTime? renewalRequestedAt;
+  final DateTime? terminationRequestedAt;
   final String? terminatedBy;
 
   final String? transferToTenantId; // For lease transfer
   final String? transferStatus; // Pending, Approved, Rejected
+  final DateTime? transferRequestedAt;
+  final DateTime? paymentConfirmedAt;
+  final DateTime? renewedAt;
 
   final DateTime createdAt;
   final DateTime updatedAt;
@@ -46,6 +51,9 @@ class LeaseModel {
   final bool isRenewed;
   final String? previousLeaseId;
   final String? renewalReason;
+
+  final DateTime? transferApprovedAt;
+  final String? transferApprovedBy;
 
   LeaseModel({
     required this.id,
@@ -74,6 +82,11 @@ class LeaseModel {
     required this.updatedAt,
     this.terminationReason,
     this.terminatedAt,
+    this.renewalRequestedAt,
+    this.terminationRequestedAt,
+    this.transferRequestedAt,
+    this.paymentConfirmedAt,
+    this.renewedAt,
     this.terminatedBy,
 
     this.transferToTenantId,
@@ -82,6 +95,9 @@ class LeaseModel {
     this.isRenewed = false,
     this.previousLeaseId,
     this.renewalReason,
+
+    this.transferApprovedAt,
+    this.transferApprovedBy,
   });
 
   factory LeaseModel.fromMap(Map<String, dynamic> map) {
@@ -113,6 +129,19 @@ class LeaseModel {
       updatedAt: DateTime.parse(map['updatedAt'] as String),
       terminationReason: map['terminationReason'] as String?,
       terminatedAt: map['terminatedAt'] != null ? DateTime.parse(map['terminatedAt'] as String) : null,
+      renewalRequestedAt: map['renewalRequestedAt'] != null
+          ? DateTime.parse(map['renewalRequestedAt'] as String)
+          : null,
+      terminationRequestedAt: map['terminationRequestedAt'] != null
+          ? DateTime.parse(map['terminationRequestedAt'] as String)
+          : null,
+      paymentConfirmedAt: map['paymentConfirmedAt'] != null
+          ? DateTime.parse(map['paymentConfirmedAt'] as String)
+          : null,
+      renewedAt: map['renewedAt'] != null ? DateTime.parse(map['renewedAt'] as String) : null,
+      transferRequestedAt: map['transferRequestedAt'] != null
+          ? DateTime.parse(map['transferRequestedAt'] as String)
+          : null,
       terminatedBy: map['terminatedBy'] as String?,
 
       transferStatus: map['transferStatus'] as String?,
@@ -121,6 +150,11 @@ class LeaseModel {
       isRenewed: map['isRenewed'] as bool? ?? false,
       previousLeaseId: map['previousLeaseId'] as String?,
       renewalReason: map['renewalReason'] as String?,
+
+      transferApprovedAt: map['transferApprovedAt'] != null
+          ? DateTime.parse(map['transferApprovedAt'] as String)
+          : null,
+      transferApprovedBy: map['transferApprovedBy'],
     );
   }
 
@@ -151,6 +185,11 @@ class LeaseModel {
     'updatedAt': updatedAt.toIso8601String(),
     'terminationReason': terminationReason,
     'terminatedAt': terminatedAt?.toIso8601String(),
+    'renewalRequestedAt': renewalRequestedAt?.toIso8601String(),
+    'terminationRequestedAt': terminationRequestedAt?.toIso8601String(),
+    'transferRequestedAt': transferRequestedAt?.toIso8601String(),
+    'paymentConfirmedAt': paymentConfirmedAt?.toIso8601String(),
+    'renewedAt': renewedAt?.toIso8601String(),
     'terminatedBy': terminatedBy,
 
     'transferToTenantId': transferToTenantId,
@@ -159,6 +198,9 @@ class LeaseModel {
     'isRenewed': isRenewed,
     'previousLeaseId': previousLeaseId,
     'renewalReason': renewalReason,
+
+    'transferApprovedBy': transferApprovedBy,
+    'transferApprovedAt': transferApprovedAt?.toIso8601String(),
   };
 
   LeaseModel copyWith({
@@ -182,6 +224,10 @@ class LeaseModel {
     String? terminationReason,
     List<UnitFee>? fees,
     DateTime? terminatedAt,
+    DateTime? renewalRequestedAt,
+    DateTime? terminationRequestedAt,
+    DateTime? transferRequestedAt,
+
     String? terminatedBy,
     String? transferStatus,
     String? transferToTenantId,
@@ -191,10 +237,16 @@ class LeaseModel {
     String? termsNotes,
     DateTime? createdAt,
     DateTime? updatedAt,
+    DateTime? paymentConfirmedAt,
+    DateTime? renewedAt,
 
     bool? isRenewed,
     String? previousLeaseId,
     String? renewalReason,
+
+    DateTime? transferApprovedAt,
+
+    String? transferApprovedBy,
   }) {
     return LeaseModel(
       id: id ?? this.id,
@@ -223,12 +275,20 @@ class LeaseModel {
       updatedAt: updatedAt ?? this.updatedAt,
       terminationReason: terminationReason ?? this.terminationReason,
       terminatedAt: terminatedAt ?? this.terminatedAt,
+      paymentConfirmedAt: paymentConfirmedAt ?? this.paymentConfirmedAt,
+      renewedAt: renewedAt ?? this.renewedAt,
+      renewalRequestedAt: renewalRequestedAt ?? this.renewalRequestedAt,
+      terminationRequestedAt: terminationRequestedAt ?? this.terminationRequestedAt,
+      transferRequestedAt: transferRequestedAt ?? this.transferRequestedAt,
       terminatedBy: terminatedBy ?? this.terminatedBy,
       transferStatus: transferStatus ?? this.transferStatus,
       transferToTenantId: transferToTenantId ?? this.transferToTenantId,
       isRenewed: isRenewed ?? this.isRenewed,
       previousLeaseId: previousLeaseId ?? this.previousLeaseId,
       renewalReason: renewalReason ?? this.renewalReason,
+
+      transferApprovedAt: transferApprovedAt ?? this.transferApprovedAt,
+      transferApprovedBy: transferApprovedBy ?? this.transferApprovedBy,
     );
   }
 }

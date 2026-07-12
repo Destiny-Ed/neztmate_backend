@@ -117,4 +117,7 @@ class LeaseRepositoryImpl implements LeaseRepository {
   @override
   Future<void> confirmPaymentAndActivate(String leaseId, String confirmedBy) =>
       dataSource.confirmPaymentAndActivate(leaseId, confirmedBy);
+
+  @override
+  Future<List<LeaseModel>> getLeasesByManager(String managerId) => dataSource.getLeasesByManager(managerId);
 }

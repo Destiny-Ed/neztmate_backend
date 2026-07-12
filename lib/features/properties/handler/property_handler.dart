@@ -57,9 +57,10 @@ class PropertyHandler {
           try {
             final currentTenants = await propertyRepository.getCurrentTenantsByProperty(property.id);
             final pastTenants = await propertyRepository.getPastTenantsByProperty(property.id);
+            final units = await unitRepository.getUnitsByProperty(property.id);
 
             return {
-              ...property.toMap(),
+              ...property.copyWith(totalUnits: units.length).toMap(),
               'currentTenants': currentTenants.map((t) => t.toMap()).toList(),
               'pastTenants': pastTenants.map((t) => t.toMap()).toList(),
               'totalCurrentTenants': currentTenants.length,

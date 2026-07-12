@@ -44,7 +44,19 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
 
   @override
   Future<List<LeaseModel>> getLeasesByLandowner(String landownerId) async {
-    final snap = await _leases.where('landownerId', WhereFilter.equal, landownerId).get();
+    final snap = await _leases
+        .where('landownerId', WhereFilter.equal, landownerId)
+        .where('status', WhereFilter.equal, 'pending payment')
+        .get();
+    return snap.docs.map((d) => LeaseModel.fromMap(d.data())).toList();
+  }
+
+  @override
+  Future<List<LeaseModel>> getLeasesByManager(String managerId) async {
+    final snap = await _leases
+        .where('managerId', WhereFilter.equal, managerId)
+        .where('status', WhereFilter.equal, 'pending payment')
+        .get();
     return snap.docs.map((d) => LeaseModel.fromMap(d.data())).toList();
   }
 
@@ -62,7 +74,7 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   @override
   Future<void> terminateLease(String id, String reason, String terminatedBy) async {
     await firestore.collection('leases').doc(id).update({
-      'status': 'Terminated',
+      'status': 'terminated',
       'terminationReason': reason,
       'terminatedAt': DateTime.now().toIso8601String(),
       'terminatedBy': terminatedBy,
@@ -87,7 +99,7 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
       endDate: lease.endDate,
       yearlyRent: lease.yearlyRent,
       fees: lease.fees,
-      status: 'Active',
+      status: 'active',
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
       applicationId: '',
@@ -98,10 +110,10 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
 
     // Terminate old lease
     await _leases.doc(leaseId).update({
-      'status': 'Transferred',
-      'transferStatus': 'Approved',
-      'approvedBy': approvedBy,
-      'approvedAt': DateTime.now().toIso8601String(),
+      'status': 'transferred',
+      'transferStatus': 'approved',
+      'transferApprovedBy': approvedBy,
+      'transferApprovedAt': DateTime.now().toIso8601String(),
     });
   }
 
@@ -125,7 +137,7 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
       'signedAgreementPdfUrl': signedPdfUrl,
       'signedAt': DateTime.now().toIso8601String(),
       'signedBy': signedBy,
-      'status': 'Pending Payment',
+      'status': 'pending payment',
       'updatedAt': DateTime.now().toIso8601String(),
     });
   }
@@ -149,8 +161,9 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
       startDate: lease.endDate,
       endDate: newEndDate,
       nextDueDate: lease.endDate.add(const Duration(days: 365)), // next rent due in 1 year
-      status: 'Active',
+      status: 'active',
       isRenewed: true,
+      renewedAt: DateTime.now(),
       previousLeaseId: leaseId,
       updatedAt: DateTime.now(),
       createdAt: DateTime.now(),
@@ -182,7 +195,7 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
 
       final snap = await firestore
           .collection('leases')
-          .where('status', WhereFilter.equal, 'Active')
+          .where('status', WhereFilter.equal, 'active')
           .where('endDate', WhereFilter.lessThanOrEqual, thresholdDate.toIso8601String())
           .orderBy('endDate', descending: false)
           .get();
@@ -200,7 +213,7 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
       final now = DateTime.now().toIso8601String();
       final snap = await firestore
           .collection('leases')
-          .where('status', WhereFilter.equal, 'Active')
+          .where('status', WhereFilter.equal, 'active')
           .where('endDate', WhereFilter.lessThan, now)
           .get();
 
@@ -208,7 +221,7 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
 
       for (var doc in snap.docs) {
         await firestore.collection('leases').doc(doc.id).update({
-          'status': 'Inactive',
+          'status': 'inactive',
           'updatedAt': DateTime.now().toIso8601String(),
         });
         updatedCount++;
@@ -229,7 +242,7 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
     required String reason,
   }) async {
     await _leases.doc(leaseId).update({
-      'status': 'TransferRequested',
+      'status': 'transferRequested',
       'transferToTenantId': newTenantId,
       'transferStatus': 'Pending',
       'transferReason': reason,
@@ -241,7 +254,7 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   @override
   Future<void> rejectLeaseTransfer(String leaseId, String rejectedBy, String reason) async {
     await _leases.doc(leaseId).update({
-      'transferStatus': 'Rejected',
+      'transferStatus': 'rejected',
       'rejectedBy': rejectedBy,
       'rejectionReason': reason,
       'rejectedAt': DateTime.now().toIso8601String(),
@@ -368,14 +381,14 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
     final settlementId = settlementDoc.id;
 
     await firestore.collection('lease_settlements').doc(settlementId).update({
-      'status': 'Agreed',
+      'status': 'agreed',
       'agreedAt': DateTime.now().toIso8601String(),
       'agreedBy': acceptedBy,
     });
 
     // Update lease status
     await _leases.doc(leaseId).update({
-      'settlementStatus': 'Agreed',
+      'settlementStatus': 'agreed',
       'updatedAt': DateTime.now().toIso8601String(),
     });
   }
@@ -399,14 +412,14 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
     final settlementId = settlementDoc.id;
 
     await firestore.collection('lease_settlements').doc(settlementId).update({
-      'status': 'Disputed',
+      'status': 'disputed',
       'disputedBy': disputedBy,
       'disputeReason': reason,
       'disputedAt': DateTime.now().toIso8601String(),
     });
 
     await _leases.doc(leaseId).update({
-      'settlementStatus': 'Disputed',
+      'settlementStatus': 'disputed',
       'updatedAt': DateTime.now().toIso8601String(),
     });
   }
@@ -448,20 +461,10 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
 
   @override
   Future<void> confirmPaymentAndActivate(String leaseId, String confirmedBy) async {
-    final lease = await getLeaseById(leaseId);
-
     await _leases.doc(leaseId).update({
-      'status': 'Active',
+      'status': 'active',
       'paymentConfirmedAt': DateTime.now().toIso8601String(),
       'paymentConfirmedBy': confirmedBy,
-      'updatedAt': DateTime.now().toIso8601String(),
-    });
-
-    // Update unit to occupied with new tenant
-    await firestore.collection('units').doc(lease.unitId).update({
-      'status': 'occupied',
-      'currentTenantId': lease.tenantId,
-      'isListedForRent': false,
       'updatedAt': DateTime.now().toIso8601String(),
     });
 

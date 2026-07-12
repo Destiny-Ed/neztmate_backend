@@ -14,16 +14,29 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
 
   @override
   Future<User> getUserById(String id) async {
+    final cacheKey = 'user_$id';
+
+    final cached = AppCache().get<User>(cacheKey);
+    if (cached != null) return cached;
+
     final doc = await _users.doc(id).get();
     if (!doc.exists) {
       throw NotFoundException('User', id);
     }
     final data = doc.data() as Map<String, dynamic>;
+
+    AppCache().set(cacheKey, data, ttl: const Duration(minutes: 2));
+
     return User.fromMap(data);
   }
 
   @override
   Future<User> getUserByEmail(String email) async {
+    final cacheKey = 'user_$email';
+
+    final cached = AppCache().get<User>(cacheKey);
+    if (cached != null) return cached;
+
     final snapshot = await _users.where('email', WhereFilter.equal, email).limit(1).get();
 
     if (snapshot.docs.isEmpty) {
@@ -31,6 +44,9 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
     }
     final doc = snapshot.docs.first;
     final data = doc.data() as Map<String, dynamic>;
+
+    AppCache().set(cacheKey, data, ttl: const Duration(minutes: 2));
+
     return User.fromMap(data);
   }
 

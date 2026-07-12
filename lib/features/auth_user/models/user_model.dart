@@ -8,6 +8,7 @@ class User {
   final String? profilePhotoUrl;
   final bool verifiedIdentity;
   final bool verifiedEmployment;
+  final String occupation;
   final String? verificationId; // Generic ID from any provider
   final String? verificationProvider; // "SmileIdentity", "Veriff", "Onfido", etc.
   final String? verificationStatus; // 'pending', 'approved', 'rejected', 'failed'
@@ -54,6 +55,7 @@ class User {
     required this.role,
     this.phone,
     this.profilePhotoUrl,
+    this.occupation = '',
     this.verifiedIdentity = false,
     this.verifiedEmployment = false,
     this.yearsExperience,
@@ -93,6 +95,7 @@ class User {
       fullName: map['fullName'] as String? ?? '',
       role: map['role'] as String? ?? 'Tenant',
       phone: map['phone'] as String?,
+      occupation: map['occupation'] ?? '',
       profilePhotoUrl: map['profilePhotoUrl'] as String?,
       verifiedIdentity: map['verifiedIdentity'] as bool? ?? false,
       verifiedEmployment: map['verifiedEmployment'] as bool? ?? false,
@@ -141,6 +144,7 @@ class User {
     'phone': phone,
     'profilePhotoUrl': profilePhotoUrl,
     'verifiedIdentity': verifiedIdentity,
+    'occupation': occupation,
     'verifiedEmployment': verifiedEmployment,
     'yearsExperience': yearsExperience,
     'primarySkill': primarySkill,
@@ -187,6 +191,7 @@ class User {
     String? verificationProvider,
     String? verificationStatus,
     DateTime? identityVerifiedAt,
+    String? occupation,
     int? yearsExperience,
     String? primarySkill,
     double? rating,
@@ -227,6 +232,7 @@ class User {
       yearsExperience: yearsExperience ?? this.yearsExperience,
       primarySkill: primarySkill ?? this.primarySkill,
       rating: rating ?? this.rating,
+      occupation: occupation ?? this.occupation,
       averageRating: averageRating ?? this.averageRating,
       totalReviews: totalReviews ?? this.totalReviews,
       totalRatings: totalRatings ?? this.totalRatings,
