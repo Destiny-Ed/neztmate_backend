@@ -25,9 +25,10 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
     }
     final data = doc.data() as Map<String, dynamic>;
 
-    AppCache().set(cacheKey, data, ttl: const Duration(minutes: 2));
+    final user = User.fromMap(data);
+    AppCache().set(cacheKey, user, ttl: const Duration(minutes: 2));
 
-    return User.fromMap(data);
+    return user;
   }
 
   @override
@@ -45,9 +46,10 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
     final doc = snapshot.docs.first;
     final data = doc.data() as Map<String, dynamic>;
 
-    AppCache().set(cacheKey, data, ttl: const Duration(minutes: 2));
+    final user = User.fromMap(data);
+    AppCache().set(cacheKey, user, ttl: const Duration(minutes: 2));
 
-    return User.fromMap(data);
+    return user;
   }
 
   @override
