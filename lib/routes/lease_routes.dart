@@ -23,6 +23,7 @@ Router leaseRoutes(LeaseHandler handler) {
   // Early Termination (Tenant-initiated)
   router.post('/<id>/early-termination', handler.requestEarlyTermination);
 
+  router.patch('/<id>/settlement/accept', handler.acceptSettlement);
   router.patch('/<id>/settlement/dispute', handler.disputeSettlement);
   router.patch('/<id>/settlement/resolve', handler.resolveSettlementDispute);
 

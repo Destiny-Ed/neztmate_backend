@@ -1,10 +1,7 @@
 import 'package:dart_firebase_admin/firestore.dart';
 import 'package:neztmate_backend/core/error.dart';
-import 'package:neztmate_backend/features/auth_user/models/user_model.dart';
-import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
 import 'package:neztmate_backend/features/maintenance/repository/maintenance_repo.dart';
 import 'package:neztmate_backend/features/properties/datasources/property_remote_datasource.dart';
-import 'package:neztmate_backend/features/properties/models/artisan_with_stats.dart';
 import 'package:neztmate_backend/features/properties/models/property_model.dart';
 import 'package:neztmate_backend/features/tenants/models/tenant_summary.dart';
 
@@ -116,13 +113,15 @@ class FirestorePropertyDataSource implements PropertyRemoteDataSource {
   @override
   Future<List<TenantSummary>> getCurrentTenantsByProperty(String propertyId) async {
     final allTenants = await getTenantsByProperty(propertyId);
-    return allTenants.where((t) => t.leaseStatus == 'Active').toList();
+    return allTenants.where((t) => t.leaseStatus.toLowerCase() == 'active').toList();
   }
 
   @override
   Future<List<TenantSummary>> getPastTenantsByProperty(String propertyId) async {
     final allTenants = await getTenantsByProperty(propertyId);
-    return allTenants.where((t) => t.leaseStatus == 'Terminated' || t.leaseStatus == 'Expired').toList();
+    return allTenants
+        .where((t) => t.leaseStatus.toLowerCase() == 'terminated' || t.leaseStatus == 'Expired')
+        .toList();
   }
 
   @override

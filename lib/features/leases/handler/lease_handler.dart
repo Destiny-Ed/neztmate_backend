@@ -8,6 +8,7 @@ import 'package:neztmate_backend/features/leases/models/leases_model.dart';
 import 'package:neztmate_backend/features/leases/service/lease_payment_calculator_service.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
+import 'package:neztmate_backend/features/payments/models/payments.dart';
 import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
 import 'package:neztmate_backend/features/tenants/repository/tenant_respository.dart';
@@ -443,9 +444,6 @@ class LeaseHandler {
         }
       }
 
-      // Sign the lease
-      await leaseRepository.markLeaseAsSigned(leaseId, signedPdfUrl, userId);
-
       // Log history
       await historyRepository.createHistoryEntry(
         HistoryEntryModel(
@@ -829,66 +827,66 @@ class LeaseHandler {
   }
 
   /// POST /leases/<id>/settlement - Propose settlement amount
-  Future<Response> proposeSettlement(Request request) async {
-    try {
-      final userId = request.context['userId'] as String?;
-      final role = request.context['role'] as String?;
-      final leaseId = request.params['id'];
+  // Future<Response> proposeSettlement(Request request) async {
+  //   try {
+  //     final userId = request.context['userId'] as String?;
+  //     final role = request.context['role'] as String?;
+  //     final leaseId = request.params['id'];
 
-      if (userId == null || leaseId == null) return _unauthorized();
+  //     if (userId == null || leaseId == null) return _unauthorized();
 
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
-      final agreedAmount = (body['agreedAmount'] as num?)?.toDouble();
-      final paymentMethod = body['paymentMethod'] as String?;
+  //     final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+  //     final agreedAmount = (body['agreedAmount'] as num?)?.toDouble();
+  //     final paymentMethod = body['paymentMethod'] as String?;
 
-      if (agreedAmount == null || paymentMethod == null) {
-        return badRequest('agreedAmount and paymentMethod are required');
-      }
+  //     if (agreedAmount == null || paymentMethod == null) {
+  //       return badRequest('agreedAmount and paymentMethod are required');
+  //     }
 
-      final lease = await leaseRepository.getLeaseById(leaseId);
+  //     final lease = await leaseRepository.getLeaseById(leaseId);
 
-      final isTenant = lease.tenantId == userId;
-      final isLandowner = lease.landownerId == userId;
+  //     final isTenant = lease.tenantId == userId;
+  //     final isLandowner = lease.landownerId == userId;
 
-      if (!isTenant && !isLandowner) {
-        return Response(403, body: jsonEncode({'message': 'Forbidden'}));
-      }
+  //     if (!isTenant && !isLandowner) {
+  //       return Response(403, body: jsonEncode({'message': 'Forbidden'}));
+  //     }
 
-      final settlement = LeaseSettlementAgreement(
-        id: '',
-        leaseId: leaseId,
-        initiatedBy: isTenant ? 'tenant' : 'landowner',
-        agreedAmount: agreedAmount,
-        paymentMethod: paymentMethod,
-        createdAt: DateTime.now(),
-      );
+  //     final settlement = LeaseSettlementAgreement(
+  //       id: '',
+  //       leaseId: leaseId,
+  //       initiatedBy: isTenant ? 'tenant' : 'landowner',
+  //       agreedAmount: agreedAmount,
+  //       paymentMethod: paymentMethod,
+  //       createdAt: DateTime.now(),
+  //     );
 
-      await leaseRepository.proposeSettlement(settlement);
+  //     await leaseRepository.proposeSettlement(settlement);
 
-      // Notify the other party
-      final otherPartyId = isTenant ? lease.landownerId : lease.tenantId;
+  //     // Notify the other party
+  //     final otherPartyId = isTenant ? lease.landownerId : lease.tenantId;
 
-      await notificationRepository.create(
-        NotificationModel(
-          userId: otherPartyId,
-          type: 'settlement_proposed',
-          title: 'Settlement Proposal',
-          body: '${isTenant ? "Tenant" : "Landlord"} proposed settlement of ₦$agreedAmount',
-          relatedId: leaseId,
-          relatedCollection: 'leases',
-          createdAt: DateTime.now(),
-          id: '',
-        ),
-      );
+  //     await notificationRepository.create(
+  //       NotificationModel(
+  //         userId: otherPartyId,
+  //         type: 'settlement_proposed',
+  //         title: 'Settlement Proposal',
+  //         body: '${isTenant ? "Tenant" : "Landlord"} proposed settlement of ₦$agreedAmount',
+  //         relatedId: leaseId,
+  //         relatedCollection: 'leases',
+  //         createdAt: DateTime.now(),
+  //         id: '',
+  //       ),
+  //     );
 
-      return Response.ok(
-        jsonEncode({'message': 'Settlement proposal sent', 'settlement': settlement.toMap()}),
-      );
-    } catch (e, stack) {
-      print('Propose settlement error: $e\n$stack');
-      return Response.internalServerError();
-    }
-  }
+  //     return Response.ok(
+  //       jsonEncode({'message': 'Settlement proposal sent', 'settlement': settlement.toMap()}),
+  //     );
+  //   } catch (e, stack) {
+  //     print('Propose settlement error: $e\n$stack');
+  //     return Response.internalServerError();
+  //   }
+  // }
 
   /// PATCH /leases/<id>/settlement/accept - Accept settlement
   Future<Response> acceptSettlement(Request request) async {
@@ -930,7 +928,7 @@ class LeaseHandler {
       if (userId == null || leaseId == null) return _unauthorized();
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
-      final disputeReason = body['disputeReason'] as String?;
+      final disputeReason = body['reason'] as String?;
 
       if (disputeReason == null || disputeReason.trim().isEmpty) {
         return badRequest('Dispute reason is required');
@@ -1101,7 +1099,7 @@ class LeaseHandler {
 
       final lease = await leaseRepository.getLeaseById(leaseId);
 
-      if (lease.transferStatus != 'Pending') {
+      if (lease.transferStatus?.toLowerCase() != 'pending') {
         return Response(400, body: jsonEncode({'message': 'No pending transfer request to reject'}));
       }
 
@@ -1176,7 +1174,7 @@ class LeaseHandler {
         return Response(403, body: jsonEncode({'message': 'You can only terminate your own lease'}));
       }
 
-      if (lease.status != 'Active') {
+      if (lease.status.toLowerCase() != 'active') {
         return Response(400, body: jsonEncode({'message': 'Only active leases can be terminated early'}));
       }
 
@@ -1565,6 +1563,24 @@ class LeaseHandler {
         return Response(400, body: jsonEncode({'message': 'Lease is not awaiting payment confirmation'}));
       }
 
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+
+      final amount = (body['amount'] as num?)?.toDouble();
+
+      if (amount == null) {
+        return Response(400, body: jsonEncode({'message': 'Payment amount is required'}));
+      }
+
+      // Record payment using existing method
+      await _recordLeasePaymentInternal(
+        lease: lease,
+        amount: amount,
+        paymentMethod: 'bank transfer',
+        transactionRef: 'nm_${DateTime.now().millisecondsSinceEpoch}',
+        receiptUrl: "",
+        confirmedBy: userId,
+      );
+
       // Confirm payment and activate lease
       await leaseRepository.confirmPaymentAndActivate(leaseId, userId);
 
@@ -1591,6 +1607,90 @@ class LeaseHandler {
       print('Confirm payment error: $e\n$stack');
       return Response.internalServerError();
     }
+  }
+
+  // Internal helper to record payment
+  Future<PaymentModel> _recordLeasePaymentInternal({
+    required LeaseModel lease,
+    required double amount,
+    required String paymentMethod,
+    String? transactionRef,
+    String? receiptUrl,
+    required String confirmedBy,
+  }) async {
+    final payment = PaymentModel(
+      id: '',
+      leaseId: lease.id,
+      payerId: lease.tenantId,
+      receiverId: lease.landownerId,
+      propertyId: lease.propertyId,
+      unitId: lease.unitId,
+      amount: amount,
+      status: 'Paid',
+      method: paymentMethod,
+      transactionRef: transactionRef,
+      receiptUrl: receiptUrl,
+      type: 'rent',
+      createdAt: DateTime.now(),
+    );
+
+    final createdPayment = await paymentRepository.createPayment(payment);
+
+    // Log history
+    await historyRepository.createHistoryEntry(
+      HistoryEntryModel(
+        userId: lease.tenantId,
+        type: 'rent_paid',
+        title: 'Rent Payment Recorded',
+        description: '₦${amount.toStringAsFixed(0)} confirmed for lease.',
+        relatedId: createdPayment.id,
+        relatedCollection: 'payments',
+        timestamp: DateTime.now(),
+        id: '',
+      ),
+    );
+
+    await historyRepository.createHistoryEntry(
+      HistoryEntryModel(
+        userId: confirmedBy,
+        type: 'rent_confirmed',
+        title: 'Rent Payment Confirmed',
+        description: 'You confirmed payment for lease ${lease.id}',
+        relatedId: createdPayment.id,
+        relatedCollection: 'payments',
+        timestamp: DateTime.now(),
+        id: '',
+      ),
+    );
+
+    // Notifications
+    await notificationRepository.create(
+      NotificationModel(
+        userId: lease.tenantId,
+        type: 'rent_confirmed',
+        title: 'Rent Payment Confirmed',
+        body: 'Your rent payment has been verified.',
+        relatedId: createdPayment.id,
+        relatedCollection: 'payments',
+        createdAt: DateTime.now(),
+        id: '',
+      ),
+    );
+
+    await notificationRepository.create(
+      NotificationModel(
+        userId: confirmedBy,
+        type: 'rent_confirmed',
+        title: 'Payment Confirmed',
+        body: 'You have successfully confirmed payment.',
+        relatedId: createdPayment.id,
+        relatedCollection: 'payments',
+        createdAt: DateTime.now(),
+        id: '',
+      ),
+    );
+
+    return createdPayment;
   }
 
   Response _unauthorized() => Response(401, body: jsonEncode({'message': 'Unauthorized'}));

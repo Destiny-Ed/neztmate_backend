@@ -58,5 +58,9 @@ Router paymentRoutes(PaymentHandler handler) {
   //Set default payout account
   router.patch('/payout-accounts/<id>/default', handler.setDefaultPayoutAccount);
 
+  router.post('/resolve-bank-account', handler.resolveBankAccount); // Verify account number
+
+  router.get('/banks', handler.getAllBanks);
+
   return router;
 }

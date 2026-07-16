@@ -84,22 +84,22 @@ class PaymentHandler {
   //       },
   //     );
 
-  //     // Save pending payment
-  //     final pendingPayment = PaymentModel(
-  //       id: '',
-  //       leaseId: leaseId,
-  //       payerId: userId,
-  //       propertyId: propertyId,
-  //       unitId: unitId,
-  //       amount: amount,
-  //       status: 'Pending',
-  //       method: 'Paystack',
-  //       transactionRef: reference,
-  //       type: paymentType,
-  //       createdAt: DateTime.now(),
-  //     );
+  // // Save pending payment
+  // final pendingPayment = PaymentModel(
+  //   id: '',
+  //   leaseId: leaseId,
+  //   payerId: userId,
+  //   propertyId: propertyId,
+  //   unitId: unitId,
+  //   amount: amount,
+  //   status: 'Pending',
+  //   method: 'Paystack',
+  //   transactionRef: reference,
+  //   type: paymentType,
+  //   createdAt: DateTime.now(),
+  // );
 
-  //     await paymentRepository.createPayment(pendingPayment);
+  // await paymentRepository.createPayment(pendingPayment);
 
   //     return Response.ok(
   //       jsonEncode({'authorization_url': initData['authorization_url'], 'reference': reference}),
@@ -928,11 +928,19 @@ class PaymentHandler {
         accountNumber: body['accountNumber'],
       );
 
+      // Verify with Paystack
+      final resolved = await paystackService.resolveBankAccount(
+        accountNumber: accountNumber,
+        bankCode: bankCode,
+      );
+
+      final String? verifiedName = resolved['account_name'];
+
       final account = PayoutAccountModel(
         id: '',
         userId: userId,
         propertyId: propertyId,
-        accountName: accountName,
+        accountName: verifiedName ?? accountName,
         accountNumber: accountNumber,
         paystackSubaccountId: subaccountId,
         bankName: bankName,
@@ -1126,6 +1134,51 @@ class PaymentHandler {
       return Response.ok(jsonEncode({'accounts': accounts.map((a) => a.toMap()).toList()}));
     } catch (e) {
       return Response.internalServerError();
+    }
+  }
+
+  /// POST /resolve-bank-account - Verify account without saving
+  Future<Response> resolveBankAccount(Request request) async {
+    try {
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+
+      final accountNumber = body['accountNumber'] as String?;
+      final bankCode = body['bankCode'] as String?;
+
+      if (accountNumber == null || bankCode == null) {
+        return badRequest('accountNumber and bankCode required');
+      }
+
+      final result = await paystackService.resolveBankAccount(
+        accountNumber: accountNumber,
+        bankCode: bankCode,
+      );
+
+      return Response.ok(
+        jsonEncode({
+          'message': 'Account resolved successfully',
+          'accountName': result['account_name'],
+          'bankName': result['bank_name'],
+        }),
+      );
+    } catch (e, s) {
+      print("error :::: $e\n$s");
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to resolve account'}));
+    }
+  }
+
+  /// GET /banks - Fetch all Nigerian banks (for frontend dropdown)
+  Future<Response> getAllBanks(Request request) async {
+    try {
+      final banks = await paystackService.getAllBanks(country: 'nigeria');
+
+      return Response.ok(
+        jsonEncode({'message': 'Banks fetched successfully', 'banks': banks}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, stack) {
+      print('Get banks error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to fetch banks'}));
     }
   }
 

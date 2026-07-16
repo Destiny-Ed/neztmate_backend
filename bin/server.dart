@@ -31,6 +31,7 @@ import 'package:neztmate_backend/routes/lease_routes.dart';
 import 'package:neztmate_backend/routes/maintenance_routes.dart';
 import 'package:neztmate_backend/routes/message_routes.dart';
 import 'package:neztmate_backend/routes/notifications_routes.dart';
+import 'package:neztmate_backend/routes/payment_routes.dart';
 import 'package:neztmate_backend/routes/property_routes.dart';
 import 'package:neztmate_backend/routes/tenant_routes.dart';
 import 'package:neztmate_backend/routes/unit_routes.dart';
@@ -173,12 +174,12 @@ void main() async {
         .addHandler(notificationRoutes(injector<NotificationHandler>()).call),
   );
 
-  // router.mount(
-  //   '/payments/',
-  //   Pipeline()
-  //       .addMiddleware(authMiddleware(jwtService))
-  //       .addHandler(paymentRoutes(injector<PaymentHandler>()).call),
-  // );
+  router.mount(
+    '/payments/',
+    Pipeline()
+        .addMiddleware(authMiddleware(jwtService))
+        .addHandler(paymentRoutes(injector<PaymentHandler>()).call),
+  );
 
   router.mount(
     '/tenants/',

@@ -4,7 +4,10 @@ import 'dart:io';
 import 'package:crypto/crypto.dart';
 import 'package:dotenv/dotenv.dart';
 import 'package:http/http.dart' as http;
+import 'package:neztmate_backend/core/cache/app_cache.dart';
 import 'dart:convert';
+
+import 'package:neztmate_backend/features/auth_user/models/user_model.dart';
 
 class PaystackService {
   final String baseUrl = 'https://api.paystack.co';
@@ -211,6 +214,54 @@ class PaystackService {
     } catch (e) {
       print('Error transferring to bank: $e');
       return false;
+    }
+  }
+
+  /// Resolve/Verify Bank Account Number
+  Future<Map<String, dynamic>> resolveBankAccount({
+    required String accountNumber,
+    required String bankCode,
+  }) async {
+    final secretKey = Platform.environment['PAYSTACK_SECRET_KEY'] ?? env['PAYSTACK_SECRET_KEY'];
+
+    final response = await http.get(
+      Uri.parse('https://api.paystack.co/bank/resolve?account_number=$accountNumber&bank_code=$bankCode'),
+      headers: {'Authorization': 'Bearer $secretKey', 'Content-Type': 'application/json'},
+    );
+
+    if (response.statusCode == 200) {
+      return jsonDecode(response.body)['data'];
+    } else {
+      throw Exception('Failed to resolve account: ${response.body}');
+    }
+  }
+
+  /// GET All Nigerian Banks (for dropdowns)
+  Future<List<dynamic>> getAllBanks({String country = 'nigeria'}) async {
+    try {
+      final cacheKey = 'all_banks_$country';
+
+      final cached = AppCache().get<List<dynamic>>(cacheKey);
+      if (cached != null) return cached;
+
+      final secretKey = Platform.environment['PAYSTACK_SECRET_KEY'] ?? env['PAYSTACK_SECRET_KEY'];
+
+      final response = await http.get(
+        Uri.parse('https://api.paystack.co/bank?country=$country'),
+        headers: {'Authorization': 'Bearer $secretKey', 'Content-Type': 'application/json'},
+      );
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body)['data'] as List<dynamic>;
+
+        AppCache().set(cacheKey, data, ttl: const Duration(minutes: 10));
+        return data;
+      } else {
+        throw Exception('Failed to fetch banks: ${response.body}');
+      }
+    } catch (e) {
+      print('Paystack get banks error: $e');
+      rethrow;
     }
   }
 }
