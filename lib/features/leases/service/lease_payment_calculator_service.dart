@@ -3,11 +3,11 @@ import 'package:neztmate_backend/features/units/models/unit_model.dart';
 
 class LeasePaymentCalculatorService {
   static Map<String, dynamic> calculate({required LeaseModel lease, required UnitModel unit}) {
-    final yearlyRent = unit.yearlyRent;
+    final monthlyRent = unit.monthlyRent;
 
     final durationMonths = lease.durationMonths ?? 12;
 
-    final totalLeaseRent = yearlyRent * (durationMonths / 12);
+    final totalLeaseRent = monthlyRent * (durationMonths / 12);
 
     double oneTimeFeeTotal = 0;
     double recurringFeeTotal = 0;
@@ -16,7 +16,7 @@ class LeasePaymentCalculatorService {
     final recurringFees = <Map<String, dynamic>>[];
 
     for (final fee in lease.fees ?? <UnitFee>[]) {
-      final amount = fee.isPercentage ? yearlyRent * fee.amount / 100 : fee.amount;
+      final amount = fee.isPercentage ? monthlyRent * fee.amount / 100 : fee.amount;
 
       if (fee.isOneTime) {
         oneTimeFeeTotal += amount;
@@ -30,7 +30,7 @@ class LeasePaymentCalculatorService {
     }
 
     return {
-      "yearlyRent": yearlyRent,
+      "monthlyRent": monthlyRent,
       "leaseDurationMonths": durationMonths,
       "totalRentForLease": totalLeaseRent,
 
@@ -38,17 +38,17 @@ class LeasePaymentCalculatorService {
       "recurringFees": recurringFees,
 
       "firstPayment": {
-        "rent": yearlyRent,
+        "rent": monthlyRent,
         'duration': durationMonths,
         "fees": oneTimeFeeTotal + recurringFeeTotal,
         "total": totalLeaseRent + oneTimeFeeTotal + recurringFeeTotal,
       },
 
       "renewalPayment": {
-        "rent": yearlyRent,
+        "rent": monthlyRent,
         "fees": recurringFeeTotal,
         "duration": 12,
-        "total": yearlyRent + recurringFeeTotal,
+        "total": monthlyRent + recurringFeeTotal,
       },
     };
   }

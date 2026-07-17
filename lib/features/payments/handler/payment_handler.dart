@@ -692,6 +692,11 @@ class PaymentHandler {
   Future<Response> getPropertyPaymentSummary(Request request) async {
     try {
       final propertyId = request.params['propertyId'];
+      final role = request.context['role'] as String?;
+
+      if (!['landowner', 'manager'].contains(role)) {
+        return Response(403, body: jsonEncode({'message': 'Unauthorized'}));
+      }
       if (propertyId == null) return badRequest('propertyId is required');
 
       final payments = await paymentRepository.getPaymentsByProperty(propertyId);
@@ -717,6 +722,12 @@ class PaymentHandler {
   Future<Response> getLeasePaymentSummary(Request request) async {
     try {
       final leaseId = request.params['leaseId'];
+
+      final role = request.context['role'] as String?;
+
+      if (!['landowner', 'manager'].contains(role)) {
+        return Response(403, body: jsonEncode({'message': 'Unauthorized'}));
+      }
       if (leaseId == null) return badRequest('leaseId is required');
 
       final payments = await paymentRepository.getPaymentsByLease(leaseId);
@@ -740,6 +751,12 @@ class PaymentHandler {
   Future<Response> getUnitPaymentSummary(Request request) async {
     try {
       final unitId = request.params['unitId'];
+
+      final role = request.context['role'] as String?;
+
+      if (!['landowner', 'manager'].contains(role)) {
+        return Response(403, body: jsonEncode({'message': 'Unauthorized'}));
+      }
       if (unitId == null) return badRequest('unitId is required');
 
       final payments = await paymentRepository.getPaymentsByUnit(unitId);

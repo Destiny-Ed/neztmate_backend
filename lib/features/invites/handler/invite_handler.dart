@@ -243,7 +243,7 @@ class InviteHandler {
         return Response(400, body: jsonEncode({'message': 'This invite has expired'}));
       }
 
-      if (invite.status != 'Pending') {
+      if (invite.status.toLowerCase() != 'pending') {
         return Response(400, body: jsonEncode({'message': 'This invite has already been processed'}));
       }
 
@@ -298,7 +298,7 @@ class InviteHandler {
 
       final invite = await repository.getInviteById(inviteId);
 
-      if (invite.status != 'Pending') {
+      if (invite.status.toLowerCase() != 'pending') {
         return Response(400, body: jsonEncode({'message': 'This invite has already been processed'}));
       }
 
@@ -374,6 +374,28 @@ class InviteHandler {
         id: '',
       ),
     );
+  }
+
+  /// POST /invites/<id>/withdraw
+  Future<Response> withdrawInvite(Request request) async {
+    try {
+      final inviteId = request.params['id'];
+
+      if (inviteId == null) return badRequest('Invite ID is required');
+
+      final invite = await repository.getInviteById(inviteId);
+
+      if (invite.status.toLowerCase() != 'pending') {
+        return Response(400, body: jsonEncode({'message': 'This invite has already been processed'}));
+      }
+
+      await repository.withdrawInvite(inviteId);
+
+      return Response.ok(jsonEncode({'message': 'Invite declined successfully'}));
+    } catch (e, stack) {
+      print('Decline invite error: $e\n$stack');
+      return Response.internalServerError();
+    }
   }
 
   Response badRequest(String message) => Response(400, body: jsonEncode({'message': message}));

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:neztmate_backend/core/services/payment/paystack_service.dart';
+import 'package:neztmate_backend/core/utils.dart';
 import 'package:neztmate_backend/features/applications/models/application_model.dart';
 import 'package:neztmate_backend/features/applications/repository/application_repo.dart';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
@@ -75,7 +76,9 @@ class ApplicationHandler {
       final existingApplications = await applicationRepository.getApplicationsByTenant(userId);
 
       final alreadyApplied = existingApplications.any(
-        (app) => app.unitId == unitId && (app.status == 'Pending' || app.status == 'Approved'),
+        (app) =>
+            app.unitId == unitId &&
+            (app.status.toLowerCase() == 'pending' || app.status.toLowerCase() == 'approved'),
       );
 
       if (alreadyApplied) {
@@ -88,8 +91,7 @@ class ApplicationHandler {
         );
       }
 
-      // === Get current application fee (configurable) ===
-      final int applicationFee = await _getCurrentApplicationFee(); // From config or DB
+      final int applicationFee = await getCurrentApplicationFee();
 
       // Check for Fee Pending applications
       final feePendingApplication = existingApplications.cast<ApplicationModel?>().firstWhere(
@@ -130,7 +132,7 @@ class ApplicationHandler {
         screeningData: ScreeningData.fromMap(body['screeningData'] as Map<String, dynamic>),
         status: applicationFee > 0 ? 'fee_pending' : 'pending',
         applicationFee: 2000.0,
-        feePaymentStatus: applicationFee > 0 ? 'Pending' : 'Paid',
+        feePaymentStatus: applicationFee > 0 ? 'pending' : 'paid',
         message: body['message'] as String?,
         proposedRent: (body['proposedRent'] as num?)?.toDouble(),
         desiredStartDate: body['desiredStartDate'] != null
@@ -149,12 +151,12 @@ class ApplicationHandler {
             'message': 'Application submitted successfully.',
             'application': created.toMap(),
             'requiresPayment': false,
-            'status': 'Pending',
+            'status': 'pending',
           }),
         );
       }
 
-      // Initialize ₦2000 payment
+      // Initialize payment
       return await _completePayment(created, userId, unitId, applicationFee: applicationFee);
     } on NotFoundException catch (e) {
       return Response(404, body: jsonEncode({'message': e.message}));
@@ -198,7 +200,7 @@ class ApplicationHandler {
         propertyId: application.propertyId,
         unitId: unitId,
         amount: applicationFee.toDouble(),
-        status: 'Pending',
+        status: 'pending',
         method: 'Paystack',
         transactionRef: initPayment['reference'],
         type: 'application_fee',
@@ -295,6 +297,7 @@ class ApplicationHandler {
             final tenant = await userRepository.getUserById(app.tenantId);
             final property = await propertyRepository.getPropertyById(app.propertyId);
             final unit = await unitRepository.getUnitById(app.unitId);
+            final manager = await userRepository.getUserById(property.managerId ?? property.landownerId);
 
             return {
               ...app.toMap(),
@@ -319,8 +322,16 @@ class ApplicationHandler {
                 'unitNumber': unit.unitNumber,
                 'bedrooms': unit.bedrooms,
                 'bathrooms': unit.bathrooms,
-                'yearlyRent': unit.yearlyRent,
+                'monthlyRent': unit.monthlyRent,
                 'status': unit.status,
+              },
+              'manager': {
+                'id': manager.id,
+                'fullName': manager.fullName,
+                'email': manager.email,
+                'phone': manager.phone,
+                'role': manager.role,
+                'profilePhotoUrl': manager.profilePhotoUrl,
               },
             };
           } catch (e) {
@@ -375,6 +386,7 @@ class ApplicationHandler {
           final tenant = await userRepository.getUserById(app.tenantId);
           final property = await propertyRepository.getPropertyById(app.propertyId);
           final unit = await unitRepository.getUnitById(app.unitId);
+          final manager = await userRepository.getUserById(property.managerId ?? property.landownerId);
 
           return {
             ...app.toMap(),
@@ -388,6 +400,14 @@ class ApplicationHandler {
               'verifiedIdentity': tenant.verifiedIdentity,
               'profilePhotoUrl': tenant.profilePhotoUrl,
             },
+            'manager': {
+              'id': manager.id,
+              'fullName': manager.fullName,
+              'email': manager.email,
+              'phone': manager.phone,
+              'role': manager.role,
+              'profilePhotoUrl': manager.profilePhotoUrl,
+            },
             'property': {
               'id': property.id,
               'name': property.name,
@@ -399,7 +419,7 @@ class ApplicationHandler {
               'unitNumber': unit.unitNumber,
               'bedrooms': unit.bedrooms,
               'bathrooms': unit.bathrooms,
-              'yearlyRent': unit.yearlyRent,
+              'monthlyRent': unit.monthlyRent,
               'status': unit.status,
             },
           };
@@ -441,6 +461,7 @@ class ApplicationHandler {
       final tenant = await userRepository.getUserById(application.tenantId);
       final property = await propertyRepository.getPropertyById(application.propertyId);
       final unit = await unitRepository.getUnitById(application.unitId);
+      final manager = await userRepository.getUserById(property.managerId ?? property.landownerId);
 
       // Get tenant's previous reviews (especially from other landlords)
       final tenantReviews = isManagerOrOwner
@@ -464,7 +485,7 @@ class ApplicationHandler {
               'status': lease.status,
               'startDate': lease.startDate.toIso8601String(),
               'endDate': lease.endDate.toIso8601String(),
-              'yearlyRent': lease.yearlyRent,
+              'monthlyRent': lease.monthlyRent,
               'isActive': lease.status == 'active',
               'isCompleted': lease.status == 'expired' || lease.status == 'terminated',
               'isCancelled': lease.status == 'cancelled' || lease.status == 'terminated',
@@ -478,6 +499,14 @@ class ApplicationHandler {
 
       final enrichedApplication = {
         ...application.toMap(),
+        'manager': {
+          'id': manager.id,
+          'fullName': manager.fullName,
+          'email': manager.email,
+          'phone': manager.phone,
+          'role': manager.role,
+          'profilePhotoUrl': manager.profilePhotoUrl,
+        },
 
         'tenant': {
           'id': tenant.id,
@@ -512,7 +541,7 @@ class ApplicationHandler {
           'unitNumber': unit.unitNumber,
           'bedrooms': unit.bedrooms,
           'bathrooms': unit.bathrooms,
-          'yearlyRent': unit.yearlyRent,
+          'monthlyRent': unit.monthlyRent,
           'status': unit.status,
         },
 
@@ -599,7 +628,7 @@ class ApplicationHandler {
         startDate: startDate,
         endDate: endDate,
         durationMonths: durationMonths,
-        yearlyRent: application.proposedRent ?? unit.yearlyRent,
+        monthlyRent: application.proposedRent ?? unit.monthlyRent,
         fees: unit.fees,
         status: 'Pending Signature',
         createdAt: DateTime.now(),
@@ -727,7 +756,7 @@ class ApplicationHandler {
       final application = await applicationRepository.getApplicationById(applicationId);
 
       // === Get current application fee (configurable) ===
-      final int applicationFee = await _getCurrentApplicationFee(); // From config or DB
+      final int applicationFee = await getCurrentApplicationFee(); // From config or DB
 
       if (application.tenantId != tenantId) {
         return Response(403, body: jsonEncode({'message': 'This application does not belong to you'}));
@@ -757,9 +786,4 @@ class ApplicationHandler {
 
   Response _badRequest(String message) =>
       Response(400, body: jsonEncode({'message': message}), headers: {'Content-Type': 'application/json'});
-
-  Future<int> _getCurrentApplicationFee() async {
-    // TODO: Make this configurable (from DB or env)
-    return 0; // Default fee
-  }
 }

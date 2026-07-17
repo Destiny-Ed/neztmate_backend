@@ -95,8 +95,8 @@ class LeasePdfService {
           // sectionTitle('4. RENT'),
 
           // paragraph(
-          //   'Tenant agrees to pay yearly rent of '
-          //   '₦${unit.yearlyRent.toStringAsFixed(2)} '
+          //   'Tenant agrees to pay monthly rent of '
+          //   '₦${unit.monthlyRent.toStringAsFixed(2)} '
           //   'on or before the due date each month.',
           // ),
 
@@ -109,8 +109,8 @@ class LeasePdfService {
           sectionTitle('4. RENT & FEES'),
 
           paragraph(
-            'Tenant agrees to pay yearly rent of '
-            '₦${unit.yearlyRent.toStringAsFixed(2)} '
+            'Tenant agrees to pay monthly rent of '
+            '₦${unit.monthlyRent.toStringAsFixed(2)} '
             'according to the agreed payment schedule outlined by the Landlord.',
           ),
 

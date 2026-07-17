@@ -141,8 +141,25 @@ class MaintenanceHandler {
 
       final requests = await maintenanceRepository.getRequestsByTenant(tenantId);
 
+      final enrichedRequest = await Future.wait(
+        requests.map((request) async {
+          final user = await userRepository.getUserById(request.tenantId);
+
+          final property = await propertyRepository.getPropertyById(request.propertyId);
+
+          final unit = await unitRepository.getUnitById(request.unitId);
+
+          return {
+            ...request.toMap(),
+            'propertyName': property.name,
+            'tenantName': user.id == tenantId ? "Me" : user.fullName,
+            "unit": unit.unitNumber,
+          };
+        }),
+      );
+
       return Response.ok(
-        jsonEncode({'requests': requests.map((r) => r.toMap()).toList()}),
+        jsonEncode({'requests': enrichedRequest}),
         headers: {'Content-Type': 'application/json'},
       );
     } catch (e, s) {
@@ -179,6 +196,8 @@ class MaintenanceHandler {
       final property = await propertyRepository.getPropertyById(maintRequest.propertyId);
       final unit = await unitRepository.getUnitById(maintRequest.unitId);
 
+      final manager = await userRepository.getUserById(property.managerId ?? property.landownerId);
+
       // Get all tasks related to this request
       final tasks = await maintenanceRepository.getTasksByRequest(requestId);
 
@@ -213,6 +232,13 @@ class MaintenanceHandler {
           'email': tenant.email,
           'phone': tenant.phone,
           'profilePhotoUrl': tenant.profilePhotoUrl,
+        },
+        'manager': {
+          'id': manager.id,
+          'fullName': manager.fullName,
+          'phone': manager.phone,
+          'profilePhotoUrl': manager.profilePhotoUrl,
+          'role': manager.role,
         },
         'property': {
           'id': property.id,

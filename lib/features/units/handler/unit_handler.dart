@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'package:neztmate_backend/core/utils.dart';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
 import 'package:neztmate_backend/features/units/models/unit_comment_model.dart';
 import 'package:neztmate_backend/features/units/models/unit_model.dart';
@@ -18,6 +19,12 @@ class UnitHandler {
   Future<Response> getUnitsByProperty(Request request) async {
     try {
       final propertyId = request.params['propertyId'];
+      final role = request.context['role'] as String?;
+
+      if (!['landowner', 'manager'].contains(role)) {
+        return Response(403, body: jsonEncode({'message': 'Unauthorized to get property unit'}));
+      }
+
       if (propertyId == null) {
         return Response(400, body: jsonEncode({'message': 'Missing property ID'}));
       }
@@ -41,10 +48,18 @@ class UnitHandler {
       final role = request.context['role'] as String?;
 
       if (role == 'tenant' || role == null) {
+        final int applicationFee = await getCurrentApplicationFee();
+
         // Tenant sees unit + property
         final unitsWithProperty = await unitRepository.getAvailableUnitsWithProperty();
         print(" Fetched ${unitsWithProperty.length} available units with property info");
-        return Response.ok(jsonEncode({'units': unitsWithProperty.map((u) => u.toMap()).toList()}));
+        return Response.ok(
+          jsonEncode({
+            'units': unitsWithProperty
+                .map((u) => {...u.toMap(), 'unitApplicationFee': applicationFee})
+                .toList(),
+          }),
+        );
       } else {
         // Landowner/Manager sees unit + occupants + history
         final userId = request.context['userId'] as String;

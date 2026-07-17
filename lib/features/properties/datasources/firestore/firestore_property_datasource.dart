@@ -95,7 +95,7 @@ class FirestorePropertyDataSource implements PropertyRemoteDataSource {
             unitId: leaseData['unitId'],
             leaseId: leaseData['id'],
             unitNumber: unitData['unitNumber'] ?? 'N/A',
-            monthlyRent: (leaseData['yearlyRent'] as num?)?.toDouble() ?? 0.0,
+            monthlyRent: (leaseData['monthlyRent'] as num?)?.toDouble() ?? 0.0,
             leaseStartDate: DateTime.parse(leaseData['startDate']),
             leaseEndDate: leaseData['endDate'] != null ? DateTime.parse(leaseData['endDate']) : null,
             leaseStatus: leaseData['status'] ?? 'Unknown',

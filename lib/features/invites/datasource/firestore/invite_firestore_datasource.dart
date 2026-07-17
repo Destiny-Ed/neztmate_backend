@@ -43,7 +43,7 @@ class FirestoreInviteDataSource implements InviteRemoteDataSource {
   @override
   Future<void> acceptInvite(String id, String inviteeId) async {
     await _invites.doc(id).update({
-      'status': 'Accepted',
+      'status': 'accepted',
       'updatedAt': DateTime.now().toIso8601String(),
 
       // Optionally: link inviteeId to user or update role in user doc
@@ -52,7 +52,7 @@ class FirestoreInviteDataSource implements InviteRemoteDataSource {
 
   @override
   Future<void> declineInvite(String id) async {
-    await _invites.doc(id).update({'status': 'Declined', 'updatedAt': DateTime.now().toIso8601String()});
+    await _invites.doc(id).update({'status': 'declined', 'updatedAt': DateTime.now().toIso8601String()});
   }
 
   @override
@@ -84,5 +84,10 @@ class FirestoreInviteDataSource implements InviteRemoteDataSource {
       print('Error fetching invites by email: $e');
       return [];
     }
+  }
+
+  @override
+  Future<void> withdrawInvite(String id) async {
+    await _invites.doc(id).update({'status': 'withdrawn', 'updatedAt': DateTime.now().toIso8601String()});
   }
 }

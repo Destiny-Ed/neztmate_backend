@@ -10,6 +10,7 @@ Router inviteRoutes(InviteHandler handler) {
   router.get('/<id>', handler.getInviteById); // Get single invite
   router.post('/<id>/accept', handler.acceptInvite);
   router.post('/<id>/decline', handler.declineInvite);
+  router.post('/<id>/withdraw', handler.withdrawInvite);
 
   return router;
 }

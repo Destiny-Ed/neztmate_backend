@@ -13,7 +13,7 @@ class LeaseModel {
   final DateTime endDate;
   final DateTime? nextDueDate;
 
-  final double yearlyRent;
+  final double monthlyRent;
   final int? durationMonths;
   final double? monthlyRentEquivalent;
 
@@ -67,7 +67,7 @@ class LeaseModel {
     required this.endDate,
     this.monthlyRentEquivalent,
     this.nextDueDate,
-    required this.yearlyRent,
+    required this.monthlyRent,
     this.fees,
     this.durationMonths,
     this.status = 'Pending Signature',
@@ -113,7 +113,7 @@ class LeaseModel {
       startDate: DateTime.parse(map['startDate'] as String),
       endDate: DateTime.parse(map['endDate'] as String),
       nextDueDate: map['nextDueDate'] != null ? DateTime.parse(map['nextDueDate'] as String) : null,
-      yearlyRent: (map['yearlyRent'] as num).toDouble(),
+      monthlyRent: (map['monthlyRent'] as num).toDouble(),
       durationMonths: (map['durationMonths'] as num?)?.toInt(),
       fees: (map['fees'] as List?)?.map((e) => UnitFee.fromMap(e)).toList(),
 
@@ -169,7 +169,7 @@ class LeaseModel {
     'startDate': startDate.toIso8601String(),
     'endDate': endDate.toIso8601String(),
     'nextDueDate': nextDueDate?.toIso8601String(),
-    'yearlyRent': yearlyRent,
+    'monthlyRent': monthlyRent,
     'fees': fees?.map((e) => e.toMap()).toList(),
     'monthlyRentEquivalent': monthlyRentEquivalent,
     'durationMonths': durationMonths,
@@ -215,7 +215,7 @@ class LeaseModel {
     DateTime? endDate,
     double? monthlyRentEquivalent,
     DateTime? nextDueDate,
-    double? yearlyRent,
+    double? monthlyRent,
     int? durationMonths,
     String? status,
     String? generatedLeasePdfUrl,
@@ -260,7 +260,7 @@ class LeaseModel {
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
       nextDueDate: nextDueDate ?? this.nextDueDate,
-      yearlyRent: yearlyRent ?? this.yearlyRent,
+      monthlyRent: monthlyRent ?? this.monthlyRent,
       fees: fees ?? this.fees,
       durationMonths: durationMonths ?? this.durationMonths,
       status: status ?? this.status,

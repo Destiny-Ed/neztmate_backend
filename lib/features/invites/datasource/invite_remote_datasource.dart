@@ -8,6 +8,6 @@ abstract class InviteRemoteDataSource {
   Future<void> acceptInvite(String id, String inviteeId);
   Future<void> declineInvite(String id);
   Future<void> deleteInvite(String id);
+  Future<void> withdrawInvite(String id);
   Future<List<InviteModel>> getInvitesByInviteeEmail(String email);
-  
 }

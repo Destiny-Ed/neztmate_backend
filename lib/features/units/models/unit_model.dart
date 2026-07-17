@@ -3,7 +3,7 @@ class UnitModel {
   final String propertyId;
   final String unitNumber;
   final int? floorLevel;
-  final double yearlyRent;
+  final double monthlyRent;
   final int? bedrooms;
   final double? bathrooms;
   final int? durationMonths;
@@ -31,7 +31,7 @@ class UnitModel {
     required this.propertyId,
     required this.unitNumber,
     this.floorLevel,
-    required this.yearlyRent,
+    required this.monthlyRent,
     this.bedrooms,
     this.bathrooms,
     this.durationMonths = 12, //1 year default
@@ -58,7 +58,7 @@ class UnitModel {
       propertyId: map['propertyId'] ?? '',
       unitNumber: map['unitNumber'] ?? '',
       floorLevel: map['floorLevel'] as int?,
-      yearlyRent: (map['yearlyRent'] as num).toDouble(),
+      monthlyRent: (map['monthlyRent'] as num).toDouble(),
       bedrooms: map['bedrooms'] as int?,
       bathrooms: (map['bathrooms'] as num?)?.toDouble(),
       likes: map['likes'] as int? ?? 0,
@@ -90,7 +90,7 @@ class UnitModel {
     'propertyId': propertyId,
     'unitNumber': unitNumber,
     'floorLevel': floorLevel,
-    'yearlyRent': yearlyRent,
+    'monthlyRent': monthlyRent,
     'bedrooms': bedrooms,
     'bathrooms': bathrooms,
     'durationMonths': durationMonths,
@@ -120,7 +120,7 @@ class UnitModel {
     String? propertyId,
     String? unitNumber,
     int? floorLevel,
-    double? yearlyRent,
+    double? monthlyRent,
     int? bedrooms,
     double? bathrooms,
     int? likes,
@@ -146,7 +146,7 @@ class UnitModel {
       propertyId: propertyId ?? this.propertyId,
       unitNumber: unitNumber ?? this.unitNumber,
       floorLevel: floorLevel ?? this.floorLevel,
-      yearlyRent: yearlyRent ?? this.yearlyRent,
+      monthlyRent: monthlyRent ?? this.monthlyRent,
       bedrooms: bedrooms ?? this.bedrooms,
       bathrooms: bathrooms ?? this.bathrooms,
       likes: likes ?? this.likes,

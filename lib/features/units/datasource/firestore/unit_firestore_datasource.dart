@@ -55,10 +55,10 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
       query = query.where('bedrooms', WhereFilter.greaterThanOrEqual, minBedrooms);
     }
     if (maxRent != null) {
-      query = query.where('yearlyRent', WhereFilter.greaterThanOrEqual, maxRent);
+      query = query.where('monthlyRent', WhereFilter.greaterThanOrEqual, maxRent);
     }
 
-    final snap = await query.orderBy('yearlyRent').get();
+    final snap = await query.orderBy('monthlyRent').get();
     return snap.docs.map((d) => UnitModel.fromMap(d.data())).toList();
   }
 

@@ -97,7 +97,7 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
       managerId: lease.managerId,
       startDate: DateTime.now(),
       endDate: lease.endDate,
-      yearlyRent: lease.yearlyRent,
+      monthlyRent: lease.monthlyRent,
       fees: lease.fees,
       status: 'active',
       createdAt: DateTime.now(),
@@ -289,8 +289,8 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
     final totalLeaseDays = lease.endDate.difference(lease.startDate).inDays;
     final remainingDays = lease.endDate.difference(now).inDays.clamp(0, totalLeaseDays);
 
-    final yearlyRent = lease.yearlyRent;
-    final dailyRent = yearlyRent / 365;
+    final monthlyRent = lease.monthlyRent;
+    final dailyRent = monthlyRent / 365;
 
     // Prorated rent for remaining period
     final proratedRentDue = (dailyRent * remainingDays).roundToDouble();
