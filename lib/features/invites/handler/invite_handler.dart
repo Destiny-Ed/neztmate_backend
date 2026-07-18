@@ -4,6 +4,7 @@ import 'package:neztmate_backend/features/invites/models/invites_model.dart';
 import 'package:neztmate_backend/features/invites/repository/invite_repo.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
+import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
 import 'package:neztmate_backend/features/properties/models/property_model.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
 import 'package:shelf/shelf.dart';
@@ -13,9 +14,16 @@ class InviteHandler {
   final InviteRepository repository;
   final UserRepository userRepository;
   final PropertyRepository propertyRepository;
+  final PaymentRepository paymentRepository;
   final NotificationRepository notificationRepository;
 
-  InviteHandler(this.repository, this.userRepository, this.propertyRepository, this.notificationRepository);
+  InviteHandler(
+    this.repository,
+    this.userRepository,
+    this.propertyRepository,
+    this.notificationRepository,
+    this.paymentRepository,
+  );
 
   /// POST /invites - Send new invite (expires in 5 days) Send new invite with duplicate check
   /// POST /invites - Send new invite with smart validation
@@ -52,7 +60,7 @@ class InviteHandler {
 
       if (existingInvites.isNotEmpty) {
         for (var existing in existingInvites) {
-          if (existing.status == 'Pending' || existing.status == 'Accepted') {
+          if (existing.status == 'Pending' || existing.status.toLowerCase() == 'accepted') {
             final overlapping = newPropertyIds
                 .where((pid) => (existing.propertyIds ?? []).contains(pid))
                 .toList();
@@ -231,6 +239,7 @@ class InviteHandler {
   Future<Response> acceptInvite(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
+      final userRole = request.context['role'] as String?;
       final inviteId = request.params['id'];
 
       if (userId == null || inviteId == null) {
@@ -255,6 +264,26 @@ class InviteHandler {
         }
       }
 
+      //
+      if (invite.role == 'manager' && userRole != 'manager') {
+        return Response(403, body: jsonEncode({'message': 'This invite is meant only for managers'}));
+      }
+
+      if (invite.role == 'manager' && userRole == 'manager') {
+        //Check if user already has a payout account
+        final payoutAcounts = await paymentRepository.getDefaultPayoutAccount(userId);
+
+        if (payoutAcounts == null) {
+          return Response(
+            403,
+            body: jsonEncode({
+              'message':
+                  'Default payout account not found. Please setup atleast one default payout account in settings before accepting this invite',
+            }),
+          );
+        }
+      }
+
       // Auto-assign user to properties
       if (invite.propertyIds != null && invite.propertyIds!.isNotEmpty) {
         for (var propertyId in invite.propertyIds!) {
@@ -263,10 +292,10 @@ class InviteHandler {
             userId: userId,
             role: invite.role,
             // Pass commission only for managers
-            commissionType: invite.role == 'Manager' ? invite.commissionType : null,
-            commissionRate: invite.role == 'Manager' ? invite.commissionRate : null,
-            flatFeeAmount: invite.role == 'Manager' ? invite.flatFeeAmount : null,
-            flatFeePeriod: invite.role == 'Manager' ? invite.flatFeePeriod : null,
+            commissionType: invite.role == 'manager' ? invite.commissionType : null,
+            commissionRate: invite.role == 'manager' ? invite.commissionRate : null,
+            flatFeeAmount: invite.role == 'manager' ? invite.flatFeeAmount : null,
+            flatFeePeriod: invite.role == 'manager' ? invite.flatFeePeriod : null,
           );
         }
       }

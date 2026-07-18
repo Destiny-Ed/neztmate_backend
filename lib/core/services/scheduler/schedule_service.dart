@@ -1,6 +1,8 @@
 import 'dart:async';
 import 'package:dart_firebase_admin/firestore.dart';
 import 'package:neztmate_backend/core/services/payment/paystack_service.dart';
+import 'package:neztmate_backend/features/affiliates/model/affiliate_payout_model.dart';
+import 'package:neztmate_backend/features/affiliates/repository/affiliate_repository.dart';
 import 'package:neztmate_backend/features/invites/repository/invite_repo.dart';
 import 'package:neztmate_backend/features/leases/models/leases_model.dart';
 import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
@@ -23,6 +25,7 @@ class SchedulerService {
   final NotificationRepository notificationRepository;
   final HistoryRepository historyRepository;
   final PaymentRepository paymentRepository;
+  final AffiliateRepository affiliateRepository;
 
   SchedulerService({
     required this.inviteRepository,
@@ -30,6 +33,7 @@ class SchedulerService {
     required this.notificationRepository,
     required this.historyRepository,
     required this.paymentRepository,
+    required this.affiliateRepository,
   });
 
   final PaystackService paystackService = PaystackService();
@@ -43,6 +47,7 @@ class SchedulerService {
     _disbursementTimer = Timer.periodic(const Duration(hours: 12), (_) async {
       await _processDueDisbursements();
       await _processManagerCommissions();
+      await _processAffiliatePayouts();
     });
 
     _leaseStatusTimer = Timer.periodic(const Duration(hours: 6), (_) async {
@@ -125,6 +130,37 @@ class SchedulerService {
           ),
         );
       }
+    }
+  }
+
+  Future<void> _processAffiliatePayouts() async {
+    try {
+      final pendingPayouts = await affiliateRepository.getPendingPayouts();
+
+      int processedCount = 0;
+
+      for (var payout in pendingPayouts) {
+        // Get affiliate's default payout account
+        final account = await paymentRepository.getDefaultPayoutAccount(payout.affiliateId);
+
+        if (account?.paystackSubaccountId != null) {
+          final ref = 'aff_payout_${payout.id}_${DateTime.now().microsecondsSinceEpoch}';
+          final success = await paystackService.transferToSubaccount(
+            amount: payout.amount,
+            subaccountId: account!.paystackSubaccountId!,
+            reference: ref,
+            reason: 'Affiliate commission payout',
+          );
+
+          if (success) {
+            await affiliateRepository.processPayout(payout.id, ref);
+            processedCount++;
+            print('✅ $processedCount Auto payout processed for affiliate ${payout.affiliateId}');
+          }
+        }
+      }
+    } catch (e) {
+      print('Auto payout scheduler error: $e');
     }
   }
   // Future<void> _sendLeaseDueReminders() async {

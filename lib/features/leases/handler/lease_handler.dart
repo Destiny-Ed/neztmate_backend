@@ -444,6 +444,9 @@ class LeaseHandler {
         }
       }
 
+      //sign lease
+      await leaseRepository.markLeaseAsSigned(leaseId, signedPdfUrl, userId);
+
       // Log history
       await historyRepository.createHistoryEntry(
         HistoryEntryModel(
@@ -1565,16 +1568,24 @@ class LeaseHandler {
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
 
-      final amount = (body['amount'] as num?)?.toDouble();
+      final isRenewal = body['isRenewal'] as bool?;
 
-      if (amount == null) {
-        return Response(400, body: jsonEncode({'message': 'Payment amount is required'}));
+      if (isRenewal == null) {
+        return Response(400, body: jsonEncode({'message': 'isRenewal field is missing'}));
       }
+
+      final unit = await unitRepository.getUnitById(lease.unitId);
+
+      final paymentSummary = LeasePaymentCalculatorService.calculate(lease: lease, unit: unit);
+
+      final double totalAmount = isRenewal
+          ? paymentSummary['renewalPayment']['total']
+          : paymentSummary['firstPayment']['total'];
 
       // Record payment using existing method
       await _recordLeasePaymentInternal(
         lease: lease,
-        amount: amount,
+        amount: totalAmount,
         paymentMethod: 'bank transfer',
         transactionRef: 'nm_${DateTime.now().millisecondsSinceEpoch}',
         receiptUrl: "",

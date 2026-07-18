@@ -1,24 +1,26 @@
 class SubscriptionPlanModel {
   final String id;
-  final String name; // Free, Basic, Pro, Enterprise
+  final String name; // free, basic, premium, enterprise
   final double monthlyPrice;
   final double yearlyPrice;
-  final int maxProperties;
+  final int maxListings;
+  final bool hasAgentAssignment;
+  final bool hasAdvancedScreening;
   final bool hasAnalytics;
   final bool hasPrioritySupport;
-  final bool hasAutoReminders;
-  final DateTime createdAt;
+  final bool isActive;
 
   SubscriptionPlanModel({
     required this.id,
     required this.name,
     required this.monthlyPrice,
     required this.yearlyPrice,
-    required this.maxProperties,
+    required this.maxListings,
+    this.hasAgentAssignment = false,
+    this.hasAdvancedScreening = false,
     this.hasAnalytics = false,
     this.hasPrioritySupport = false,
-    this.hasAutoReminders = false,
-    required this.createdAt,
+    this.isActive = true,
   });
 
   factory SubscriptionPlanModel.fromMap(Map<String, dynamic> map) {
@@ -27,23 +29,24 @@ class SubscriptionPlanModel {
       name: map['name'],
       monthlyPrice: (map['monthlyPrice'] as num).toDouble(),
       yearlyPrice: (map['yearlyPrice'] as num).toDouble(),
-      maxProperties: map['maxProperties'] as int,
+      maxListings: map['maxListings'],
+      hasAgentAssignment: map['hasAgentAssignment'] ?? false,
+      hasAdvancedScreening: map['hasAdvancedScreening'] ?? false,
       hasAnalytics: map['hasAnalytics'] ?? false,
       hasPrioritySupport: map['hasPrioritySupport'] ?? false,
-      hasAutoReminders: map['hasAutoReminders'] ?? false,
-      createdAt: DateTime.parse(map['createdAt']),
+      isActive: map['isActive'] ?? true,
     );
   }
 
   Map<String, dynamic> toMap() => {
-    'id': id,
     'name': name,
     'monthlyPrice': monthlyPrice,
     'yearlyPrice': yearlyPrice,
-    'maxProperties': maxProperties,
+    'maxListings': maxListings,
+    'hasAgentAssignment': hasAgentAssignment,
+    'hasAdvancedScreening': hasAdvancedScreening,
     'hasAnalytics': hasAnalytics,
     'hasPrioritySupport': hasPrioritySupport,
-    'hasAutoReminders': hasAutoReminders,
-    'createdAt': createdAt.toIso8601String(),
+    'isActive': isActive,
   };
 }

@@ -46,7 +46,10 @@ class User {
   final String country;
 
   final String primaryRole; // Main role for UI
-  final List<String> roles; // All roles user has (NEW)
+  final List<String> roles; // All roles user has
+
+  final String? referralCode;
+  final String? referredBy;
 
   User({
     required this.id,
@@ -86,6 +89,9 @@ class User {
 
     required this.primaryRole,
     this.roles = const [],
+
+    this.referralCode,
+    this.referredBy,
   });
 
   factory User.fromMap(Map<String, dynamic> map) {
@@ -132,7 +138,10 @@ class User {
       country: map['country'] ?? '',
 
       primaryRole: map['primaryRole'] as String? ?? 'Tenant',
-      roles: (map['roles'] as List<dynamic>?)?.cast<String>() ?? [map['role'] ?? 'Tenant'],
+      roles: (map['roles'] as List<dynamic>?)?.cast<String>() ?? [map['role'] ?? 'tenant'],
+
+      referralCode: map['referralCode'] as String?,
+      referredBy: map['referredBy'] as String?,
     );
   }
 
@@ -176,6 +185,9 @@ class User {
     'country': country,
     'primaryRole': primaryRole,
     'roles': roles,
+
+    'referralCode': referralCode,
+    'referredBy': referredBy,
   };
 
   User copyWith({
@@ -215,6 +227,9 @@ class User {
     String? fcmToken,
     String? primaryRole,
     List<String>? roles,
+
+    String? referralCode,
+    String? referredBy,
   }) {
     return User(
       id: id ?? this.id,
@@ -253,6 +268,9 @@ class User {
       country: country ?? this.country,
       primaryRole: primaryRole ?? this.primaryRole,
       roles: roles ?? this.roles,
+
+      referralCode: referralCode ?? this.referralCode,
+      referredBy: referredBy ?? this.referredBy,
     );
   }
 }

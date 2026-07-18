@@ -7,6 +7,9 @@ import 'package:neztmate_backend/core/services/database/firebase/firebase.dart';
 import 'package:neztmate_backend/core/services/reputation/reputation_service.dart';
 import 'package:neztmate_backend/core/services/verification/veriff_service.dart';
 import 'package:neztmate_backend/core/services/verification/verification_service.dart';
+import 'package:neztmate_backend/features/affiliates/datasource/firestore_affiliate_datasource.dart';
+import 'package:neztmate_backend/features/affiliates/handler/affliate_handler.dart';
+import 'package:neztmate_backend/features/affiliates/repository/affiliate_repository.dart';
 import 'package:neztmate_backend/features/applications/datasource/application_remote_datasource.dart';
 import 'package:neztmate_backend/features/applications/datasource/firestore/firestore_remote_datasource.dart';
 import 'package:neztmate_backend/features/applications/handler/application_handler.dart';
@@ -68,6 +71,9 @@ import 'package:neztmate_backend/features/reviews/datasource/review_remote_datas
 import 'package:neztmate_backend/features/reviews/handler/user_review_handler.dart';
 import 'package:neztmate_backend/features/reviews/repository/review_repository.dart';
 import 'package:neztmate_backend/features/reviews/repository_impl/review_repository_impl.dart';
+import 'package:neztmate_backend/features/subscriptions/datasource/firestore_subscription_datasource.dart';
+import 'package:neztmate_backend/features/subscriptions/handler/subscription_handler.dart';
+import 'package:neztmate_backend/features/subscriptions/repository/subscription_repository.dart';
 import 'package:neztmate_backend/features/tenants/datasources/firestore/firestore_tenant_datasource.dart';
 import 'package:neztmate_backend/features/tenants/datasources/tenant_remote_datasource.dart';
 import 'package:neztmate_backend/features/tenants/handler/tenant_handler.dart';
@@ -270,6 +276,7 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
       injector<UserRepository>(),
       injector<PropertyRepository>(),
       injector<NotificationRepository>(),
+      injector<PaymentRepository>(),
     ),
   );
 
@@ -342,4 +349,28 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
   injector.registerLazySingleton<VerificationHandler>(
     () => VerificationHandler(injector<VerificationService>(), injector<UserRepository>()),
   );
+
+  // Affiliate
+  injector.registerLazySingleton<AffiliateRepository>(
+    () => FirestoreAffiliateRepository(injector<Firestore>()),
+  );
+
+  injector.registerLazySingleton<AffiliateHandler>(
+    () => AffiliateHandler(
+      injector<AffiliateRepository>(),
+      injector<UserRepository>(),
+      injector<PaymentRepository>(),
+    ),
+  );
+
+  // Subscription
+  injector.registerLazySingleton<SubscriptionRepository>(
+    () => FirestoreSubscriptionRepository(injector<Firestore>()),
+  );
+
+  injector.registerLazySingleton<SubscriptionHandler>(
+    () => SubscriptionHandler(injector<SubscriptionRepository>(), injector<UserRepository>()),
+  );
+
+  //Subscription and affiliate ends
 }

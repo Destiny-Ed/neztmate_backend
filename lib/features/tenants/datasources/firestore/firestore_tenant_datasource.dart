@@ -77,7 +77,7 @@ class FirestoreTenantDataSource implements TenantRemoteDataSource {
     final snapshot = await firestore
         .collection('leases')
         .where('propertyId', WhereFilter.equal, propertyId)
-        .where('status', WhereFilter.equal, 'Active')
+        .where('status', WhereFilter.equal, 'active')
         .get();
 
     final neighbors = <NeighborModel>[];

@@ -5,6 +5,7 @@ import 'package:neztmate_backend/core/di/injector.dart';
 import 'package:neztmate_backend/core/middleware/auth_middleware.dart';
 import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
 import 'package:neztmate_backend/core/services/database/firebase/firebase.dart';
+import 'package:neztmate_backend/features/affiliates/handler/affliate_handler.dart';
 import 'package:neztmate_backend/features/applications/handler/application_handler.dart';
 import 'package:neztmate_backend/features/auth_user/handler/auth_handler.dart';
 import 'package:neztmate_backend/features/auth_user/handler/user_handler.dart';
@@ -18,9 +19,11 @@ import 'package:neztmate_backend/features/notifications/handler/handler.dart';
 import 'package:neztmate_backend/features/payments/handler/payment_handler.dart';
 import 'package:neztmate_backend/features/properties/handler/property_handler.dart';
 import 'package:neztmate_backend/features/reviews/handler/user_review_handler.dart';
+import 'package:neztmate_backend/features/subscriptions/handler/subscription_handler.dart';
 import 'package:neztmate_backend/features/tenants/handler/tenant_handler.dart';
 import 'package:neztmate_backend/features/units/handler/unit_handler.dart';
 import 'package:neztmate_backend/features/verification/handler/verification_handler.dart';
+import 'package:neztmate_backend/routes/affiliate_routes.dart';
 import 'package:neztmate_backend/routes/applications_routes.dart';
 import 'package:neztmate_backend/routes/auth_routes.dart';
 import 'package:neztmate_backend/routes/community_routes.dart';
@@ -33,6 +36,7 @@ import 'package:neztmate_backend/routes/message_routes.dart';
 import 'package:neztmate_backend/routes/notifications_routes.dart';
 import 'package:neztmate_backend/routes/payment_routes.dart';
 import 'package:neztmate_backend/routes/property_routes.dart';
+import 'package:neztmate_backend/routes/subscription_routes.dart';
 import 'package:neztmate_backend/routes/tenant_routes.dart';
 import 'package:neztmate_backend/routes/unit_routes.dart';
 import 'package:neztmate_backend/routes/user_review_routes.dart';
@@ -209,6 +213,12 @@ void main() async {
 
   /// Webhook from verification (NO auth middleware - must be public)
   router.post('/webhook/verification', injector<VerificationHandler>().handleWebhook);
+
+  // Affiliate routes
+  router.mount('/affiliates/', affiliateRoutes(injector<AffiliateHandler>()).call);
+
+  // Subscription routes
+  router.mount('/subscriptions/', subscriptionRoutes(injector<SubscriptionHandler>()).call);
 
   //  SWAGGER UI SETUP
 
