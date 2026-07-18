@@ -369,7 +369,12 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
   );
 
   injector.registerLazySingleton<SubscriptionHandler>(
-    () => SubscriptionHandler(injector<SubscriptionRepository>(), injector<UserRepository>()),
+    () => SubscriptionHandler(
+      injector<SubscriptionRepository>(),
+      injector<UserRepository>(),
+      injector<NotificationRepository>(),
+      injector<HistoryRepository>(),
+    ),
   );
 
   //Subscription and affiliate ends

@@ -7,6 +7,7 @@ Router subscriptionRoutes(SubscriptionHandler handler) {
   router.get('/plans', handler.getPlans);
   router.get('/me', handler.getMySubscription);
   router.post('/subscribe', handler.subscribe);
+  router.post('/cancel', handler.cancelSubscription);
 
   return router;
 }

@@ -35,10 +35,11 @@ class FirestoreSubscriptionRepository implements SubscriptionRepository {
   }
 
   @override
-  Future<void> createSubscription(UserSubscriptionModel subscription) async {
+  Future<UserSubscriptionModel> createSubscription(UserSubscriptionModel subscription) async {
     final docRef = _subscriptions.doc();
     final newSubscription = subscription.copyWith(id: docRef.id);
     await docRef.set(newSubscription.toMap());
+    return newSubscription;
   }
 
   @override
@@ -56,5 +57,49 @@ class FirestoreSubscriptionRepository implements SubscriptionRepository {
     return snapshot.docs
         .map((doc) => UserSubscriptionModel.fromMap(doc.data() as Map<String, dynamic>))
         .toList();
+  }
+
+  @override
+  Future<void> cancelSubscription(String subscriptionId, {required DateTime graceEndDate}) async {
+    await _subscriptions.doc(subscriptionId).update({
+      'status': 'cancelled',
+      'cancelledAt': DateTime.now().toIso8601String(),
+      'graceEndDate': graceEndDate.toIso8601String(), // Full cycle access
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  @override
+  Future<List<UserSubscriptionModel>> getExpiredSubscriptions() async {
+    final now = DateTime.now().toIso8601String();
+
+    final snap = await _subscriptions
+        .where('status', WhereFilter.equal, 'active')
+        .where('endDate', WhereFilter.lessThan, now)
+        .get();
+
+    return snap.docs.map((doc) => UserSubscriptionModel.fromMap(doc.data() as Map<String, dynamic>)).toList();
+  }
+
+  @override
+  Future<void> updateSubscriptionStatus(String subscriptionId, {required String status}) async {
+    await _subscriptions.doc(subscriptionId).update({
+      'status': status,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  @override
+  Future<SubscriptionPlanModel?> getPlanById(String planId) async {
+    try {
+      final doc = await _plans.doc(planId).get();
+
+      if (!doc.exists) return null;
+
+      return SubscriptionPlanModel.fromMap(doc.data() as Map<String, dynamic>);
+    } catch (e) {
+      print('Error fetching plan by ID: $e');
+      return null;
+    }
   }
 }

@@ -1,7 +1,5 @@
 import 'dart:async';
-import 'package:dart_firebase_admin/firestore.dart';
 import 'package:neztmate_backend/core/services/payment/paystack_service.dart';
-import 'package:neztmate_backend/features/affiliates/model/affiliate_payout_model.dart';
 import 'package:neztmate_backend/features/affiliates/repository/affiliate_repository.dart';
 import 'package:neztmate_backend/features/invites/repository/invite_repo.dart';
 import 'package:neztmate_backend/features/leases/models/leases_model.dart';
@@ -9,10 +7,9 @@ import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
 import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
-import 'package:neztmate_backend/features/payments/models/manager_commission_model.dart';
 import 'package:neztmate_backend/features/payments/models/payment_disbursement_model.dart';
-import 'package:neztmate_backend/features/payments/models/withdrawal_model.dart';
 import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
+import 'package:neztmate_backend/features/subscriptions/repository/subscription_repository.dart';
 
 class SchedulerService {
   // static Timer? _inviteCleanupTimer;
@@ -26,6 +23,7 @@ class SchedulerService {
   final HistoryRepository historyRepository;
   final PaymentRepository paymentRepository;
   final AffiliateRepository affiliateRepository;
+  final SubscriptionRepository subscriptionRepository;
 
   SchedulerService({
     required this.inviteRepository,
@@ -34,6 +32,7 @@ class SchedulerService {
     required this.historyRepository,
     required this.paymentRepository,
     required this.affiliateRepository,
+    required this.subscriptionRepository,
   });
 
   final PaystackService paystackService = PaystackService();
@@ -58,6 +57,8 @@ class SchedulerService {
     // Check lease due dates every day
     _leaseReminderTimer = Timer.periodic(const Duration(hours: 24), (_) async {
       await _sendLeaseDueReminders();
+
+      await _checkAndUpdateExpiredSubscriptions();
     });
 
     print('✅ SchedulerService started - Lease & Invite maintenance enabled');
@@ -163,6 +164,24 @@ class SchedulerService {
       print('Auto payout scheduler error: $e');
     }
   }
+
+  Future<void> _checkAndUpdateExpiredSubscriptions() async {
+    try {
+      final expiredSubscriptions = await subscriptionRepository.getExpiredSubscriptions();
+
+      int updatedCount = 0;
+
+      for (var sub in expiredSubscriptions) {
+        await subscriptionRepository.updateSubscriptionStatus(sub.id, status: 'expired');
+        updatedCount++;
+      }
+
+      print('Updated $updatedCount subscriptions to expired');
+    } catch (e, stack) {
+      print('Subscription expiry check error: $e\n$stack');
+    }
+  }
+
   // Future<void> _sendLeaseDueReminders() async {
   //   try {
   //     print('Checking for lease due reminders...');

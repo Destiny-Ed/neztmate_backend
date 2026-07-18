@@ -1,4 +1,8 @@
 import 'dart:convert';
+import 'package:neztmate_backend/features/history/model/user_history_model.dart';
+import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
+import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
+import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
 import 'package:neztmate_backend/features/subscriptions/model/user_subscription_model.dart';
 import 'package:neztmate_backend/features/subscriptions/repository/subscription_repository.dart';
 import 'package:shelf/shelf.dart';
@@ -8,8 +12,15 @@ import '../../auth_user/repositories/user_repository.dart';
 class SubscriptionHandler {
   final SubscriptionRepository subscriptionRepository;
   final UserRepository userRepository;
+  final NotificationRepository notificationRepository;
+  final HistoryRepository historyRepository;
 
-  SubscriptionHandler(this.subscriptionRepository, this.userRepository);
+  SubscriptionHandler(
+    this.subscriptionRepository,
+    this.userRepository,
+    this.notificationRepository,
+    this.historyRepository,
+  );
 
   /// GET /subscriptions/plans - Get all available plans
   Future<Response> getPlans(Request request) async {
@@ -54,6 +65,9 @@ class SubscriptionHandler {
 
       if (planId == null) return badRequest('planId is required');
 
+      final plan = await subscriptionRepository.getPlanById(planId);
+      if (plan == null) return badRequest('Invalid plan');
+
       // Create subscription record
       final subscription = UserSubscriptionModel(
         id: '',
@@ -62,19 +76,105 @@ class SubscriptionHandler {
         status: 'active',
         startDate: DateTime.now(),
         endDate: billingCycle == 'yearly'
-            ? DateTime.now().add(Duration(days: 365))
-            : DateTime.now().add(Duration(days: 30)),
+            ? DateTime.now().add(const Duration(days: 365))
+            : DateTime.now().add(const Duration(days: 30)),
         billingCycle: billingCycle,
-        amountPaid: 0.0, // Will be updated after payment
+        amountPaid: 0.0, // Updated after actual payment
       );
 
-      await subscriptionRepository.createSubscription(subscription);
+      final created = await subscriptionRepository.createSubscription(subscription);
+
+      // Log History
+      await historyRepository.createHistoryEntry(
+        HistoryEntryModel(
+          userId: userId,
+          type: 'subscription_activated',
+          title: '${plan.name} Subscription Activated',
+          description: 'You subscribed to ${plan.name} plan (${billingCycle}).',
+          relatedId: created.id,
+          relatedCollection: 'subscriptions',
+          timestamp: DateTime.now(),
+          id: '',
+        ),
+      );
+
+      // Send Notification
+      await notificationRepository.create(
+        NotificationModel(
+          id: '',
+          userId: userId,
+          type: 'subscription_activated',
+          title: 'Subscription Activated',
+          body: 'Your ${plan.name} subscription is now active. Enjoy premium features!',
+          relatedId: created.id,
+          relatedCollection: 'subscriptions',
+          createdAt: DateTime.now(),
+        ),
+      );
 
       return Response.ok(
-        jsonEncode({'message': 'Subscription activated successfully', 'subscription': subscription.toMap()}),
+        jsonEncode({'message': 'Subscription activated successfully', 'subscription': created.toMap()}),
       );
     } catch (e, stack) {
       print('Subscribe error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to activate subscription'}));
+    }
+  }
+
+  /// POST /subscriptions/cancel - Cancel subscription with grace period
+  Future<Response> cancelSubscription(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      if (userId == null) return unauthorized("unauthorized");
+
+      final subscription = await subscriptionRepository.getActiveSubscription(userId);
+
+      if (subscription == null) {
+        return Response(400, body: jsonEncode({'message': 'No active subscription to cancel'}));
+      }
+
+      // Grace period = full remaining billing cycle
+      final graceEndDate = subscription.endDate;
+
+      await subscriptionRepository.cancelSubscription(subscription.id, graceEndDate: graceEndDate);
+
+      await historyRepository.createHistoryEntry(
+        HistoryEntryModel(
+          userId: userId,
+          type: 'subscription_cancelled',
+          title: 'Subscription Cancelled',
+          description:
+              'Your subscription will remain active until ${graceEndDate.toIso8601String().split("T").first}.',
+          relatedId: subscription.id,
+          relatedCollection: 'subscriptions',
+          timestamp: DateTime.now(),
+          id: '',
+        ),
+      );
+
+      await notificationRepository.create(
+        NotificationModel(
+          userId: userId,
+          type: 'subscription_cancelled',
+          title: 'Subscription Cancelled',
+          body: 'Your subscription remains active until the end of the current billing period.',
+          relatedId: subscription.id,
+          relatedCollection: 'subscriptions',
+          createdAt: DateTime.now(),
+          id: '',
+        ),
+      );
+
+      return Response.ok(
+        jsonEncode({
+          'message': 'Subscription cancelled successfully',
+          'subscriptionId': subscription.id,
+          'activeUntil': graceEndDate.toIso8601String(),
+          'gracePeriod': true,
+        }),
+      );
+    } catch (e, stack) {
+      print('Cancel subscription error: $e\n$stack');
       return Response.internalServerError();
     }
   }

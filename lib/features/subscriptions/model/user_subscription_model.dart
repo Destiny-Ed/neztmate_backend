@@ -36,6 +36,7 @@ class UserSubscriptionModel {
   }
 
   Map<String, dynamic> toMap() => {
+    'id' : id,
     'userId': userId,
     'planId': planId,
     'status': status,
