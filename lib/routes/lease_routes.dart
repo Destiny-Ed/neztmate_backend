@@ -27,5 +27,9 @@ Router leaseRoutes(LeaseHandler handler) {
   router.patch('/<id>/settlement/dispute', handler.disputeSettlement);
   router.patch('/<id>/settlement/resolve', handler.resolveSettlementDispute);
 
+  router.patch('/<id>/approve-rent-adjustment', handler.approveRentAdjustment);
+  router.patch('/<id>/reject-rent-adjustment', handler.rejectRentAdjustment);
+  router.post('/<id>/adjust-rent', handler.proposeRentAdjustment);
+
   return router;
 }

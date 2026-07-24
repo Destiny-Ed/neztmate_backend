@@ -20,7 +20,7 @@ class Certification {
     this.expiryDate,
     required this.createdAt,
     this.updatedAt,
-    this.status = 'Active',
+    this.status = 'active',
   });
 
   factory Certification.fromMap(Map<String, dynamic> map, String id) {
@@ -34,7 +34,7 @@ class Certification {
       expiryDate: map['expiryDate'] != null ? DateTime.parse(map['expiryDate'] as String) : null,
       createdAt: DateTime.parse(map['createdAt'] as String),
       updatedAt: map['updatedAt'] != null ? DateTime.parse(map['updatedAt'] as String) : null,
-      status: map['status'] as String? ?? 'Active',
+      status: map['status'] as String? ?? 'active',
     );
   }
 

@@ -10,8 +10,6 @@ import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
 import 'package:neztmate_backend/features/maintenance/repository/maintenance_repo.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
-import 'package:neztmate_backend/features/payments/models/manager_commission_model.dart';
-import 'package:neztmate_backend/features/payments/models/payment_disbursement_model.dart';
 import 'package:neztmate_backend/features/payments/models/payment_summary_model.dart';
 import 'package:neztmate_backend/features/payments/models/payments.dart';
 import 'package:neztmate_backend/features/payments/models/payout_account_model.dart';
@@ -173,14 +171,15 @@ class PaymentHandler {
 
         final application = await applicationRepository.getApplicationById(appId);
 
-        await applicationRepository.updateApplication(application.copyWith(status: 'Pending'));
+        await applicationRepository.updateApplication(application.copyWith(status: 'pending'));
 
         await notificationRepository.create(
           NotificationModel(
             userId: payment.payerId,
             type: 'application_fee_paid',
             title: 'Application Fee Paid',
-            body: 'Your ₦2,000 application fee has been received. Your application is now under review.',
+            body:
+                'Your ₦${application.applicationFee} application fee has been received. Your application is now under review.',
             relatedId: appId,
             relatedCollection: 'applications',
             createdAt: DateTime.now(),
@@ -194,7 +193,7 @@ class PaymentHandler {
       //   recipientId = task.artisanId;
       //   recipientType = 'artisan';
       //   final updatedTask = task.copyWith(
-      //     paymentStatus: 'Paid',
+      //     paymentStatus: 'paid',
       //     paymentMethod: 'Paystack',
       //     paymentReference: reference,
       //     actualCost: amount,

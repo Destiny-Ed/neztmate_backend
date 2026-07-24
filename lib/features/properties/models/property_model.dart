@@ -5,8 +5,7 @@ class PropertyModel {
   final String address;
   final String landownerId;
   final String? managerId;
-  final String documentType;
-  final String proofOfOwnershipUrl;
+
   final List<String>? photoUrls;
   final List<String>? amenities; // ['WiFi', 'Parking', 'Pool', ...]
   final int totalUnits;
@@ -14,6 +13,7 @@ class PropertyModel {
   DateTime createdAt;
   DateTime updatedAt;
   List<String>? artisanIds;
+  final List<Map<String, dynamic>> documents;
 
   final String? managerCommissionType; // "percentage", "flat_fee", "none"
   final double? managerCommissionRate; // e.g. 0.05
@@ -33,9 +33,9 @@ class PropertyModel {
     this.occupancyRate = 0.0,
     required this.createdAt,
     required this.updatedAt,
-    required this.proofOfOwnershipUrl,
-    required this.documentType,
+
     this.artisanIds,
+    required this.documents,
 
     this.managerCommissionType,
     this.managerCommissionRate,
@@ -58,8 +58,7 @@ class PropertyModel {
       occupancyRate: (map['occupancyRate'] as num?)?.toDouble() ?? 0.0,
       createdAt: DateTime.parse(map['createdAt'] as String),
       updatedAt: DateTime.parse(map['updatedAt'] as String),
-      proofOfOwnershipUrl: map['proofOfOwnershipUrl'] as String,
-      documentType: map['documentType'] as String,
+      documents: (map['documents'] as List<dynamic>).cast<Map<String, dynamic>>(),
 
       managerCommissionType: map['managerCommissionType'] as String?,
       managerCommissionRate: (map['managerCommissionRate'] as num?)?.toDouble(),
@@ -82,8 +81,7 @@ class PropertyModel {
     'occupancyRate': occupancyRate,
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt.toIso8601String(),
-    'proofOfOwnershipUrl': proofOfOwnershipUrl,
-    'documentType': documentType,
+    'documents': documents,
 
     'managerCommissionType': managerCommissionType,
     'managerCommissionRate': managerCommissionRate,
@@ -98,8 +96,7 @@ class PropertyModel {
     String? address,
     String? landownerId,
     String? managerId,
-    String? proofOfOwnershipUrl,
-    String? documentType,
+
     List<String>? photoUrls,
     List<String>? amenities,
     List<String>? artisanIds,
@@ -107,6 +104,7 @@ class PropertyModel {
     double? occupancyRate,
     DateTime? createdAt,
     DateTime? updatedAt,
+    List<Map<String, dynamic>>? documents,
 
     String? managerCommissionType,
     double? managerCommissionRate,
@@ -118,7 +116,7 @@ class PropertyModel {
       name: name ?? this.name,
       type: type ?? this.type,
       address: address ?? this.address,
-      proofOfOwnershipUrl: proofOfOwnershipUrl ?? this.proofOfOwnershipUrl,
+      documents: documents ?? this.documents,
       landownerId: landownerId ?? this.landownerId,
       managerId: managerId ?? this.managerId,
       photoUrls: photoUrls ?? this.photoUrls,
@@ -128,7 +126,6 @@ class PropertyModel {
       occupancyRate: occupancyRate ?? this.occupancyRate,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-      documentType: documentType ?? this.documentType,
 
       managerCommissionType: managerCommissionType ?? this.managerCommissionType,
       managerCommissionRate: managerCommissionRate ?? this.managerCommissionRate,

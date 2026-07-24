@@ -104,7 +104,7 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
         // 2. Total Revenue (from paid payments)
         final paymentsSnap = await firestore
             .collection('payments')
-            .where('status', WhereFilter.equal, 'Paid')
+            .where('status', WhereFilter.equal, 'paid')
             .get();
 
         for (var doc in paymentsSnap.docs) {
@@ -116,7 +116,7 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
         final leasesSnap = await firestore
             .collection('leases')
             .where('landownerId', WhereFilter.equal, userId)
-            .where('status', WhereFilter.equal, 'Active')
+            .where('status', WhereFilter.equal, 'active')
             .get();
         totalTenants = leasesSnap.docs.length;
 
@@ -136,15 +136,15 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
 
         for (var doc in tasksSnap.docs) {
           final data = doc.data() as Map<String, dynamic>;
-          if (data['status'] == 'Completed') completedTasks++;
-          if (data['status'] == 'InProgress' || data['status'] == 'Accepted') activeTasks++;
+          if (data['status'] == 'completed') completedTasks++;
+          if (data['status'] == 'inprogress' || data['status'] == 'accepted') activeTasks++;
         }
 
         // 6. Total Withdrawn
         final withdrawalsSnap = await firestore
             .collection('withdrawals')
             .where('userId', WhereFilter.equal, userId)
-            .where('status', WhereFilter.equal, 'Completed')
+            .where('status', WhereFilter.equal, 'completed')
             .get();
 
         for (var doc in withdrawalsSnap.docs) {
@@ -188,8 +188,8 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
 
         for (var doc in tasksSnap.docs) {
           final data = doc.data() as Map<String, dynamic>;
-          if (data['status'] == 'Completed') completedTasks++;
-          if (data['status'] == 'InProgress' || data['status'] == 'Accepted') activeTasks++;
+          if (data['status'] == 'completed') completedTasks++;
+          if (data['status'] == 'inprogress' || data['status'] == 'accepted') activeTasks++;
         }
       }
 

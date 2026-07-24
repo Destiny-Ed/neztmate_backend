@@ -108,7 +108,7 @@ class UnitRepositoryImpl implements UnitRepository {
       // Find active lease (current occupant)
       final activeLeases = await leaseRepository.getLeasesByUnit(unit.id);
       final activeLease = activeLeases.firstWhere(
-        (l) => l.status == 'Active' && l.endDate.isAfter(DateTime.now()),
+        (l) => l.status == 'active' && l.endDate.isAfter(DateTime.now()),
         orElse: () => LeaseModel(
           id: "",
           unitId: "",

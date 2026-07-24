@@ -413,9 +413,14 @@ class LeaseHandler {
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final signedPdfUrl = body['signedPdfUrl'] as String?;
+      final paymentReceiptUrl = body['paymentReceiptUrl'] as String?;
 
       if (signedPdfUrl == null || signedPdfUrl.isEmpty) {
         return Response(400, body: jsonEncode({'message': 'signedPdfUrl is required'}));
+      }
+
+      if (paymentReceiptUrl == null || paymentReceiptUrl.isEmpty) {
+        return Response(400, body: jsonEncode({'message': 'paymentReceiptUrl is required'}));
       }
 
       final lease = await leaseRepository.getLeaseById(leaseId);
@@ -445,7 +450,7 @@ class LeaseHandler {
       }
 
       //sign lease
-      await leaseRepository.markLeaseAsSigned(leaseId, signedPdfUrl, userId);
+      await leaseRepository.markLeaseAsSigned(leaseId, signedPdfUrl, paymentReceiptUrl, userId);
 
       // Log history
       await historyRepository.createHistoryEntry(
@@ -741,22 +746,54 @@ class LeaseHandler {
         return Response(403, body: jsonEncode({'message': 'You can only transfer your own lease'}));
       }
 
-      if (lease.status != 'Active') {
+      if (lease.status.toLowerCase() != 'active') {
         return Response(400, body: jsonEncode({'message': 'Only active leases can be transferred'}));
       }
 
+      // Create the transfer request
       await leaseRepository.requestLeaseTransfer(
         leaseId: leaseId,
         newTenantId: newTenantId,
         reason: reason ?? 'Tenant relocation',
       );
 
+      // ── Send Notifications ──
+
+      // 1. To Original Tenant (confirmation)
+      await notificationRepository.create(
+        NotificationModel(
+          userId: tenantId,
+          type: 'lease_transfer_request_sent',
+          title: 'Lease Transfer Requested',
+          body: 'Your request to transfer the lease has been submitted and is awaiting approval.',
+          relatedId: leaseId,
+          relatedCollection: 'leases',
+          createdAt: DateTime.now(),
+          id: '',
+        ),
+      );
+
+      // 2. To New Tenant (invitation / awareness)
+      await notificationRepository.create(
+        NotificationModel(
+          userId: newTenantId,
+          type: 'lease_transfer_invited',
+          title: 'You Have Been Invited to Take Over a Lease',
+          body: 'A tenant has requested to transfer their lease to you. Review the details.',
+          relatedId: leaseId,
+          relatedCollection: 'leases',
+          createdAt: DateTime.now(),
+          id: '',
+        ),
+      );
+
+      // 3. To Landowner / Manager (approval needed)
       await notificationRepository.create(
         NotificationModel(
           userId: lease.landownerId,
           type: 'lease_transfer_request',
           title: 'Lease Transfer Request',
-          body: 'Tenant has requested to transfer lease to new tenant.',
+          body: 'Tenant has requested to transfer lease to a new tenant.',
           relatedId: leaseId,
           relatedCollection: 'leases',
           createdAt: DateTime.now(),
@@ -766,7 +803,7 @@ class LeaseHandler {
 
       return Response.ok(
         jsonEncode({
-          'message': 'Lease transfer request submitted. Awaiting landlord approval.',
+          'message': 'Lease transfer request submitted successfully. All parties have been notified.',
           'leaseId': leaseId,
         }),
       );
@@ -1237,7 +1274,7 @@ class LeaseHandler {
         id: '',
         startDate: oldLease.endDate,
         endDate: newEndDate,
-        status: 'Active',
+        status: 'active',
         isRenewed: true,
         previousLeaseId: leaseId,
         renewalReason: reason,
@@ -1620,6 +1657,147 @@ class LeaseHandler {
     }
   }
 
+  /// POST /leases/<id>/adjust-rent - Landlord/Manager proposes rent adjustment
+  Future<Response> proposeRentAdjustment(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+      final leaseId = request.params['id'];
+
+      if (userId == null || leaseId == null) return _unauthorized();
+
+      if (!['landowner', 'manager'].contains(role)) {
+        return Response(
+          403,
+          body: jsonEncode({'message': 'Only landlords/managers can propose rent adjustments'}),
+        );
+      }
+
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final newMonthlyRent = (body['newMonthlyRent'] as num?)?.toDouble();
+      final reason = body['reason'] as String?;
+
+      if (newMonthlyRent == null || newMonthlyRent <= 0) {
+        return badRequest('Valid new monthly rent is required');
+      }
+
+      if (reason == null || reason.trim().isEmpty) {
+        return badRequest('Reason for rent adjustment is required');
+      }
+
+      final lease = await leaseRepository.getLeaseById(leaseId);
+
+      // Propose the adjustment
+      await leaseRepository.proposeRentAdjustment(
+        leaseId: leaseId,
+        newMonthlyRent: newMonthlyRent,
+        reason: reason,
+        proposedBy: userId,
+      );
+
+      // Notify tenant
+      await notificationRepository.create(
+        NotificationModel(
+          id: '',
+          userId: lease.tenantId,
+          type: 'rent_adjustment_proposed',
+          title: 'Rent Adjustment Proposed',
+          body:
+              'Your landlord proposed increasing rent from ₦${lease.monthlyRent} to ₦$newMonthlyRent. Reason: $reason',
+          relatedId: leaseId,
+          relatedCollection: 'leases',
+          createdAt: DateTime.now(),
+        ),
+      );
+
+      // Log history for landlord
+      await historyRepository.createHistoryEntry(
+        HistoryEntryModel(
+          userId: userId,
+          type: 'rent_adjustment_proposed',
+          title: 'Rent Adjustment Proposed',
+          description: 'Proposed rent increase to ₦$newMonthlyRent for lease $leaseId',
+          relatedId: leaseId,
+          relatedCollection: 'leases',
+          timestamp: DateTime.now(),
+          id: '',
+        ),
+      );
+
+      return Response.ok(
+        jsonEncode({
+          'message': 'Rent adjustment proposed successfully',
+          'newMonthlyRent': newMonthlyRent,
+          'reason': reason,
+        }),
+      );
+    } catch (e, stack) {
+      print('Propose rent adjustment error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to propose rent adjustment'}));
+    }
+  }
+
+  /// PATCH /leases/<id>/approve-rent-adjustment
+  Future<Response> approveRentAdjustment(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+      final leaseId = request.params['id'];
+
+      if (userId == null || leaseId == null) return _unauthorized();
+
+      if (role != 'tenant') {
+        return Response(403, body: jsonEncode({'message': 'Only tenant can approve rent adjustment'}));
+      }
+
+      await leaseRepository.approveRentAdjustment(leaseId, userId);
+
+      // Notifications
+      await notificationRepository.create(
+        NotificationModel(
+          userId: userId,
+          type: 'rent_adjustment_approved',
+          title: 'Rent Adjustment Approved',
+          body: 'You have approved the rent adjustment.',
+          relatedId: leaseId,
+          relatedCollection: 'leases',
+          createdAt: DateTime.now(),
+          id: '',
+        ),
+      );
+
+      return Response.ok(jsonEncode({'message': 'Rent adjustment approved successfully'}));
+    } catch (e, stack) {
+      print('Approve rent adjustment error: $e\n$stack');
+      return Response.internalServerError();
+    }
+  }
+
+  /// PATCH /leases/<id>/reject-rent-adjustment
+  Future<Response> rejectRentAdjustment(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+      final leaseId = request.params['id'];
+
+      if (userId == null || leaseId == null) return _unauthorized();
+
+      if (role != 'tenant') {
+        return Response(403, body: jsonEncode({'message': 'Only tenant can reject rent adjustment'}));
+      }
+
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final reason = body['reason'] as String? ?? 'No reason provided';
+
+      await leaseRepository.rejectRentAdjustment(leaseId, userId, reason);
+
+      return Response.ok(jsonEncode({'message': 'Rent adjustment rejected successfully'}));
+    } catch (e, stack) {
+      print('Reject rent adjustment error: $e\n$stack');
+      return Response.internalServerError();
+    }
+  }
+
   // Internal helper to record payment
   Future<PaymentModel> _recordLeasePaymentInternal({
     required LeaseModel lease,
@@ -1637,7 +1815,7 @@ class LeaseHandler {
       propertyId: lease.propertyId,
       unitId: lease.unitId,
       amount: amount,
-      status: 'Paid',
+      status: 'paid',
       method: paymentMethod,
       transactionRef: transactionRef,
       receiptUrl: receiptUrl,

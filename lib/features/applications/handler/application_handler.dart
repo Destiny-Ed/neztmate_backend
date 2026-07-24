@@ -41,7 +41,7 @@ class ApplicationHandler {
 
   final paystackService = PaystackService();
 
-  /// POST /applications - Tenant submits lease application (with #2000 application fee)
+  /// POST /applications - Tenant submits lease application (with application fee)
   Future<Response> submitApplication(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
@@ -131,7 +131,7 @@ class ApplicationHandler {
         appliedAt: DateTime.now(),
         screeningData: ScreeningData.fromMap(body['screeningData'] as Map<String, dynamic>),
         status: applicationFee > 0 ? 'fee_pending' : 'pending',
-        applicationFee: 2000.0,
+        applicationFee: applicationFee.toDouble(),
         feePaymentStatus: applicationFee > 0 ? 'pending' : 'paid',
         message: body['message'] as String?,
         proposedRent: (body['proposedRent'] as num?)?.toDouble(),
@@ -614,7 +614,7 @@ class ApplicationHandler {
       // 2. Create Lease Record
       final leaseService = LeasePdfService();
 
-      final startDate = application.desiredStartDate ?? DateTime.now().add(const Duration(days: 7));
+      final startDate = application.desiredStartDate ?? DateTime.now().add(const Duration(days: 2));
       final endDate = startDate.add(Duration(days: durationMonths * 30));
 
       final lease = LeaseModel(
@@ -630,7 +630,7 @@ class ApplicationHandler {
         durationMonths: durationMonths,
         monthlyRent: application.proposedRent ?? unit.monthlyRent,
         fees: unit.fees,
-        status: 'Pending Signature',
+        status: 'pending signature',
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );

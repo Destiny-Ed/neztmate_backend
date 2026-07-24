@@ -64,7 +64,7 @@ class MaintenanceHandler {
         description: description,
         category: category,
         priority: priority,
-        status: 'Pending',
+        status: 'pending',
         createdAt: DateTime.now(),
       );
 
@@ -320,7 +320,7 @@ class MaintenanceHandler {
         description: maintenanceRequest.description,
         category: maintenanceRequest.category,
         priority: maintenanceRequest.priority,
-        status: 'Pending',
+        status: 'pending',
         createdAt: DateTime.now(),
         assignedAt: DateTime.now(),
         assignedBy: managerId,
@@ -377,7 +377,7 @@ class MaintenanceHandler {
       final task = await maintenanceRepository.getTaskById(taskId);
 
       // Only allow removal if task is still Pending
-      if (task.status != 'Pending') {
+      if (task.status != 'pending') {
         return Response(
           400,
           body: jsonEncode({'message': 'Can only remove artisan from tasks with Pending status'}),
@@ -385,7 +385,7 @@ class MaintenanceHandler {
       }
 
       // Update task status to show it was removed
-      final updatedTask = task.copyWith(status: 'Cancelled', updatedAt: DateTime.now());
+      final updatedTask = task.copyWith(status: 'cancelled', updatedAt: DateTime.now());
 
       await maintenanceRepository.updateTask(updatedTask);
 
@@ -612,7 +612,7 @@ class MaintenanceHandler {
 
       final task = await maintenanceRepository.getTaskById(taskId);
 
-      if (task.status != 'Completed') {
+      if (task.status != 'completed') {
         return Response(
           400,
           body: jsonEncode({
@@ -621,7 +621,7 @@ class MaintenanceHandler {
         );
       }
 
-      if (task.paymentStatus == 'Paid') {
+      if (task.paymentStatus == 'paid') {
         return Response(400, body: jsonEncode({'message': 'Payment already approved'}));
       }
 
@@ -650,7 +650,7 @@ class MaintenanceHandler {
         );
 
         updatedTask = task.copyWith(
-          paymentStatus: 'Paid',
+          paymentStatus: 'paid',
           paymentMethod: 'wallet',
           actualCost: amount,
           paymentApprovedAt: DateTime.now(),
@@ -681,7 +681,7 @@ class MaintenanceHandler {
         );
 
         updatedTask = task.copyWith(
-          paymentStatus: 'Pending',
+          paymentStatus: 'pending',
           paymentMethod: paymentMethod,
           paymentReference: reference,
           actualCost: amount,
@@ -697,7 +697,7 @@ class MaintenanceHandler {
           propertyId: maintenanceRequest.propertyId,
           unitId: maintenanceRequest.unitId,
           amount: amount,
-          status: 'Pending',
+          status: 'pending',
           method: 'Paystack',
           transactionRef: reference,
           type: 'task_payment',
@@ -720,7 +720,7 @@ class MaintenanceHandler {
       } else if (paymentMethod == 'external') {
         // Just mark as paid (outside the app)
         updatedTask = task.copyWith(
-          paymentStatus: 'Paid',
+          paymentStatus: 'paid',
           paymentMethod: 'external',
           actualCost: amount,
           paymentApprovedAt: DateTime.now(),

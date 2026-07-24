@@ -38,8 +38,12 @@ class LeaseRepositoryImpl implements LeaseRepository {
       dataSource.getLeaseByApplicationId(applicationId);
 
   @override
-  Future<void> markLeaseAsSigned(String leaseId, String signedPdfUrl, String signedBy) =>
-      dataSource.markLeaseAsSigned(leaseId, signedPdfUrl, signedBy);
+  Future<void> markLeaseAsSigned(
+    String leaseId,
+    String signedPdfUrl,
+    String paymentReceiptUrl,
+    String signedBy,
+  ) => dataSource.markLeaseAsSigned(leaseId, signedPdfUrl, paymentReceiptUrl, signedBy);
 
   @override
   Future<void> updateLeaseStatus(String leaseId, String status) =>
@@ -120,4 +124,23 @@ class LeaseRepositoryImpl implements LeaseRepository {
 
   @override
   Future<List<LeaseModel>> getLeasesByManager(String managerId) => dataSource.getLeasesByManager(managerId);
+
+  @override
+  Future<void> approveRentAdjustment(String leaseId, String approvedBy) =>
+      dataSource.approveRentAdjustment(leaseId, approvedBy);
+  @override
+  Future<void> proposeRentAdjustment({
+    required String leaseId,
+    required double newMonthlyRent,
+    required String reason,
+    required String proposedBy,
+  }) => dataSource.proposeRentAdjustment(
+    leaseId: leaseId,
+    newMonthlyRent: newMonthlyRent,
+    reason: reason,
+    proposedBy: proposedBy,
+  );
+  @override
+  Future<void> rejectRentAdjustment(String leaseId, String rejectedBy, String reason) =>
+      dataSource.rejectRentAdjustment(leaseId, rejectedBy, reason);
 }

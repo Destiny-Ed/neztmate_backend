@@ -1,6 +1,5 @@
 import 'dart:convert';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
-import 'package:neztmate_backend/features/maintenance/models/maintenance_task.dart';
 import 'package:neztmate_backend/features/maintenance/repository/maintenance_repo.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
@@ -236,8 +235,8 @@ class PropertyHandler {
       if (body['address'] == null) {
         return badRequest("Property address is required");
       }
-      if (body['proofOfOwnershipUrl'] == null) {
-        return badRequest("Property proof of ownership is required");
+      if (body['documents'] == null) {
+        return badRequest("Property documents is required");
       }
 
       if (body['photoUrls'] == null) {
@@ -248,6 +247,12 @@ class PropertyHandler {
 
       if (photos.isEmpty) {
         return badRequest("Photos is required");
+      }
+
+      final documents = body['documents'] as List<dynamic>;
+
+      if (documents.isEmpty) {
+        return badRequest("Property Documents is required");
       }
 
       if (body['totalUnits'] == null || body['totalUnits'].runtimeType != int) {
@@ -311,11 +316,21 @@ class PropertyHandler {
         return badRequest('At least one photo URL is required');
       }
 
+      // Prepare photo URLs safely
+      List<Map<String, dynamic>> documents = [];
+      if (body['documents'] != null) {
+        documents = (body['documents'] as List<dynamic>).cast<Map<String, dynamic>>();
+      }
+
+      if (documents.isEmpty) {
+        return badRequest('At least one document type is required');
+      }
+
       // Create updated property using copyWith
       final updatedProperty = existingProperty.copyWith(
         name: body['name'] as String,
         address: body['address'] as String,
-        proofOfOwnershipUrl: body['proofOfOwnershipUrl'] as String,
+        documents: documents,
         photoUrls: photoUrls,
         totalUnits: body['totalUnits'] as int?,
         amenities: body['amenities'] != null ? (body['amenities'] as List<dynamic>).cast<String>() : null,

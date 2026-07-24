@@ -28,7 +28,7 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
   @override
   Future<List<PaymentDisbursementModel>> getPendingDisbursements() async {
     final snap = await _disbursements
-        .where('status', WhereFilter.equal, 'Held')
+        .where('status', WhereFilter.equal, 'held')
         .where('scheduledDate', WhereFilter.lessThanOrEqual, DateTime.now().toIso8601String())
         .get();
 
@@ -40,7 +40,7 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
   @override
   Future<void> markDisbursementAsCompleted(String disbursementId, String transferReference) async {
     await _disbursements.doc(disbursementId).update({
-      'status': 'Completed',
+      'status': 'completed',
       'disbursedAt': DateTime.now().toIso8601String(),
       'paystackTransferReference': transferReference,
     });
@@ -49,7 +49,7 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
   @override
   Future<void> markDisbursementAsFailed(String disbursementId, String reason) async {
     await _disbursements.doc(disbursementId).update({
-      'status': 'Failed',
+      'status': 'failed',
       'failureReason': reason,
       'disbursedAt': DateTime.now().toIso8601String(),
     });
@@ -62,7 +62,7 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
       'userId': disbursement.recipientId,
       'amount': disbursement.netAmount,
       'reason': 'Auto-payout fallback for payment ${disbursement.paymentId}',
-      'status': 'Pending',
+      'status': 'pending',
       'createdAt': DateTime.now().toIso8601String(),
       'type': 'fallback',
     });
@@ -149,7 +149,7 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
   @override
   Future<void> markAsPaid(String id, String receiptUrl, String? transactionRef) async {
     await firestore.collection('payments').doc(id).update({
-      'status': 'Paid',
+      'status': 'paid',
       'receiptUrl': receiptUrl,
       'transactionRef': transactionRef,
       'paidDate': DateTime.now().toIso8601String(),
@@ -174,7 +174,7 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
     final paymentId = doc.id;
 
     await firestore.collection('payments').doc(paymentId).update({
-      'status': 'Paid',
+      'status': 'paid',
       'receiptUrl': receiptUrl,
       'transactionRef': transactionRef,
       'paidDate': DateTime.now().toIso8601String(),
@@ -204,7 +204,7 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
   //         final amount = (data['amount'] as num).toDouble();
   //         final status = data['status'] as String?;
 
-  //         if (status == 'Paid') {
+  //         if (status == 'paid') {
   //           totalReceived += amount;
   //           totalTransactions++;
   //         } else if (status == 'Pending') {
@@ -271,7 +271,7 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
         final amount = (data['amount'] as num).toDouble();
         final status = data['status'] as String?;
 
-        if (status == 'Paid') {
+        if (status == 'paid') {
           totalRevenue += amount;
           totalPayments++;
         } else if (status == 'Pending') {
@@ -336,13 +336,13 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
 
   @override
   Future<void> approveWithdrawal(String withdrawalId, String processedBy) async {
-    await updateWithdrawalStatus(withdrawalId, 'Completed', processedBy);
+    await updateWithdrawalStatus(withdrawalId, 'completed', processedBy);
   }
 
   @override
   Future<void> rejectWithdrawal(String withdrawalId, String processedBy, String? reason) async {
     await firestore.collection('withdrawals').doc(withdrawalId).update({
-      'status': 'Rejected',
+      'status': 'rejected',
       'processedAt': DateTime.now().toIso8601String(),
       'processedBy': processedBy,
       'rejectionReason': reason,
@@ -469,7 +469,7 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
       final paymentsSnap = await firestore
           .collection('payments')
           .where('propertyId', WhereFilter.equal, propertyId)
-          .where('status', WhereFilter.equal, 'Paid')
+          .where('status', WhereFilter.equal, 'paid')
           .get();
 
       double totalReceived = 0.0;
@@ -481,7 +481,7 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
       final withdrawalsSnap = await firestore
           .collection('withdrawals')
           .where('propertyId', WhereFilter.equal, propertyId)
-          .where('status', WhereFilter.equal, 'Completed')
+          .where('status', WhereFilter.equal, 'completed')
           .get();
 
       double totalWithdrawn = 0.0;
@@ -530,7 +530,7 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
 
   @override
   Future<double> getTotalUnwithdrawnPlatformFees() async {
-    final snap = await _platformFees.where('status', WhereFilter.equal, 'Collected').get();
+    final snap = await _platformFees.where('status', WhereFilter.equal, 'collected').get();
 
     double total = 0.0;
     for (var doc in snap.docs) {
@@ -542,11 +542,11 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
 
   @override
   Future<void> markPlatformFeesAsWithdrawn(String withdrawalReference) async {
-    final snap = await _platformFees.where('status', WhereFilter.equal, 'Collected').get();
+    final snap = await _platformFees.where('status', WhereFilter.equal, 'collected').get();
 
     for (var doc in snap.docs) {
       await doc.ref.update({
-        'status': 'Withdrawn',
+        'status': 'withdrawn',
         'withdrawnAt': DateTime.now().toIso8601String(),
         'withdrawalReference': withdrawalReference,
       });
@@ -578,7 +578,7 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
       final snap = await firestore
           .collection('manager_commissions')
           .where('managerId', WhereFilter.equal, managerId)
-          .where('status', WhereFilter.equal, 'Pending')
+          .where('status', WhereFilter.equal, 'pending')
           .get();
 
       double total = 0.0;
@@ -610,7 +610,7 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
   Future<List<ManagerCommissionModel>> getManagersCommissions() async {
     final snap = await firestore
         .collection('manager_commissions')
-        .where('status', WhereFilter.equal, 'Pending')
+        .where('status', WhereFilter.equal, 'pending')
         .where(
           'createdAt',
           WhereFilter.lessThan,
@@ -626,7 +626,7 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
   @override
   Future<void> markCommissionAsPaid(String commissionId, String payoutReference) async {
     await firestore.collection('manager_commissions').doc(commissionId).update({
-      'status': 'Paid',
+      'status': 'paid',
       'paidAt': DateTime.now().toIso8601String(),
       'payoutReference': payoutReference,
     });

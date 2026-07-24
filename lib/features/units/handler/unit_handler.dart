@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:neztmate_backend/core/utils.dart';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
+import 'package:neztmate_backend/features/leases/service/lease_payment_calculator_service.dart';
 import 'package:neztmate_backend/features/units/models/unit_comment_model.dart';
 import 'package:neztmate_backend/features/units/models/unit_model.dart';
 import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
@@ -99,16 +100,35 @@ class UnitHandler {
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
 
+      // === Validation ===
+      final validationErrors = _validateUnitBody(body);
+      if (validationErrors.isNotEmpty) {
+        return Response(400, body: jsonEncode({'message': 'Validation failed', 'errors': validationErrors}));
+      }
+
       body['createdAt'] = DateTime.now().toIso8601String();
       body['updatedAt'] = DateTime.now().toIso8601String();
       body['id'] = Uuid().v4();
+      body['status'] ??= 'vacant';
+      body['isListedForRent'] ??= false;
+      body['durationMonths'] ??= 12;
 
       final unit = UnitModel.fromMap(body);
 
       final created = await unitRepository.createUnit(unit);
+
+      // Calculate and return cost breakdown
+      final costBreakdown = LeasePaymentCalculatorService.calculateForUnit(
+        unit: created,
+        durationMonths: unit.durationMonths ?? 12,
+      );
+
       return Response.ok(
-        jsonEncode({'message': 'Unit created', 'unit': created.toMap()}),
-        headers: {'Content-Type': 'application/json'},
+        jsonEncode({
+          'message': 'Unit created successfully',
+          'unit': created.toMap(),
+          'costBreakdown': costBreakdown,
+        }),
       );
     } catch (e, s) {
       print("Unit creation error $e --- $s");
@@ -120,18 +140,38 @@ class UnitHandler {
   Future<Response> updateUnit(Request request) async {
     try {
       final id = request.params['id'];
-      if (id == null) return Response(400, body: jsonEncode({'message': 'Missing unit ID'}));
+      if (id == null) return badRequest('Missing unit ID');
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+
+      // Validation
+      final validationErrors = _validateUnitBody(body, isUpdate: true);
+      if (validationErrors.isNotEmpty) {
+        return Response(400, body: jsonEncode({'message': 'Validation failed', 'errors': validationErrors}));
+      }
+
       body['updatedAt'] = DateTime.now().toIso8601String();
 
-      final unit = UnitModel.fromMap(body);
+      final unit = UnitModel.fromMap(body, id: id);
 
       await unitRepository.updateUnit(unit);
-      return Response.ok(jsonEncode({'message': 'Unit updated'}));
+
+      // Return cost breakdown
+      final costBreakdown = LeasePaymentCalculatorService.calculateForUnit(
+        unit: unit,
+        durationMonths: unit.durationMonths ?? 12,
+      );
+
+      return Response.ok(
+        jsonEncode({
+          'message': 'Unit updated successfully',
+          'unit': unit.toMap(),
+          'costBreakdown': costBreakdown,
+        }),
+      );
     } catch (e, s) {
       print("Error updating unit: $e --- $s");
-      return Response.internalServerError();
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to update unit'}));
     }
   }
 
@@ -271,5 +311,73 @@ class UnitHandler {
       print("Error getting comments $e\n$s");
       return Response.internalServerError();
     }
+  }
+
+  List<String> _validateUnitBody(Map<String, dynamic> body, {bool isUpdate = false}) {
+    final errors = <String>[];
+
+    // Required fields for creation
+    if (!isUpdate) {
+      if (body['propertyId'] == null || body['propertyId'].toString().trim().isEmpty) {
+        errors.add('propertyId is required');
+      }
+      if (body['unitNumber'] == null || body['unitNumber'].toString().trim().isEmpty) {
+        errors.add('unitNumber is required');
+      }
+      if (body['monthlyRent'] == null || (body['monthlyRent'] as num) <= 0) {
+        errors.add('monthlyRent must be greater than 0');
+      }
+    }
+
+    // Common validations
+    if (body['monthlyRent'] != null) {
+      final rent = body['monthlyRent'] as num?;
+      if (rent != null && rent <= 0) {
+        errors.add('monthlyRent must be greater than 0');
+      }
+    }
+
+    // Duration validation
+    if (body['durationMonths'] != null) {
+      final months = body['durationMonths'] as int?;
+      if (months != null) {
+        if (months < 1) errors.add('durationMonths must be at least 1');
+        if (months > 60) errors.add('durationMonths cannot exceed 60 months (5 years)');
+      }
+    }
+
+    // Images validation
+    if (body['photoUrls'] != null) {
+      final photos = body['photoUrls'] as List<dynamic>?;
+      if (photos != null) {
+        if (photos.isEmpty) {
+          errors.add('At least one photo is required');
+        } else if (photos.length > 10) {
+          errors.add('Maximum 10 photos allowed');
+        }
+      }
+    } else if (!isUpdate) {
+      errors.add('photoUrls is required');
+    }
+
+    // Video validation (optional but size/type check)
+    if (body['videoUrl'] != null) {
+      final video = body['videoUrl'] as String?;
+      if (video != null && video.isNotEmpty) {
+        if (!video.startsWith('http')) {
+          errors.add('videoUrl must be a valid URL');
+        }
+      }
+    }
+
+    // // Status validation
+    // if (body['status'] != null) {
+    //   final validStatuses = ['vacant', 'occupied', 'maintenance', 'reserved'];
+    //   if (!validStatuses.contains(body['status'])) {
+    //     errors.add('status must be one of: vacant, occupied, maintenance, reserved');
+    //   }
+    // }
+
+    return errors;
   }
 }

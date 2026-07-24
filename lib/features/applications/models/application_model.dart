@@ -9,9 +9,9 @@ class ApplicationModel {
   final String status; // 'Pending', 'Approved', 'Rejected', 'Withdrawn'
   final String? reason;
 
-  final double applicationFee; // NEW: Should be 2000
-  final String? feePaymentReference; // NEW
-  final String? feePaymentStatus; // NEW: Pending, Paid, Failed
+  final double applicationFee;
+  final String? feePaymentReference;
+  final String? feePaymentStatus; //  Pending, Paid, Failed
 
   final String? message; // Optional tenant note
   final double? proposedRent; // If tenant negotiates
@@ -34,7 +34,7 @@ class ApplicationModel {
     this.message,
     this.reason,
     this.leaseId,
-    this.applicationFee = 2000.0, // Default application fee
+    this.applicationFee = 0.0, // Default application fee
     this.feePaymentReference,
     this.feePaymentStatus,
     this.proposedRent,
@@ -56,7 +56,7 @@ class ApplicationModel {
       status: map['status'] as String? ?? 'Pending',
       message: map['message'] as String?,
       reason: map['reason'] as String?,
-      applicationFee: (map['applicationFee'] as num?)?.toDouble() ?? 2000.0,
+      applicationFee: (map['applicationFee'] as num?)?.toDouble() ?? 0.0,
       feePaymentReference: map['feePaymentReference'] as String?,
       feePaymentStatus: map['feePaymentStatus'] as String?,
       proposedRent: (map['proposedRent'] as num?)?.toDouble(),

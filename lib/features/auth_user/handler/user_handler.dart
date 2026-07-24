@@ -132,6 +132,43 @@ class UserHandler {
     }
   }
 
+  /// GET /users/email/{email}/search   ← new endpoint for email lookup
+  Future<Response> searchUserByEmail(Request request) async {
+    try {
+      final authenticatedUserId = request.context['userId'] as String?;
+      if (authenticatedUserId == null) {
+        return unauthorized('Missing authentication');
+      }
+
+      final email = request.params['email'];
+      if (email == null || email.isEmpty) {
+        return Response(
+          400,
+          body: jsonEncode({'message': 'Missing or empty email parameter'}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
+
+      final user = await userRepository.getUserByEmail(email);
+      final safeUser = {
+        "fullName": user.fullName,
+        "id": user.id,
+        "profilePhotoUrl": user.profilePhotoUrl,
+        "email": email,
+      };
+
+      // Admins see full data (you can restrict more if needed)
+      return Response.ok(jsonEncode({'user': safeUser}), headers: {'Content-Type': 'application/json'});
+    } on NotFoundException catch (e) {
+      return Response(404, body: jsonEncode({'message': e.message}));
+    } on AppException catch (e) {
+      return Response(400, body: jsonEncode({'message': e.message}));
+    } catch (e, stack) {
+      print('Get user by email error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to fetch user by email'}));
+    }
+  }
+
   /// PATCH /users/me
   Future<Response> updateCurrentUser(Request request) async {
     try {

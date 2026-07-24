@@ -113,14 +113,23 @@ class FirestorePropertyDataSource implements PropertyRemoteDataSource {
   @override
   Future<List<TenantSummary>> getCurrentTenantsByProperty(String propertyId) async {
     final allTenants = await getTenantsByProperty(propertyId);
-    return allTenants.where((t) => t.leaseStatus.toLowerCase() == 'active').toList();
+    return allTenants
+        .where(
+          (t) =>
+              t.leaseStatus.toLowerCase() == 'active' ||
+              t.leaseStatus.toLowerCase() == 'terminationrequested' ||
+              t.leaseStatus.toLowerCase() == 'transferrequested' ||
+              t.leaseStatus.toLowerCase() == 'termination_requested' ||
+              t.leaseStatus.toLowerCase() == 'transfer_requested',
+        )
+        .toList();
   }
 
   @override
   Future<List<TenantSummary>> getPastTenantsByProperty(String propertyId) async {
     final allTenants = await getTenantsByProperty(propertyId);
     return allTenants
-        .where((t) => t.leaseStatus.toLowerCase() == 'terminated' || t.leaseStatus == 'Expired')
+        .where((t) => t.leaseStatus.toLowerCase() == 'terminated' || t.leaseStatus.toLowerCase() == 'expired')
         .toList();
   }
 
