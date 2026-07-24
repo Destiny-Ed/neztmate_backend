@@ -80,4 +80,15 @@ abstract class LeaseRepository {
   Future<void> approveRentAdjustment(String leaseId, String approvedBy);
 
   Future<void> rejectRentAdjustment(String leaseId, String rejectedBy, String reason);
+
+  // Lease Requests Viewing
+  Future<List<Map<String, dynamic>>> getLeaseRequestsByUser(String userId);
+  Future<List<Map<String, dynamic>>> getIncomingLeaseRequests(String userId, String role);
+
+  // Early Termination
+  Future<void> approveEarlyTermination(String leaseId, String approvedBy);
+  Future<void> rejectEarlyTermination(String leaseId, String rejectedBy, String reason);
+
+  // Helper
+  Future<void> updateLeaseRequestStatus(String leaseId, String requestType, String status, String? reason);
 }

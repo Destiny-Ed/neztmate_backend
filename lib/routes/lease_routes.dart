@@ -31,5 +31,15 @@ Router leaseRoutes(LeaseHandler handler) {
   router.patch('/<id>/reject-rent-adjustment', handler.rejectRentAdjustment);
   router.post('/<id>/adjust-rent', handler.proposeRentAdjustment);
 
+  // Lease Requests (Unified View)
+  router.get('/requests', handler.getMyLeaseRequests); // Tenant: My outgoing requests
+  router.get('/requests/incoming', handler.getIncomingLeaseRequests); // Landlord/Manager: Incoming requests
+
+  router.get('/<id>/request-details', handler.getLeaseRequestDetails);
+
+  // Approval / Rejection (unified)
+  router.patch('/<id>/approve-request', handler.approveLeaseRequest);
+  router.patch('/<id>/reject-request', handler.rejectLeaseRequest);
+
   return router;
 }

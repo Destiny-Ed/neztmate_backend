@@ -43,22 +43,22 @@ class SchedulerService {
     //   await _cleanupExpiredInvites();
     // });
 
-    _disbursementTimer = Timer.periodic(const Duration(hours: 12), (_) async {
-      await _processDueDisbursements();
-      await _processManagerCommissions();
-      await _processAffiliatePayouts();
-    });
+    // _disbursementTimer = Timer.periodic(const Duration(hours: 12), (_) async {
+    //   await _processDueDisbursements();
+    //   await _processManagerCommissions();
+    //   await _processAffiliatePayouts();
+    // });
 
-    _leaseStatusTimer = Timer.periodic(const Duration(hours: 6), (_) async {
+    _leaseStatusTimer = Timer.periodic(const Duration(minutes: 10), (_) async {
       await _updateExpiredLeases();
       // await _cleanupExpiredInvites();
     });
 
     // Check lease due dates every day
-    _leaseReminderTimer = Timer.periodic(const Duration(hours: 24), (_) async {
+    _leaseReminderTimer = Timer.periodic(const Duration(minutes: 10), (_) async {
       await _sendLeaseDueReminders();
 
-      await _checkAndUpdateExpiredSubscriptions();
+      // await _checkAndUpdateExpiredSubscriptions();
     });
 
     print('✅ SchedulerService started - Lease & Invite maintenance enabled');

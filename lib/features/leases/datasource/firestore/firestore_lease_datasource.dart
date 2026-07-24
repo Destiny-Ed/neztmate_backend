@@ -523,4 +523,83 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
       'updatedAt': DateTime.now().toIso8601String(),
     });
   }
+
+  @override
+  Future<List<Map<String, dynamic>>> getLeaseRequestsByUser(String userId) async {
+    final snap = await firestore
+        .collection('leases')
+        .where('tenantId', WhereFilter.equal, userId)
+        .where('requestStatus', WhereFilter.notEqual, null) // has any request
+        .get();
+
+    return snap.docs.map((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      return {
+        'leaseId': doc.id,
+        'requestType': data['requestType'],
+        'status': data['requestStatus'],
+        'reason': data['requestReason'],
+        'proposedAt': data['requestProposedAt'],
+      };
+    }).toList();
+  }
+
+  @override
+  Future<List<Map<String, dynamic>>> getIncomingLeaseRequests(String userId, String role) async {
+    var query = firestore.collection('leases');
+
+    final snap = await query
+        .where(role == 'landowner' ? 'landownerId' : 'managerId', WhereFilter.equal, userId)
+        .where('requestStatus', WhereFilter.notEqual, null)
+        .get();
+
+    return snap.docs.map((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      return {
+        'leaseId': doc.id,
+        'requestType': data['requestType'],
+        'status': data['requestStatus'],
+        'reason': data['requestReason'],
+        'proposedAt': data['requestProposedAt'],
+        'tenantId': data['tenantId'],
+      };
+    }).toList();
+  }
+
+  @override
+  Future<void> approveEarlyTermination(String leaseId, String approvedBy) async {
+    await _leases.doc(leaseId).update({
+      'status': 'Terminated',
+      'terminationApprovedBy': approvedBy,
+      'terminationApprovedAt': DateTime.now().toIso8601String(),
+      'requestStatus': 'approved',
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  @override
+  Future<void> rejectEarlyTermination(String leaseId, String rejectedBy, String reason) async {
+    await _leases.doc(leaseId).update({
+      'requestStatus': 'rejected',
+      'terminationRejectedBy': rejectedBy,
+      'terminationRejectionReason': reason,
+      'terminationRejectedAt': DateTime.now().toIso8601String(),
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  @override
+  Future<void> updateLeaseRequestStatus(
+    String leaseId,
+    String requestType,
+    String status,
+    String? reason,
+  ) async {
+    await _leases.doc(leaseId).update({
+      'requestType': requestType,
+      'requestStatus': status,
+      'requestReason': reason,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
 }

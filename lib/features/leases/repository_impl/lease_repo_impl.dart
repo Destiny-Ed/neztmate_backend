@@ -143,4 +143,21 @@ class LeaseRepositoryImpl implements LeaseRepository {
   @override
   Future<void> rejectRentAdjustment(String leaseId, String rejectedBy, String reason) =>
       dataSource.rejectRentAdjustment(leaseId, rejectedBy, reason);
+
+  @override
+  Future<void> approveEarlyTermination(String leaseId, String approvedBy) =>
+      dataSource.approveEarlyTermination(leaseId, approvedBy);
+  @override
+  Future<List<Map<String, dynamic>>> getIncomingLeaseRequests(String userId, String role) =>
+      dataSource.getIncomingLeaseRequests(userId, role);
+  @override
+  Future<List<Map<String, dynamic>>> getLeaseRequestsByUser(String userId) =>
+      dataSource.getLeaseRequestsByUser(userId);
+
+  @override
+  Future<void> rejectEarlyTermination(String leaseId, String rejectedBy, String reason) =>
+      dataSource.rejectEarlyTermination(leaseId, rejectedBy, reason);
+  @override
+  Future<void> updateLeaseRequestStatus(String leaseId, String requestType, String status, String? reason) =>
+      dataSource.updateLeaseRequestStatus(leaseId, requestType, status, reason);
 }
