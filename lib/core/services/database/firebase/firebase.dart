@@ -14,7 +14,7 @@ class FirebaseService {
 
   final env = DotEnv()..load();
 
-  final _isLocalTest = true;
+  final _isLocalTest = false; // Set this to true if running locally for testing purposes
 
   Future<void> init() async {
     if (_isInitialized) return;
