@@ -52,6 +52,7 @@ import 'package:neztmate_backend/routes/user_routes.dart';
 import 'package:neztmate_backend/routes/verification_routes.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart';
+import 'package:shelf_limiter/shelf_limiter.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'package:shelf_swagger_ui/shelf_swagger_ui.dart';
 
@@ -245,7 +246,22 @@ void main() async {
 
   //  END SETUP
 
-  final handler = Pipeline().addMiddleware(logRequests()).addHandler(router.call);
+  final rateLimiter = shelfLimiter(
+    RateLimiterOptions(
+      maxRequests: 100,
+      windowSize: const Duration(minutes: 1),
+      headers: {'X-Custom-Header': 'Rate limited'},
+      onRateLimitExceeded: (request) async {
+        return Response(
+          429,
+          body: jsonEncode({'status': false, 'message': "Uh, hm! Wait a minute, that's a lot of requests."}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      },
+    ),
+  );
+
+  final handler = Pipeline().addMiddleware(logRequests()).addMiddleware(rateLimiter).addHandler(router.call);
 
   final server = await serve(handler, ip, port);
   print('Serving served at http://${server.address.host}:${server.port}');
