@@ -6,6 +6,7 @@ import 'package:neztmate_backend/features/notifications/repository/notification_
 import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
 import 'package:neztmate_backend/features/properties/models/property_model.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
+import 'package:neztmate_backend/features/subscriptions/repository/subscription_repository.dart';
 import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
 import 'package:shelf/shelf.dart';
 import 'package:neztmate_backend/core/error.dart';
@@ -218,6 +219,7 @@ class PropertyHandler {
   Future<Response> createProperty(Request request) async {
     try {
       final role = request.context['role'] as String?;
+      final subscriptionPlan = request.context['subscriptionPlan'] as String;
       if (role != 'landowner') {
         return Response(403, body: jsonEncode({'message': 'Only landowners can create properties'}));
       }
@@ -258,6 +260,28 @@ class PropertyHandler {
       if (body['totalUnits'] == null || body['totalUnits'].runtimeType != int) {
         return badRequest("Total units must be an integer");
       }
+
+      // ========== SUBSCRIPTION RESTRICTION ==========
+
+      final currentPropertyCount = await propertyRepository.countByOwner(landownerId);
+
+      final maxProperties = _getMaxProperties(subscriptionPlan);
+
+      if (currentPropertyCount >= maxProperties) {
+        return Response(
+          403,
+          body: jsonEncode({
+            'message':
+                'You have reached the maximum number of properties allowed on the $subscriptionPlan plan ($maxProperties). Please upgrade your subscription.',
+            'currentCount': currentPropertyCount,
+            'maxAllowed': maxProperties,
+            'plan': subscriptionPlan,
+            'upgradeUrl': '/subscriptions/plans',
+          }),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
+      //
 
       body['createdAt'] = DateTime.now().toIso8601String();
       body['updatedAt'] = DateTime.now().toIso8601String();
@@ -483,4 +507,18 @@ class PropertyHandler {
   }
 
   Response _unauthorized() => Response(401, body: jsonEncode({'message': 'Unauthorized'}));
+}
+
+int _getMaxProperties(String plan) {
+  switch (plan.toLowerCase()) {
+    case 'basic':
+      return 10;
+    case 'premium':
+      return 9999; // practically unlimited
+    case 'enterprise':
+      return 9999;
+    case 'free':
+    default:
+      return 2;
+  }
 }

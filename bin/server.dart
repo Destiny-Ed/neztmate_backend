@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:dotenv/dotenv.dart';
 import 'package:neztmate_backend/core/di/injector.dart';
 import 'package:neztmate_backend/core/middleware/auth_middleware.dart';
+import 'package:neztmate_backend/core/middleware/rate_limitter.dart';
 import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
 import 'package:neztmate_backend/core/services/database/firebase/firebase.dart';
 import 'package:neztmate_backend/core/services/scheduler/schedule_service.dart';
@@ -111,72 +112,64 @@ void main() async {
     }
   });
 
+  final authMiddleWare = authMiddleware(jwtService, injector<SubscriptionRepository>());
+
   /// routes
   router.mount('/auth', authRoutes(authHandler).call);
   router.mount(
     '/users',
     Pipeline()
-        .addMiddleware(authMiddleware(jwtService)) // ← protects all /users/* routes
+        .addMiddleware(authMiddleWare) // ← protects all /users/* routes
         .addHandler(userRoutes(userHandler).call),
   );
 
   router.mount(
     '/properties/',
-    Pipeline().addMiddleware(authMiddleware(jwtService)).addHandler(propertyRoutes(propertyHandler).call),
+    Pipeline().addMiddleware(authMiddleWare).addHandler(propertyRoutes(propertyHandler).call),
   );
 
   router.mount(
     '/units/',
-    Pipeline().addMiddleware(authMiddleware(jwtService)).addHandler(unitRoutes(injector<UnitHandler>()).call),
+    Pipeline().addMiddleware(authMiddleWare).addHandler(unitRoutes(injector<UnitHandler>()).call),
   );
 
   router.mount(
     '/history/',
-    Pipeline()
-        .addMiddleware(authMiddleware(jwtService))
-        .addHandler(historyRoutes(injector<HistoryHandler>()).call),
+    Pipeline().addMiddleware(authMiddleWare).addHandler(historyRoutes(injector<HistoryHandler>()).call),
   );
 
   router.mount(
     '/leases/',
-    Pipeline()
-        .addMiddleware(authMiddleware(jwtService))
-        .addHandler(leaseRoutes(injector<LeaseHandler>()).call),
+    Pipeline().addMiddleware(authMiddleWare).addHandler(leaseRoutes(injector<LeaseHandler>()).call),
   );
 
   router.mount(
     '/applications/',
     Pipeline()
-        .addMiddleware(authMiddleware(jwtService))
+        .addMiddleware(authMiddleWare)
         .addHandler(applicationRoutes(injector<ApplicationHandler>()).call),
   );
 
   router.mount(
     '/invites/',
-    Pipeline()
-        .addMiddleware(authMiddleware(jwtService))
-        .addHandler(inviteRoutes(injector<InviteHandler>()).call),
+    Pipeline().addMiddleware(authMiddleWare).addHandler(inviteRoutes(injector<InviteHandler>()).call),
   );
 
   router.mount(
     '/maintenance/',
     Pipeline()
-        .addMiddleware(authMiddleware(jwtService))
+        .addMiddleware(authMiddleWare)
         .addHandler(maintenanceRoutes(injector<MaintenanceHandler>()).call),
   );
 
   router.mount(
     '/community/',
-    Pipeline()
-        .addMiddleware(authMiddleware(jwtService))
-        .addHandler(communityRoutes(injector<CommunityHandler>()).call),
+    Pipeline().addMiddleware(authMiddleWare).addHandler(communityRoutes(injector<CommunityHandler>()).call),
   );
 
   router.mount(
     '/messages/',
-    Pipeline()
-        .addMiddleware(authMiddleware(jwtService))
-        .addHandler(messageRoutes(injector<MessageHandler>()).call),
+    Pipeline().addMiddleware(authMiddleWare).addHandler(messageRoutes(injector<MessageHandler>()).call),
   );
 
   // WebSocket Route PUBLIC
@@ -185,37 +178,31 @@ void main() async {
   router.mount(
     '/notifications/',
     Pipeline()
-        .addMiddleware(authMiddleware(jwtService))
+        .addMiddleware(authMiddleWare)
         .addHandler(notificationRoutes(injector<NotificationHandler>()).call),
   );
 
   router.mount(
     '/payments/',
-    Pipeline()
-        .addMiddleware(authMiddleware(jwtService))
-        .addHandler(paymentRoutes(injector<PaymentHandler>()).call),
+    Pipeline().addMiddleware(authMiddleWare).addHandler(paymentRoutes(injector<PaymentHandler>()).call),
   );
 
   router.mount(
     '/tenants/',
-    Pipeline()
-        .addMiddleware(authMiddleware(jwtService))
-        .addHandler(tenantRoutes(injector<TenantHandler>()).call),
+    Pipeline().addMiddleware(authMiddleWare).addHandler(tenantRoutes(injector<TenantHandler>()).call),
   );
 
   // Mount review routes
   router.mount(
     '/reviews/',
-    Pipeline()
-        .addMiddleware(authMiddleware(jwtService))
-        .addHandler(reviewRoutes(injector<UserReviewHandler>()).call),
+    Pipeline().addMiddleware(authMiddleWare).addHandler(reviewRoutes(injector<UserReviewHandler>()).call),
   );
 
   //verification
   router.mount(
     '/verification/',
     Pipeline()
-        .addMiddleware(authMiddleware(jwtService))
+        .addMiddleware(authMiddleWare)
         .addHandler(verificationRoutes(injector<VerificationHandler>()).call),
   );
 
@@ -246,22 +233,12 @@ void main() async {
 
   //  END SETUP
 
-  final rateLimiter = shelfLimiter(
-    RateLimiterOptions(
-      maxRequests: 100,
-      windowSize: const Duration(minutes: 1),
-      headers: {'X-Custom-Header': 'Rate limited'},
-      onRateLimitExceeded: (request) async {
-        return Response(
-          429,
-          body: jsonEncode({'status': false, 'message': "Uh, hm! Wait a minute, that's a lot of requests."}),
-          headers: {'Content-Type': 'application/json'},
-        );
-      },
-    ),
-  );
+  final rateLimiter = RateLimiterMiddleware();
 
-  final handler = Pipeline().addMiddleware(logRequests()).addMiddleware(rateLimiter).addHandler(router.call);
+  final handler = Pipeline()
+      .addMiddleware(logRequests())
+      .addMiddleware(rateLimiter.middleware)
+      .addHandler(router.call);
 
   final server = await serve(handler, ip, port);
   print('Serving served at http://${server.address.host}:${server.port}');

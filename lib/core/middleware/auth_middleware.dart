@@ -1,7 +1,8 @@
 import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
+import 'package:neztmate_backend/features/subscriptions/repository/subscription_repository.dart';
 import 'package:shelf/shelf.dart';
 
-Middleware authMiddleware(JwtService jwtService) {
+Middleware authMiddleware(JwtService jwtService, SubscriptionRepository subscriptionRepository) {
   return (Handler innerHandler) {
     return (Request request) async {
       final authHeader = request.headers['Authorization'];
@@ -15,7 +16,14 @@ Middleware authMiddleware(JwtService jwtService) {
       try {
         final jwt = jwtService.verify(token);
 
-        final updated = request.change(context: {"userId": jwt.payload["sub"], "role": jwt.payload["role"]});
+        final subscription = await subscriptionRepository.getActiveSubscription(jwt.payload["sub"]);
+
+        final updated = request.change(
+          context: {
+            "userId": jwt.payload["sub"], "role": jwt.payload["role"],
+            'subscriptionPlan': subscription?.planId ?? 'free', // free | basic | premium | enterprise
+          },
+        );
 
         return await innerHandler(updated);
       } catch (e) {

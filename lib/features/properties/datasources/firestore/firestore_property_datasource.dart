@@ -188,4 +188,45 @@ class FirestorePropertyDataSource implements PropertyRemoteDataSource {
       });
     }
   }
+
+  @override
+  Future<int> countByOwner(String ownerId) async {
+    final snap = await firestore
+        .collection('properties')
+        .where('landownerId', WhereFilter.equal, ownerId)
+        .where('managerId', WhereFilter.equal, ownerId)
+        .get();
+
+    return snap.docs.length;
+  }
+
+  @override
+  Future<int> countManagersByOwner(String ownerId) async {
+    final snap = await firestore
+        .collection('properties')
+        .where('landownerId', WhereFilter.equal, ownerId)
+        .where('managerId', WhereFilter.notEqual, null)
+        .get();
+
+    return snap.docs.length;
+  }
+
+  @override
+  Future<int> countArtisansByOwner(String ownerId) async {
+    // Count distinct artisans across all properties owned by this landowner
+    final properties = await firestore
+        .collection('properties')
+        .where('landownerId', WhereFilter.equal, ownerId)
+        .get();
+
+    final Set<String> artisanIds = {};
+
+    for (var doc in properties.docs) {
+      final data = doc.data() as Map<String, dynamic>;
+      final ids = (data['artisanIds'] as List?)?.cast<String>() ?? [];
+      artisanIds.addAll(ids);
+    }
+
+    return artisanIds.length;
+  }
 }

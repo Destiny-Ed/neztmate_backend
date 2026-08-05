@@ -211,6 +211,62 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
     return snap.docs.map((doc) => UnitCommentModel.fromMap(doc.data() as Map<String, dynamic>)).toList();
   }
 
+  @override
+  Future<int> countByOwner(String ownerId) async {
+    // First get all property IDs owned by this user
+    final propertiesSnap = await firestore
+        .collection('properties')
+        .where('landownerId', WhereFilter.equal, ownerId)
+        .where('managerId', WhereFilter.equal, ownerId)
+        .get();
+
+    if (propertiesSnap.docs.isEmpty) return 0;
+
+    final propertyIds = propertiesSnap.docs.map((d) => d.id).toList();
+
+    // Then count units belonging to those properties
+    // Note: Firestore 'in' supports max 30 items. For larger portfolios, batch the queries.
+    int total = 0;
+
+    for (var i = 0; i < propertyIds.length; i += 30) {
+      final batch = propertyIds.skip(i).take(30).toList();
+      final unitsSnap = await firestore
+          .collection('units')
+          .where('propertyId', WhereFilter.arrayContains, batch)
+          .get();
+
+      total += unitsSnap.docs.length;
+    }
+
+    return total;
+  }
+
+  @override
+  Future<int> countListedByOwner(String ownerId) async {
+    final propertiesSnap = await firestore
+        .collection('properties')
+        .where('landownerId', WhereFilter.equal, ownerId)
+        .get();
+
+    if (propertiesSnap.docs.isEmpty) return 0;
+
+    final propertyIds = propertiesSnap.docs.map((d) => d.id).toList();
+    int total = 0;
+
+    for (var i = 0; i < propertyIds.length; i += 30) {
+      final batch = propertyIds.skip(i).take(30).toList();
+      final unitsSnap = await firestore
+          .collection('units')
+          .where('propertyId', WhereFilter.arrayContains, batch)
+          .where('isListedForRent', WhereFilter.equal, true)
+          .get();
+
+      total += unitsSnap.docs.length;
+    }
+
+    return total;
+  }
+
   // @override
   // Future<void> updateComment(String commentId, String newComment) async {
   //   await _unitComments.doc(commentId).update({

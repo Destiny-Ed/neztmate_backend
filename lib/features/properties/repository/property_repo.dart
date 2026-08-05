@@ -31,4 +31,8 @@ abstract class PropertyRepository {
     required String userId,
     required String removedBy, // Who performed the removal
   });
+
+  Future<int> countByOwner(String ownerId);
+  Future<int> countManagersByOwner(String ownerId);
+  Future<int> countArtisansByOwner(String ownerId);
 }

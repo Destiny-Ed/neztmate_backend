@@ -20,4 +20,7 @@ abstract class UnitRemoteDataSource {
   Future<void> toggleLike(String unitId, String userId);
   Future<void> addComment(UnitCommentModel comment);
   Future<List<UnitCommentModel>> getCommentsForUnit(String unitId);
+
+  Future<int> countByOwner(String ownerId);
+  Future<int> countListedByOwner(String ownerId);
 }

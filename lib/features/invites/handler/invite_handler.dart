@@ -7,6 +7,7 @@ import 'package:neztmate_backend/features/notifications/repository/notification_
 import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
 import 'package:neztmate_backend/features/properties/models/property_model.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
+import 'package:neztmate_backend/features/subscriptions/repository/subscription_repository.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
@@ -31,6 +32,7 @@ class InviteHandler {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
+      final subscriptionPlan = request.context['subscriptionPlan'] as String;
 
       if (userId == null || !['landowner', 'manager'].contains(role)) {
         return Response(403, body: jsonEncode({'message': 'Only landowners or managers can send invites'}));
@@ -53,6 +55,49 @@ class InviteHandler {
         return badRequest('At least one propertyId is required');
       }
 
+      // ========== SUBSCRIPTION RESTRICTION ==========
+      final plan = subscriptionPlan;
+
+      if (plan == 'free') {
+        return Response(
+          403,
+          body: jsonEncode({
+            'message': 'Inviting managers or artisans is not available on the Free plan. Please upgrade.',
+            'upgradeUrl': '/subscriptions/plans',
+          }),
+        );
+      }
+
+      if (plan == 'basic') {
+        final inviteeRole = body['inviteeRole'] as String?;
+
+        if (inviteeRole == 'manager') {
+          final managerCount = await propertyRepository.countManagersByOwner(userId);
+          if (managerCount >= 1) {
+            return Response(
+              403,
+              body: jsonEncode({
+                'message': 'Basic plan allows only 1 manager. Upgrade to Premium for unlimited managers.',
+                'upgradeUrl': '/subscriptions/plans',
+              }),
+            );
+          }
+        }
+
+        if (inviteeRole == 'artisan') {
+          final artisanCount = await propertyRepository.countArtisansByOwner(userId);
+          if (artisanCount >= 2) {
+            return Response(
+              403,
+              body: jsonEncode({
+                'message': 'Basic plan allows only 2 artisans. Upgrade to Premium for unlimited artisans.',
+                'upgradeUrl': '/subscriptions/plans',
+              }),
+            );
+          }
+        }
+      }
+
       final normalizedEmail = inviteeEmail.toLowerCase();
 
       // 1. Check for existing active invites
@@ -60,7 +105,7 @@ class InviteHandler {
 
       if (existingInvites.isNotEmpty) {
         for (var existing in existingInvites) {
-          if (existing.status == 'Pending' || existing.status.toLowerCase() == 'accepted') {
+          if (existing.status.toLowerCase() == 'pending' || existing.status.toLowerCase() == 'accepted') {
             final overlapping = newPropertyIds
                 .where((pid) => (existing.propertyIds ?? []).contains(pid))
                 .toList();
@@ -71,7 +116,7 @@ class InviteHandler {
                 body: jsonEncode({
                   'message': 'An active invite already exists for this email on some of these properties.',
                   'existingInviteId': existing.id,
-                  'status': existing.status,
+                  'status': existing.status.toLowerCase(),
                   'overlappingProperties': overlapping,
                 }),
               );

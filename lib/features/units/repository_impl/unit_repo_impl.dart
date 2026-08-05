@@ -171,4 +171,10 @@ class UnitRepositoryImpl implements UnitRepository {
 
   @override
   Future<void> toggleLike(String unitId, String userId) => unitDataSource.toggleLike(unitId, userId);
+
+  @override
+  Future<int> countByOwner(String ownerId) => unitDataSource.countByOwner(ownerId);
+
+  @override
+  Future<int> countListedByOwner(String ownerId) => unitDataSource.countListedByOwner(ownerId);
 }
