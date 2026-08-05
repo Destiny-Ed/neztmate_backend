@@ -1855,6 +1855,7 @@ class LeaseHandler {
           await leaseRepository.approveLeaseTransfer(leaseId, userId);
           break;
         case 'termination':
+        case 'early_termination':
           await leaseRepository.approveEarlyTermination(leaseId, userId);
           break;
         case 'rent_adjustment':
@@ -1895,6 +1896,7 @@ class LeaseHandler {
           await leaseRepository.rejectLeaseTransfer(leaseId, userId, reason);
           break;
         case 'termination':
+        case 'early_termination':
           await leaseRepository.rejectEarlyTermination(leaseId, userId, reason);
           break;
         case 'rent_adjustment':
