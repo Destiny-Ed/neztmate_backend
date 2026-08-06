@@ -10,12 +10,28 @@ class LeaseRepositoryImpl implements LeaseRepository {
 
   LeaseRepositoryImpl(this.dataSource);
 
+  //  BASIC CRUD
   @override
   Future<LeaseModel> createLease(LeaseModel lease) => dataSource.createLease(lease);
 
   @override
+  Future<LeaseModel> createManualLease(LeaseModel lease) => dataSource.createManualLease(lease);
+
+  @override
   Future<LeaseModel> getLeaseById(String id) => dataSource.getLeaseById(id);
 
+  @override
+  Future<LeaseModel> getLeaseByApplicationId(String applicationId) =>
+      dataSource.getLeaseByApplicationId(applicationId);
+
+  @override
+  Future<void> updateLease(LeaseModel lease) => dataSource.updateLease(lease);
+
+  @override
+  Future<void> updateLeaseStatus(String leaseId, String status) =>
+      dataSource.updateLeaseStatus(leaseId, status);
+
+  //  QUERIES
   @override
   Future<List<LeaseModel>> getActiveLeasesByTenant(String tenantId) =>
       dataSource.getActiveLeasesByTenant(tenantId);
@@ -28,15 +44,19 @@ class LeaseRepositoryImpl implements LeaseRepository {
       dataSource.getLeasesByLandowner(landownerId);
 
   @override
+  Future<List<LeaseModel>> getLeasesByManager(String managerId) => dataSource.getLeasesByManager(managerId);
+
+  @override
   Future<List<LeaseModel>> getLeasesByUnit(String unitId) => dataSource.getLeasesByUnit(unitId);
 
   @override
-  Future<void> updateLease(LeaseModel lease) => dataSource.updateLease(lease);
+  Future<List<LeaseModel>> getAllActiveLeases() => dataSource.getAllActiveLeases();
 
   @override
-  Future<LeaseModel> getLeaseByApplicationId(String applicationId) =>
-      dataSource.getLeaseByApplicationId(applicationId);
+  Future<List<LeaseModel>> getExpiringLeases({int withinDays = 5}) =>
+      dataSource.getExpiringLeases(withinDays: withinDays);
 
+  //  SIGNING & ACTIVATION
   @override
   Future<void> markLeaseAsSigned(
     String leaseId,
@@ -46,23 +66,40 @@ class LeaseRepositoryImpl implements LeaseRepository {
   ) => dataSource.markLeaseAsSigned(leaseId, signedPdfUrl, paymentReceiptUrl, signedBy);
 
   @override
-  Future<void> updateLeaseStatus(String leaseId, String status) =>
-      dataSource.updateLeaseStatus(leaseId, status);
+  Future<void> confirmPaymentAndActivate(String leaseId, String confirmedBy) =>
+      dataSource.confirmPaymentAndActivate(leaseId, confirmedBy);
+
+  //  RENEWAL
+  @override
+  Future<void> markLeaseAsPendingRenewal(String leaseId) => dataSource.markLeaseAsPendingRenewal(leaseId);
 
   @override
-  Future<void> terminateLease(String id, String reason, String terminatedBy) =>
-      dataSource.terminateLease(id, reason, terminatedBy);
+  Future<LeaseModel> createRenewalLease({
+    required String oldLeaseId,
+    required DateTime newStartDate,
+    required DateTime newEndDate,
+    required double monthlyRent,
+    String? reason,
+    String? paymentReceiptUrl,
+  }) => dataSource.createRenewalLease(
+    oldLeaseId: oldLeaseId,
+    newStartDate: newStartDate,
+    newEndDate: newEndDate,
+    monthlyRent: monthlyRent,
+    reason: reason,
+    paymentReceiptUrl: paymentReceiptUrl,
+  );
 
   @override
   Future<LeaseModel> renewLeaseAfterPayment(String leaseId) => dataSource.renewLeaseAfterPayment(leaseId);
 
+  //  TRANSFER
   @override
-  Future<List<LeaseModel>> getAllActiveLeases() => dataSource.getAllActiveLeases();
-  @override
-  Future<List<LeaseModel>> getExpiringLeases({int withinDays = 5}) =>
-      dataSource.getExpiringLeases(withinDays: withinDays);
-  @override
-  Future<int> updateExpiredLeasesToInactive() => dataSource.updateExpiredLeasesToInactive();
+  Future<void> requestLeaseTransfer({
+    required String leaseId,
+    required String newTenantId,
+    required String reason,
+  }) => dataSource.requestLeaseTransfer(leaseId: leaseId, newTenantId: newTenantId, reason: reason);
 
   @override
   Future<void> approveLeaseTransfer(String leaseId, String approvedBy) =>
@@ -72,6 +109,7 @@ class LeaseRepositoryImpl implements LeaseRepository {
   Future<void> rejectLeaseTransfer(String leaseId, String rejectedBy, String reason) =>
       dataSource.rejectLeaseTransfer(leaseId, rejectedBy, reason);
 
+  //  EARLY TERMINATION
   @override
   Future<void> requestEarlyTermination({
     required String leaseId,
@@ -80,11 +118,12 @@ class LeaseRepositoryImpl implements LeaseRepository {
   }) => dataSource.requestEarlyTermination(leaseId: leaseId, reason: reason, requestedBy: requestedBy);
 
   @override
-  Future<void> requestLeaseTransfer({
-    required String leaseId,
-    required String newTenantId,
-    required String reason,
-  }) => dataSource.requestLeaseTransfer(leaseId: leaseId, newTenantId: newTenantId, reason: reason);
+  Future<void> approveEarlyTermination(String leaseId, String approvedBy) =>
+      dataSource.approveEarlyTermination(leaseId, approvedBy);
+
+  @override
+  Future<void> rejectEarlyTermination(String leaseId, String rejectedBy, String reason) =>
+      dataSource.rejectEarlyTermination(leaseId, rejectedBy, reason);
 
   @override
   Future<List<LeaseTerminationRequest>> getTerminationRequests(String userId) =>
@@ -94,13 +133,14 @@ class LeaseRepositoryImpl implements LeaseRepository {
   Future<Map<String, dynamic>> calculateEarlyTerminationSettlement(String leaseId, UnitRepository unitRepo) =>
       dataSource.calculateEarlyTerminationSettlement(leaseId, unitRepo);
 
-  @override
-  Future<void> acceptSettlement(String leaseId, String acceptedBy) =>
-      dataSource.acceptSettlement(leaseId, acceptedBy);
-
+  //  SETTLEMENT
   @override
   Future<void> proposeSettlement(LeaseSettlementAgreement settlement) =>
       dataSource.proposeSettlement(settlement);
+
+  @override
+  Future<void> acceptSettlement(String leaseId, String acceptedBy) =>
+      dataSource.acceptSettlement(leaseId, acceptedBy);
 
   @override
   Future<void> disputeSettlement({
@@ -116,18 +156,15 @@ class LeaseRepositoryImpl implements LeaseRepository {
     required String resolution,
     double? finalAmount,
     String? notes,
-  }) => dataSource.resolveSettlementDispute(leaseId: leaseId, resolvedBy: resolvedBy, resolution: resolution);
+  }) => dataSource.resolveSettlementDispute(
+    leaseId: leaseId,
+    resolvedBy: resolvedBy,
+    resolution: resolution,
+    finalAmount: finalAmount,
+    notes: notes,
+  );
 
-  @override
-  Future<void> confirmPaymentAndActivate(String leaseId, String confirmedBy) =>
-      dataSource.confirmPaymentAndActivate(leaseId, confirmedBy);
-
-  @override
-  Future<List<LeaseModel>> getLeasesByManager(String managerId) => dataSource.getLeasesByManager(managerId);
-
-  @override
-  Future<void> approveRentAdjustment(String leaseId, String approvedBy) =>
-      dataSource.approveRentAdjustment(leaseId, approvedBy);
+  //  RENT ADJUSTMENT
   @override
   Future<void> proposeRentAdjustment({
     required String leaseId,
@@ -140,24 +177,33 @@ class LeaseRepositoryImpl implements LeaseRepository {
     reason: reason,
     proposedBy: proposedBy,
   );
+
+  @override
+  Future<void> approveRentAdjustment(String leaseId, String approvedBy) =>
+      dataSource.approveRentAdjustment(leaseId, approvedBy);
+
   @override
   Future<void> rejectRentAdjustment(String leaseId, String rejectedBy, String reason) =>
       dataSource.rejectRentAdjustment(leaseId, rejectedBy, reason);
 
-  @override
-  Future<void> approveEarlyTermination(String leaseId, String approvedBy) =>
-      dataSource.approveEarlyTermination(leaseId, approvedBy);
-  @override
-  Future<List<Map<String, dynamic>>> getIncomingLeaseRequests(String userId, String role) =>
-      dataSource.getIncomingLeaseRequests(userId, role);
+  //  REQUEST VIEWING
   @override
   Future<List<Map<String, dynamic>>> getLeaseRequestsByUser(String userId) =>
       dataSource.getLeaseRequestsByUser(userId);
 
   @override
-  Future<void> rejectEarlyTermination(String leaseId, String rejectedBy, String reason) =>
-      dataSource.rejectEarlyTermination(leaseId, rejectedBy, reason);
+  Future<List<Map<String, dynamic>>> getIncomingLeaseRequests(String userId, String role) =>
+      dataSource.getIncomingLeaseRequests(userId, role);
+
   @override
   Future<void> updateLeaseRequestStatus(String leaseId, String requestType, String status, String? reason) =>
       dataSource.updateLeaseRequestStatus(leaseId, requestType, status, reason);
+
+  //  SYSTEM / CRON
+  @override
+  Future<int> updateExpiredLeasesToInactive() => dataSource.updateExpiredLeasesToInactive();
+
+  @override
+  Future<void> terminateLease(String id, String reason, String terminatedBy) =>
+      dataSource.terminateLease(id, reason, terminatedBy);
 }
