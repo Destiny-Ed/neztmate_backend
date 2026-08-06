@@ -6,8 +6,10 @@ class LeasePaymentCalculatorService {
     final monthlyRent = unit.monthlyRent;
 
     final durationMonths = lease.durationMonths ?? 12;
+    final renewalDurationMonths = durationMonths < 12 ? durationMonths : 12;
 
     final totalRentForLease = monthlyRent * durationMonths;
+    final totalRentForLeaseRenewal = monthlyRent * renewalDurationMonths;
 
     double oneTimeFeeTotal = 0.0;
     double recurringFeeTotal = 0.0;
@@ -20,64 +22,34 @@ class LeasePaymentCalculatorService {
 
       if (fee.isOneTime) {
         oneTimeFeeTotal += feeAmount;
-
-        oneTimeFees.add({"name": fee.name, "amount": feeAmount, "isPercentage": fee.isPercentage});
+        oneTimeFees.add({'name': fee.name, 'amount': feeAmount, 'isPercentage': fee.isPercentage});
       } else {
         recurringFeeTotal += feeAmount;
-
-        // recurringFees.add({"name": fee.name, "amountPerYear": feeAmount, "isPercentage": fee.isPercentage});
-
-        recurringFees.add({"name": fee.name, "amount": feeAmount, "isPercentage": fee.isPercentage});
+        recurringFees.add({'name': fee.name, 'amount': feeAmount, 'isPercentage': fee.isPercentage});
       }
     }
 
-    // First Payment (Initial move-in)
-    // final firstPaymentTotal = monthlyRent + oneTimeFeeTotal + recurringFeeTotal;
-
-    // Renewal Payment (subsequent years)
-    // final renewalPaymentTotal = monthlyRent + recurringFeeTotal;
-
     return {
-      "monthlyRent": monthlyRent,
-      "leaseDurationMonths": durationMonths,
-      "totalRentForLease": totalRentForLease,
-
-      "oneTimeFees": oneTimeFees,
-      "recurringFees": recurringFees,
-
-      "firstPayment": {
-        "rent": monthlyRent,
+      'monthlyRent': monthlyRent,
+      'leaseDurationMonths': durationMonths,
+      'leaseDurationMonthsRenewal': renewalDurationMonths,
+      'totalRentForLease': totalRentForLease,
+      'totalRentForLeaseRenewal': totalRentForLeaseRenewal,
+      'oneTimeFees': oneTimeFees,
+      'recurringFees': recurringFees,
+      'firstPayment': {
+        'rent': monthlyRent,
         'duration': durationMonths,
-        "fees": oneTimeFeeTotal + recurringFeeTotal,
-        "total":
+        'fees': oneTimeFeeTotal + recurringFeeTotal,
+        'total':
             totalRentForLease + (oneTimeFeeTotal * durationMonths) + (recurringFeeTotal * durationMonths),
       },
-
-      // "firstPayment": {
-      //   "rent": monthlyRent,
-      //   "oneTimeFees": oneTimeFeeTotal,
-      //   "recurringFees": recurringFeeTotal,
-      //   "total": firstPaymentTotal,
-      // },
-      "renewalPayment": {
-        "rent": monthlyRent,
-        "fees": recurringFeeTotal,
-        "duration": durationMonths,
-        "total": totalRentForLease + (recurringFeeTotal * totalRentForLease),
+      'renewalPayment': {
+        'rent': monthlyRent,
+        'fees': recurringFeeTotal,
+        'duration': renewalDurationMonths,
+        'total': totalRentForLeaseRenewal + (recurringFeeTotal * renewalDurationMonths),
       },
-      // "renewalPayment": {
-      //   "rent": monthlyRent,
-      //   "recurringFees": recurringFeeTotal,
-      //   "durationMonths": 12,
-      //   "total": renewalPaymentTotal,
-      // },
-
-      // "summary": {
-      //   "totalOneTimeFees": oneTimeFeeTotal,
-      //   "totalRecurringFeesPerYear": recurringFeeTotal,
-      //   "grandTotalForFullLease":
-      //       totalRentForLease + oneTimeFeeTotal + (recurringFeeTotal * (durationMonths / 12)),
-      // },
     };
   }
 
@@ -85,7 +57,10 @@ class LeasePaymentCalculatorService {
   static Map<String, dynamic> calculateForUnit({required UnitModel unit, required int durationMonths}) {
     final monthlyRent = unit.monthlyRent ?? 0.0;
 
-    final totalRentForTerm = monthlyRent * durationMonths;
+    final renewalDurationMonths = durationMonths < 12 ? durationMonths : 12;
+
+    final totalRentForLease = monthlyRent * durationMonths;
+    final totalRentForLeaseRenewal = monthlyRent * renewalDurationMonths;
 
     double oneTimeFeeTotal = 0.0;
     double recurringFeeTotal = 0.0;
@@ -94,46 +69,38 @@ class LeasePaymentCalculatorService {
     final recurringFees = <Map<String, dynamic>>[];
 
     for (final fee in unit.fees ?? <UnitFee>[]) {
-      final feeAmount = fee.isPercentage ? monthlyRent * (fee.amount / 100) : fee.amount;
+      final feeAmount = fee.isPercentage ? monthlyRent * fee.amount / 100 : fee.amount;
 
       if (fee.isOneTime) {
         oneTimeFeeTotal += feeAmount;
-        oneTimeFees.add({"name": fee.name, "amountPerMonth": feeAmount, "isPercentage": fee.isPercentage});
+        oneTimeFees.add({'name': fee.name, 'amount': feeAmount, 'isPercentage': fee.isPercentage});
       } else {
         recurringFeeTotal += feeAmount;
-        recurringFees.add({"name": fee.name, "amountPerMonth": feeAmount, "isPercentage": fee.isPercentage});
+        recurringFees.add({'name': fee.name, 'amount': feeAmount, 'isPercentage': fee.isPercentage});
       }
     }
 
-    final totalOneTimeFees = oneTimeFeeTotal * durationMonths;
-    final totalRecurringFees = recurringFeeTotal * durationMonths;
-
-    final firstPaymentTotal = totalRentForTerm + totalOneTimeFees + totalRecurringFees;
-    final renewalPaymentTotal = totalRentForTerm + totalRecurringFees;
-
     return {
-      "monthlyRent": monthlyRent,
-      "durationMonths": durationMonths,
-      "totalRentForTerm": totalRentForTerm,
-
-      "oneTimeFees": oneTimeFees,
-      "recurringFees": recurringFees,
-
-      "firstPayment": {
-        "rent": totalRentForTerm,
-        "oneTimeFees": oneTimeFeeTotal * durationMonths,
-        "recurringFees": recurringFeeTotal * totalRentForTerm,
-        "total": firstPaymentTotal,
+      'monthlyRent': monthlyRent,
+      'leaseDurationMonths': durationMonths,
+      'leaseDurationMonthsRenewal': renewalDurationMonths,
+      'totalRentForLease': totalRentForLease,
+      'totalRentForLeaseRenewal': totalRentForLeaseRenewal,
+      'oneTimeFees': oneTimeFees,
+      'recurringFees': recurringFees,
+      'firstPayment': {
+        'rent': monthlyRent,
+        'duration': durationMonths,
+        'fees': oneTimeFeeTotal + recurringFeeTotal,
+        'total':
+            totalRentForLease + (oneTimeFeeTotal * durationMonths) + (recurringFeeTotal * durationMonths),
       },
-
-      "renewalPayment": {
-        "rent": totalRentForTerm,
-        "recurringFees": recurringFeeTotal,
-        "total": renewalPaymentTotal,
+      'renewalPayment': {
+        'rent': monthlyRent,
+        'fees': recurringFeeTotal,
+        'duration': renewalDurationMonths,
+        'total': totalRentForLeaseRenewal + (recurringFeeTotal * renewalDurationMonths),
       },
-
-      "grandTotalForFullLease":
-          totalRentForTerm + oneTimeFeeTotal + (recurringFeeTotal * (durationMonths / 12)),
     };
   }
 }
