@@ -1,10 +1,13 @@
 import 'dart:convert';
+import 'package:neztmate_backend/core/error.dart';
 import 'package:neztmate_backend/core/services/reputation/reputation_service.dart';
 import 'package:neztmate_backend/features/auth_user/models/user_model.dart';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
 import 'package:neztmate_backend/features/history/model/user_history_model.dart';
 import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
+import 'package:neztmate_backend/features/leases/models/lease_request_model.dart';
 import 'package:neztmate_backend/features/leases/models/leases_model.dart';
+import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
 import 'package:neztmate_backend/features/leases/service/lease_payment_calculator_service.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
@@ -15,8 +18,6 @@ import 'package:neztmate_backend/features/tenants/repository/tenant_respository.
 import 'package:neztmate_backend/features/units/models/unit_model.dart';
 import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
 import 'package:shelf/shelf.dart';
-import 'package:neztmate_backend/core/error.dart';
-import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'package:uuid/uuid.dart';
 
@@ -43,7 +44,7 @@ class LeaseHandler {
     required this.paymentRepository,
   });
 
-  // ====================== HELPERS ======================
+  // HELPERS
 
   Future<Map<String, dynamic>> _enrichLease(LeaseModel lease) async {
     final tenant = await userRepository.getUserById(lease.tenantId);
@@ -105,8 +106,9 @@ class LeaseHandler {
 
   Response _unauthorized() => Response(401, body: jsonEncode({'message': 'Unauthorized'}));
 
-  // ====================== VIEW LEASES ======================
+  // VIEW LEASES
 
+  /// GET /leases/me
   Future<Response> getMyLeases(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
@@ -138,6 +140,7 @@ class LeaseHandler {
     }
   }
 
+  /// GET /leases/<id>
   Future<Response> getLeaseById(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
@@ -150,7 +153,7 @@ class LeaseHandler {
 
       final isTenant = lease.tenantId == userId;
       final isLandowner = lease.landownerId == userId;
-      final isManager = role == 'manager';
+      final isManager = role == 'manager' || lease.managerId == userId;
 
       if (!isTenant && !isLandowner && !isManager) {
         return Response(403, body: jsonEncode({'message': 'Forbidden'}));
@@ -167,6 +170,7 @@ class LeaseHandler {
     }
   }
 
+  /// GET /leases/application/<id>
   Future<Response> getLeaseByApplicationId(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
@@ -179,7 +183,7 @@ class LeaseHandler {
 
       final isTenant = lease.tenantId == userId;
       final isLandowner = lease.landownerId == userId;
-      final isManager = role == 'manager';
+      final isManager = role == 'manager' || lease.managerId == userId;
 
       if (!isTenant && !isLandowner && !isManager) {
         return Response(403, body: jsonEncode({'message': 'Forbidden'}));
@@ -196,6 +200,7 @@ class LeaseHandler {
     }
   }
 
+  /// GET /leases/property/<propertyId>
   Future<Response> getLeasesByProperty(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
@@ -205,7 +210,6 @@ class LeaseHandler {
       if (userId == null || role == null || propertyId == null) {
         return Response(400, body: jsonEncode({'message': 'Missing required parameters'}));
       }
-
       if (!['landowner', 'manager'].contains(role)) {
         return Response(403, body: jsonEncode({'message': 'Unauthorized'}));
       }
@@ -227,8 +231,9 @@ class LeaseHandler {
     }
   }
 
-  // ====================== SIGNING ======================
+  // SIGNING
 
+  /// PATCH /leases/<id>/sign
   Future<Response> signLease(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
@@ -252,12 +257,15 @@ class LeaseHandler {
       }
 
       final lease = await leaseRepository.getLeaseById(leaseId);
+      if (lease.tenantId != userId) {
+        return Response(403, body: jsonEncode({'message': 'This is not your lease'}));
+      }
 
       final activeLeases = await leaseRepository.getActiveLeasesByTenant(userId);
       if (activeLeases.isNotEmpty) {
         final currentLease = activeLeases.first;
         final daysUntilExpiry = currentLease.endDate.difference(DateTime.now()).inDays;
-        if (daysUntilExpiry > 30) {
+        if (daysUntilExpiry > 30 && currentLease.id != leaseId) {
           return Response(
             400,
             body: jsonEncode({
@@ -329,7 +337,7 @@ class LeaseHandler {
         jsonEncode({
           'message': 'Lease signed successfully',
           'leaseId': leaseId,
-          'status': 'pending payment',
+          'status': 'pending_payment',
           'signedAgreementPdfUrl': signedPdfUrl,
         }),
       );
@@ -341,8 +349,100 @@ class LeaseHandler {
     }
   }
 
-  // ====================== RENEWAL (OFFLINE) ======================
+  // PAYMENT CONFIRM
 
+  /// PATCH /leases/<id>/confirm-payment
+  Future<Response> confirmPaymentReceived(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+      final leaseId = request.params['id'];
+
+      if (userId == null || leaseId == null) return _unauthorized();
+      if (!['landowner', 'manager'].contains(role)) {
+        return Response(403, body: jsonEncode({'message': 'Only landlords/managers can confirm payment'}));
+      }
+
+      final lease = await leaseRepository.getLeaseById(leaseId);
+      final status = lease.status.toLowerCase().replaceAll(' ', '_');
+      if (status != 'pending_payment' && status != 'payment_submitted') {
+        return Response(400, body: jsonEncode({'message': 'Lease is not awaiting payment confirmation'}));
+      }
+
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final isRenewal = body['isRenewal'] as bool? ?? false;
+
+      final unit = await unitRepository.getUnitById(lease.unitId);
+      final paymentSummary = LeasePaymentCalculatorService.calculate(lease: lease, unit: unit);
+
+      final double totalAmount = isRenewal
+          ? (paymentSummary['renewalPayment']?['total'] as num? ?? lease.monthlyRent).toDouble()
+          : (paymentSummary['firstPayment']?['total'] as num? ?? lease.monthlyRent).toDouble();
+
+      await _recordLeasePaymentInternal(
+        lease: lease,
+        amount: totalAmount,
+        paymentMethod: 'bank transfer',
+        transactionRef: 'nm_${DateTime.now().millisecondsSinceEpoch}',
+        receiptUrl: lease.paymentReceiptUrl,
+        confirmedBy: userId,
+      );
+
+      if (isRenewal) {
+        final durationMonths = lease.durationMonths ?? 12;
+        final newStartDate = lease.endDate;
+        final newEndDate = newStartDate.add(Duration(days: durationMonths * 30));
+
+        final newLease = await leaseRepository.createRenewalLease(
+          oldLeaseId: leaseId,
+          newStartDate: newStartDate,
+          newEndDate: newEndDate,
+          monthlyRent: lease.monthlyRent,
+          reason: 'Renewal after payment confirmation',
+          paymentReceiptUrl: lease.paymentReceiptUrl,
+        );
+
+        await unitRepository.updateUnitStatus(
+          unitId: lease.unitId,
+          status: 'occupied',
+          currentTenantId: lease.tenantId,
+          isListedForRent: false,
+        );
+
+        return Response.ok(
+          jsonEncode({
+            'message': 'Renewal payment confirmed. New lease is active.',
+            'newLeaseId': newLease.id,
+            'oldLeaseId': leaseId,
+          }),
+        );
+      }
+
+      await leaseRepository.confirmPaymentAndActivate(leaseId, userId);
+
+      await unitRepository.updateUnitStatus(
+        unitId: lease.unitId,
+        status: 'occupied',
+        currentTenantId: lease.tenantId,
+        isListedForRent: false,
+      );
+
+      return Response.ok(
+        jsonEncode({
+          'message': 'Payment confirmed. Tenant officially added to unit.',
+          'leaseId': leaseId,
+          'unitUpdated': true,
+        }),
+      );
+    } catch (e, stack) {
+      print('Confirm payment error: $e\n$stack');
+      return Response.internalServerError();
+    }
+  }
+
+  // RENEWAL (OFFLINE)
+
+  /// POST /leases/<id>/request-renewal
   Future<Response> requestRenewal(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
@@ -362,6 +462,28 @@ class LeaseHandler {
         return badRequest('Only inactive or expired leases can be renewed');
       }
 
+      final created = await leaseRepository.createLeaseRequest(
+        LeaseRequestModel(
+          id: '',
+          leaseId: lease.id,
+          propertyId: lease.propertyId,
+          unitId: lease.unitId,
+          tenantId: lease.tenantId,
+          landownerId: lease.landownerId,
+          managerId: lease.managerId,
+          type: LeaseRequestType.renewal,
+          status: LeaseRequestStatus.pending,
+          initiatedBy: LeaseRequestActor.tenant,
+          initiatedById: userId,
+          assignedToId: lease.managerId ?? lease.landownerId,
+          title: 'Lease Renewal Request',
+          reason: 'Tenant requested renewal',
+          metadata: {},
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+      );
+
       await leaseRepository.markLeaseAsPendingRenewal(leaseId);
 
       await notificationRepository.create(
@@ -371,8 +493,8 @@ class LeaseHandler {
           type: 'renewal_requested',
           title: 'Tenant Requested Renewal',
           body: 'Your tenant has requested to renew the lease.',
-          relatedId: leaseId,
-          relatedCollection: 'leases',
+          relatedId: created.id,
+          relatedCollection: 'lease_requests',
           createdAt: DateTime.now(),
         ),
       );
@@ -380,16 +502,19 @@ class LeaseHandler {
       return Response.ok(
         jsonEncode({
           'message': 'Renewal request submitted successfully',
-          'leaseId': leaseId,
-          'status': 'pending payment',
+          'request': created.toMap(),
+          'status': 'pending_payment',
         }),
       );
+    } on ValidationException catch (e) {
+      return Response(400, body: jsonEncode({'message': e.message}));
     } catch (e, stack) {
       print('Request renewal error: $e\n$stack');
       return Response.internalServerError();
     }
   }
 
+  /// POST /leases/<id>/offer-renewal
   Future<Response> offerRenewal(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
@@ -406,6 +531,28 @@ class LeaseHandler {
         return badRequest('Only inactive leases can be offered for renewal');
       }
 
+      final created = await leaseRepository.createLeaseRequest(
+        LeaseRequestModel(
+          id: '',
+          leaseId: lease.id,
+          propertyId: lease.propertyId,
+          unitId: lease.unitId,
+          tenantId: lease.tenantId,
+          landownerId: lease.landownerId,
+          managerId: lease.managerId,
+          type: LeaseRequestType.renewal,
+          status: LeaseRequestStatus.pending,
+          initiatedBy: role == 'manager' ? LeaseRequestActor.manager : LeaseRequestActor.landlord,
+          initiatedById: userId,
+          assignedToId: lease.tenantId,
+          title: 'Lease Renewal Offer',
+          reason: 'Landlord offered renewal',
+          metadata: {},
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+      );
+
       await leaseRepository.markLeaseAsPendingRenewal(leaseId);
 
       await notificationRepository.create(
@@ -415,8 +562,8 @@ class LeaseHandler {
           type: 'renewal_offered',
           title: 'Lease Renewal Available',
           body: 'Your landlord has offered to renew your lease. Please make payment to continue.',
-          relatedId: leaseId,
-          relatedCollection: 'leases',
+          relatedId: created.id,
+          relatedCollection: 'lease_requests',
           createdAt: DateTime.now(),
         ),
       );
@@ -424,16 +571,19 @@ class LeaseHandler {
       return Response.ok(
         jsonEncode({
           'message': 'Renewal offered successfully',
-          'leaseId': leaseId,
-          'status': 'pending payment',
+          'request': created.toMap(),
+          'status': 'pending_payment',
         }),
       );
+    } on ValidationException catch (e) {
+      return Response(400, body: jsonEncode({'message': e.message}));
     } catch (e, stack) {
       print('Offer renewal error: $e\n$stack');
       return Response.internalServerError();
     }
   }
 
+  /// POST /leases/<id>/confirm-renewal-payment
   Future<Response> confirmRenewalPayment(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
@@ -460,12 +610,14 @@ class LeaseHandler {
       if (lease.tenantId != userId) {
         return Response(403, body: jsonEncode({'message': 'This is not your lease'}));
       }
-      if (lease.status.toLowerCase() != 'pending payment') {
+
+      final status = lease.status.toLowerCase().replaceAll(' ', '_');
+      if (status != 'pending_payment') {
         return badRequest('Lease is not awaiting payment');
       }
 
       await leaseRepository.updateLease(
-        lease.copyWith(paymentReceiptUrl: receiptUrl, status: 'payment submitted', updatedAt: DateTime.now()),
+        lease.copyWith(paymentReceiptUrl: receiptUrl, status: 'payment_submitted', updatedAt: DateTime.now()),
       );
 
       await notificationRepository.create(
@@ -485,7 +637,7 @@ class LeaseHandler {
         jsonEncode({
           'message': 'Payment proof submitted successfully. Waiting for landlord confirmation.',
           'leaseId': leaseId,
-          'status': 'payment submitted',
+          'status': 'payment_submitted',
         }),
       );
     } catch (e, stack) {
@@ -494,6 +646,7 @@ class LeaseHandler {
     }
   }
 
+  /// POST /leases/<id>/approve-renewal-payment
   Future<Response> approveRenewalPayment(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
@@ -509,7 +662,8 @@ class LeaseHandler {
       }
 
       final oldLease = await leaseRepository.getLeaseById(leaseId);
-      if (oldLease.status.toLowerCase() != 'payment submitted') {
+      final status = oldLease.status.toLowerCase().replaceAll(' ', '_');
+      if (status != 'payment_submitted') {
         return badRequest('No payment has been submitted for this renewal');
       }
 
@@ -560,8 +714,9 @@ class LeaseHandler {
     }
   }
 
-  // ====================== MANUAL LEASE ======================
+  // MANUAL LEASE
 
+  /// POST /leases/manual
   Future<Response> createManualLease(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
@@ -585,7 +740,6 @@ class LeaseHandler {
         'endDate',
         'monthlyRent',
       ];
-
       for (final field in requiredFields) {
         if (body[field] == null || body[field].toString().trim().isEmpty) {
           return badRequest('$field is required');
@@ -621,7 +775,6 @@ class LeaseHandler {
           body: jsonEncode({'message': 'You do not have permission to create a lease on this property'}),
         );
       }
-
       if (unit.status.toLowerCase() == 'occupied' && unit.currentTenantId != null) {
         return badRequest('This unit is already occupied by another tenant');
       }
@@ -706,97 +859,9 @@ class LeaseHandler {
     }
   }
 
-  // ====================== CONFIRM PAYMENT ======================
+  // STATUS
 
-  Future<Response> confirmPaymentReceived(Request request) async {
-    try {
-      final userId = request.context['userId'] as String?;
-      final role = request.context['role'] as String?;
-      final leaseId = request.params['id'];
-
-      if (userId == null || leaseId == null) return _unauthorized();
-      if (!['landowner', 'manager'].contains(role)) {
-        return Response(403, body: jsonEncode({'message': 'Only landlords/managers can confirm payment'}));
-      }
-
-      final lease = await leaseRepository.getLeaseById(leaseId);
-      if (lease.status.toLowerCase() != 'pending payment') {
-        return Response(400, body: jsonEncode({'message': 'Lease is not awaiting payment confirmation'}));
-      }
-
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
-      final isRenewal = body['isRenewal'] as bool? ?? false;
-
-      final unit = await unitRepository.getUnitById(lease.unitId);
-      final paymentSummary = LeasePaymentCalculatorService.calculate(lease: lease, unit: unit);
-
-      final double totalAmount = isRenewal
-          ? (paymentSummary['renewalPayment']?['total'] as num? ?? lease.monthlyRent).toDouble()
-          : (paymentSummary['firstPayment']?['total'] as num? ?? lease.monthlyRent).toDouble();
-
-      await _recordLeasePaymentInternal(
-        lease: lease,
-        amount: totalAmount,
-        paymentMethod: 'bank transfer',
-        transactionRef: 'nm_${DateTime.now().millisecondsSinceEpoch}',
-        receiptUrl: lease.paymentReceiptUrl,
-        confirmedBy: userId,
-      );
-
-      if (isRenewal) {
-        final durationMonths = lease.durationMonths ?? 12;
-        final newStartDate = lease.endDate;
-        final newEndDate = newStartDate.add(Duration(days: durationMonths * 30));
-
-        final newLease = await leaseRepository.createRenewalLease(
-          oldLeaseId: leaseId,
-          newStartDate: newStartDate,
-          newEndDate: newEndDate,
-          monthlyRent: lease.monthlyRent,
-          reason: 'Renewal after payment confirmation',
-          paymentReceiptUrl: lease.paymentReceiptUrl,
-        );
-
-        await unitRepository.updateUnitStatus(
-          unitId: lease.unitId,
-          status: 'occupied',
-          currentTenantId: lease.tenantId,
-          isListedForRent: false,
-        );
-
-        return Response.ok(
-          jsonEncode({
-            'message': 'Renewal payment confirmed. New lease is active.',
-            'newLeaseId': newLease.id,
-            'oldLeaseId': leaseId,
-          }),
-        );
-      }
-
-      await leaseRepository.confirmPaymentAndActivate(leaseId, userId);
-
-      await unitRepository.updateUnitStatus(
-        unitId: lease.unitId,
-        status: 'occupied',
-        currentTenantId: lease.tenantId,
-        isListedForRent: false,
-      );
-
-      return Response.ok(
-        jsonEncode({
-          'message': 'Payment confirmed. Tenant officially added to unit.',
-          'leaseId': leaseId,
-          'unitUpdated': true,
-        }),
-      );
-    } catch (e, stack) {
-      print('Confirm payment error: $e\n$stack');
-      return Response.internalServerError();
-    }
-  }
-
-  // ====================== STATUS UPDATE ======================
-
+  /// PATCH /leases/<id>/status
   Future<Response> updateLeaseStatus(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
@@ -812,7 +877,7 @@ class LeaseHandler {
       }
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
-      final newStatus = (body['status'] as String?)?.trim().toLowerCase();
+      final newStatus = (body['status'] as String?)?.trim().toLowerCase().replaceAll(' ', '_');
 
       if (newStatus == null || newStatus.isEmpty) {
         return Response(400, body: jsonEncode({'message': 'Status is required'}));
@@ -824,14 +889,14 @@ class LeaseHandler {
         return Response(400, body: jsonEncode({'message': 'Terminated leases cannot be modified'}));
       }
 
-      if (newStatus == 'pending payment' && lease.endDate.isAfter(DateTime.now())) {
+      if (newStatus == 'pending_payment' && lease.endDate.isAfter(DateTime.now())) {
         return Response(
           400,
-          body: jsonEncode({'message': 'Cannot set to Pending Payment. Current lease has not yet expired.'}),
+          body: jsonEncode({'message': 'Cannot set to pending_payment. Current lease has not yet expired.'}),
         );
       }
 
-      const allowedStatuses = ['pending signature', 'pending payment', 'active', 'inactive', 'terminated'];
+      const allowedStatuses = ['pending_signature', 'pending_payment', 'active', 'inactive', 'terminated'];
       if (!allowedStatuses.contains(newStatus)) {
         return Response(
           400,
@@ -870,8 +935,9 @@ class LeaseHandler {
     }
   }
 
-  // ====================== TRANSFER ======================
+  // TRANSFER REQUEST
 
+  /// POST /leases/<id>/transfer
   Future<Response> requestLeaseTransfer(Request request) async {
     try {
       final tenantId = request.context['userId'] as String?;
@@ -881,9 +947,9 @@ class LeaseHandler {
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final newTenantId = body['newTenantId'] as String?;
-      final reason = body['reason'] as String?;
+      final reason = body['reason'] as String? ?? 'Tenant relocation';
 
-      if (newTenantId == null) {
+      if (newTenantId == null || newTenantId.isEmpty) {
         return badRequest('newTenantId (replacement tenant) is required');
       }
 
@@ -895,10 +961,26 @@ class LeaseHandler {
         return Response(400, body: jsonEncode({'message': 'Only active leases can be transferred'}));
       }
 
-      await leaseRepository.requestLeaseTransfer(
-        leaseId: leaseId,
-        newTenantId: newTenantId,
-        reason: reason ?? 'Tenant relocation',
+      final created = await leaseRepository.createLeaseRequest(
+        LeaseRequestModel(
+          id: '',
+          leaseId: lease.id,
+          propertyId: lease.propertyId,
+          unitId: lease.unitId,
+          tenantId: lease.tenantId,
+          landownerId: lease.landownerId,
+          managerId: lease.managerId,
+          type: LeaseRequestType.transfer,
+          status: LeaseRequestStatus.pending,
+          initiatedBy: LeaseRequestActor.tenant,
+          initiatedById: tenantId,
+          assignedToId: lease.managerId ?? lease.landownerId,
+          title: 'Lease Transfer Request',
+          reason: reason,
+          metadata: {'newTenantId': newTenantId},
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
       );
 
       await notificationRepository.create(
@@ -907,8 +989,8 @@ class LeaseHandler {
           type: 'lease_transfer_request_sent',
           title: 'Lease Transfer Requested',
           body: 'Your request to transfer the lease has been submitted.',
-          relatedId: leaseId,
-          relatedCollection: 'leases',
+          relatedId: created.id,
+          relatedCollection: 'lease_requests',
           createdAt: DateTime.now(),
           id: '',
         ),
@@ -920,8 +1002,8 @@ class LeaseHandler {
           type: 'lease_transfer_invited',
           title: 'You Have Been Invited to Take Over a Lease',
           body: 'A tenant has requested to transfer their lease to you.',
-          relatedId: leaseId,
-          relatedCollection: 'leases',
+          relatedId: created.id,
+          relatedCollection: 'lease_requests',
           createdAt: DateTime.now(),
           id: '',
         ),
@@ -933,120 +1015,27 @@ class LeaseHandler {
           type: 'lease_transfer_request',
           title: 'Lease Transfer Request',
           body: 'Tenant has requested to transfer lease to a new tenant.',
-          relatedId: leaseId,
-          relatedCollection: 'leases',
+          relatedId: created.id,
+          relatedCollection: 'lease_requests',
           createdAt: DateTime.now(),
           id: '',
         ),
       );
 
       return Response.ok(
-        jsonEncode({'message': 'Lease transfer request submitted successfully', 'leaseId': leaseId}),
+        jsonEncode({'message': 'Lease transfer request submitted successfully', 'request': created.toMap()}),
       );
+    } on ValidationException catch (e) {
+      return Response(400, body: jsonEncode({'message': e.message}));
     } catch (e, stack) {
       print('Request lease transfer error: $e\n$stack');
       return Response.internalServerError();
     }
   }
 
-  Future<Response> approveLeaseTransfer(Request request) async {
-    try {
-      final userId = request.context['userId'] as String?;
-      final role = request.context['role'] as String?;
-      final leaseId = request.params['id'];
+  // EARLY TERMINATION REQUEST
 
-      if (userId == null || leaseId == null) return _unauthorized();
-      if (!['landowner', 'manager'].contains(role)) {
-        return Response(403, body: jsonEncode({'message': 'Only landlords/managers can approve transfers'}));
-      }
-
-      final lease = await leaseRepository.getLeaseById(leaseId);
-      if (lease.transferToTenantId == null) {
-        return Response(400, body: jsonEncode({'message': 'No pending transfer request'}));
-      }
-
-      await leaseRepository.approveLeaseTransfer(leaseId, userId);
-
-      await unitRepository.updateUnitStatus(
-        unitId: lease.unitId,
-        status: 'occupied',
-        currentTenantId: lease.transferToTenantId,
-      );
-
-      await notificationRepository.create(
-        NotificationModel(
-          userId: lease.tenantId,
-          type: 'lease_transfer_approved',
-          title: 'Lease Transfer Approved',
-          body: 'Your lease transfer has been approved.',
-          relatedId: leaseId,
-          relatedCollection: 'leases',
-          createdAt: DateTime.now(),
-          id: '',
-        ),
-      );
-
-      return Response.ok(
-        jsonEncode({
-          'message': 'Lease transfer approved successfully',
-          'newTenantId': lease.transferToTenantId,
-        }),
-      );
-    } catch (e, stack) {
-      print('Approve lease transfer error: $e\n$stack');
-      return Response.internalServerError();
-    }
-  }
-
-  Future<Response> rejectLeaseTransfer(Request request) async {
-    try {
-      final userId = request.context['userId'] as String?;
-      final role = request.context['role'] as String?;
-      final leaseId = request.params['id'];
-
-      if (userId == null || leaseId == null) return _unauthorized();
-      if (!['landowner', 'manager'].contains(role)) {
-        return Response(
-          403,
-          body: jsonEncode({'message': 'Only landlords or managers can reject lease transfers'}),
-        );
-      }
-
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
-      final reason = body['reason'] as String?;
-      if (reason == null || reason.trim().isEmpty) {
-        return badRequest('Rejection reason is required');
-      }
-
-      final lease = await leaseRepository.getLeaseById(leaseId);
-      if (lease.transferStatus?.toLowerCase() != 'pending') {
-        return Response(400, body: jsonEncode({'message': 'No pending transfer request to reject'}));
-      }
-
-      await leaseRepository.rejectLeaseTransfer(leaseId, userId, reason);
-
-      await notificationRepository.create(
-        NotificationModel(
-          userId: lease.tenantId,
-          type: 'lease_transfer_rejected',
-          title: 'Lease Transfer Rejected',
-          body: 'Your lease transfer request was rejected. Reason: $reason',
-          relatedId: leaseId,
-          relatedCollection: 'leases',
-          createdAt: DateTime.now(),
-          id: '',
-        ),
-      );
-
-      return Response.ok(jsonEncode({'message': 'Lease transfer rejected successfully', 'leaseId': leaseId}));
-    } catch (e, stack) {
-      print('Reject lease transfer error: $e\n$stack');
-      return Response.internalServerError();
-    }
-  }
-
-  // ====================== EARLY TERMINATION ======================
-
+  /// POST /leases/<id>/early-termination
   Future<Response> requestEarlyTermination(Request request) async {
     try {
       final tenantId = request.context['userId'] as String?;
@@ -1070,7 +1059,27 @@ class LeaseHandler {
 
       final settlement = await leaseRepository.calculateEarlyTerminationSettlement(leaseId, unitRepository);
 
-      await leaseRepository.requestEarlyTermination(leaseId: leaseId, reason: reason, requestedBy: 'tenant');
+      final created = await leaseRepository.createLeaseRequest(
+        LeaseRequestModel(
+          id: '',
+          leaseId: lease.id,
+          propertyId: lease.propertyId,
+          unitId: lease.unitId,
+          tenantId: lease.tenantId,
+          landownerId: lease.landownerId,
+          managerId: lease.managerId,
+          type: LeaseRequestType.termination,
+          status: LeaseRequestStatus.pending,
+          initiatedBy: LeaseRequestActor.tenant,
+          initiatedById: tenantId,
+          assignedToId: lease.managerId ?? lease.landownerId,
+          title: 'Early Termination Request',
+          reason: reason,
+          metadata: {'settlementPreview': settlement},
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+      );
 
       await notificationRepository.create(
         NotificationModel(
@@ -1078,8 +1087,8 @@ class LeaseHandler {
           type: 'early_termination_request',
           title: 'Early Termination Request',
           body: 'Tenant has requested early termination. Reason: $reason',
-          relatedId: leaseId,
-          relatedCollection: 'leases',
+          relatedId: created.id,
+          relatedCollection: 'lease_requests',
           createdAt: DateTime.now(),
           id: '',
         ),
@@ -1088,16 +1097,19 @@ class LeaseHandler {
       return Response.ok(
         jsonEncode({
           'message': 'Early termination request submitted',
-          'leaseId': leaseId,
+          'request': created.toMap(),
           'settlement': settlement,
         }),
       );
+    } on ValidationException catch (e) {
+      return Response(400, body: jsonEncode({'message': e.message}));
     } catch (e, stack) {
       print('Request early termination error: $e\n$stack');
       return Response.internalServerError();
     }
   }
 
+  /// PATCH /leases/<id>/terminate  (landlord force-terminate, no request)
   Future<Response> terminateLeaseByLandowner(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
@@ -1118,7 +1130,7 @@ class LeaseHandler {
       final lease = await leaseRepository.getLeaseById(leaseId);
       final settlement = await leaseRepository.calculateEarlyTerminationSettlement(leaseId, unitRepository);
 
-      await leaseRepository.terminateLease(leaseId, reason, role ?? '');
+      await leaseRepository.terminateLease(leaseId, reason, userId);
 
       await unitRepository.updateUnitStatus(
         unitId: lease.unitId,
@@ -1155,7 +1167,452 @@ class LeaseHandler {
     }
   }
 
-  // ====================== INTERNAL ======================
+  // RENT ADJUSTMENT REQUEST
+
+  /// POST /leases/<id>/adjust-rent
+  Future<Response> proposeRentAdjustment(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+      final leaseId = request.params['id'];
+
+      if (userId == null || leaseId == null) return _unauthorized();
+      if (!['landowner', 'manager'].contains(role)) {
+        return Response(
+          403,
+          body: jsonEncode({'message': 'Only landlords/managers can propose rent adjustments'}),
+        );
+      }
+
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final newMonthlyRent = (body['newMonthlyRent'] as num?)?.toDouble();
+      final reason = body['reason'] as String?;
+
+      if (newMonthlyRent == null || newMonthlyRent <= 0) {
+        return badRequest('Valid new monthly rent is required');
+      }
+      if (reason == null || reason.trim().isEmpty) {
+        return badRequest('Reason for rent adjustment is required');
+      }
+
+      final lease = await leaseRepository.getLeaseById(leaseId);
+
+      final created = await leaseRepository.createLeaseRequest(
+        LeaseRequestModel(
+          id: '',
+          leaseId: lease.id,
+          propertyId: lease.propertyId,
+          unitId: lease.unitId,
+          tenantId: lease.tenantId,
+          landownerId: lease.landownerId,
+          managerId: lease.managerId,
+          type: LeaseRequestType.rentAdjustment,
+          status: LeaseRequestStatus.pending,
+          initiatedBy: role == 'manager' ? LeaseRequestActor.manager : LeaseRequestActor.landlord,
+          initiatedById: userId,
+          assignedToId: lease.tenantId,
+          title: 'Rent Adjustment Proposal',
+          reason: reason,
+          metadata: {'newMonthlyRent': newMonthlyRent, 'currentMonthlyRent': lease.monthlyRent},
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+      );
+
+      await notificationRepository.create(
+        NotificationModel(
+          id: '',
+          userId: lease.tenantId,
+          type: 'rent_adjustment_proposed',
+          title: 'Rent Adjustment Proposed',
+          body:
+              'Your landlord proposed changing rent from ₦${lease.monthlyRent} to ₦$newMonthlyRent. Reason: $reason',
+          relatedId: created.id,
+          relatedCollection: 'lease_requests',
+          createdAt: DateTime.now(),
+        ),
+      );
+
+      return Response.ok(
+        jsonEncode({'message': 'Rent adjustment proposed successfully', 'request': created.toMap()}),
+      );
+    } on ValidationException catch (e) {
+      return Response(400, body: jsonEncode({'message': e.message}));
+    } catch (e, stack) {
+      print('Propose rent adjustment error: $e\n$stack');
+      return Response.internalServerError();
+    }
+  }
+
+  // UNIFIED REQUEST ACTIONS
+
+  /// PATCH /leases/requests/<requestId>/approve
+  Future<Response> approveLeaseRequest(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+      final requestId = request.params['requestId'];
+
+      if (userId == null || requestId == null) return _unauthorized();
+
+      Map<String, dynamic> body = {};
+      try {
+        body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      } catch (_) {}
+      final notes = body['notes'] as String?;
+
+      final leaseRequest = await leaseRepository.getLeaseRequestById(requestId);
+
+      if (leaseRequest.status != LeaseRequestStatus.pending) {
+        return Response(400, body: jsonEncode({'message': 'Only pending requests can be approved'}));
+      }
+
+      final isTenantApprovingRent =
+          leaseRequest.type == LeaseRequestType.rentAdjustment &&
+          role == 'tenant' &&
+          leaseRequest.tenantId == userId;
+
+      final isOwnerOrManager =
+          ['landowner', 'manager'].contains(role) &&
+          (leaseRequest.landownerId == userId || leaseRequest.managerId == userId);
+
+      if (!isTenantApprovingRent && !isOwnerOrManager) {
+        return Response(403, body: jsonEncode({'message': 'Not allowed to approve this request'}));
+      }
+
+      await leaseRepository.approveLeaseRequest(requestId: requestId, approvedBy: userId, notes: notes);
+
+      if (leaseRequest.type == LeaseRequestType.transfer) {
+        final newTenantId = leaseRequest.metadata['newTenantId'] as String?;
+        if (newTenantId != null) {
+          await unitRepository.updateUnitStatus(
+            unitId: leaseRequest.unitId,
+            status: 'occupied',
+            currentTenantId: newTenantId,
+            isListedForRent: false,
+          );
+        }
+      } else if (leaseRequest.type == LeaseRequestType.termination) {
+        await unitRepository.updateUnitStatus(
+          unitId: leaseRequest.unitId,
+          status: 'vacant',
+          currentTenantId: null,
+          isListedForRent: true,
+        );
+        await userReputationService.updateUserReputation(leaseRequest.tenantId);
+      }
+
+      await notificationRepository.create(
+        NotificationModel(
+          userId: leaseRequest.initiatedById,
+          type: 'lease_request_approved',
+          title: 'Request Approved',
+          body: 'Your ${leaseRequest.type.value} request was approved.',
+          relatedId: requestId,
+          relatedCollection: 'lease_requests',
+          createdAt: DateTime.now(),
+          id: '',
+        ),
+      );
+
+      return Response.ok(
+        jsonEncode({
+          'message': 'Request approved successfully',
+          'requestId': requestId,
+          'type': leaseRequest.type.value,
+        }),
+      );
+    } on NotFoundException catch (e) {
+      return Response(404, body: jsonEncode({'message': e.message}));
+    } on ValidationException catch (e) {
+      return Response(400, body: jsonEncode({'message': e.message}));
+    } catch (e, stack) {
+      print('Approve lease request error: $e\n$stack');
+      return Response.internalServerError();
+    }
+  }
+
+  /// PATCH /leases/requests/<requestId>/reject
+  Future<Response> rejectLeaseRequest(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+      final requestId = request.params['requestId'];
+
+      if (userId == null || requestId == null) return _unauthorized();
+
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final reason = body['reason'] as String?;
+      if (reason == null || reason.trim().isEmpty) {
+        return badRequest('Rejection reason is required');
+      }
+
+      final leaseRequest = await leaseRepository.getLeaseRequestById(requestId);
+
+      if (leaseRequest.status != LeaseRequestStatus.pending) {
+        return Response(400, body: jsonEncode({'message': 'Only pending requests can be rejected'}));
+      }
+
+      final isTenantRejectingRent =
+          leaseRequest.type == LeaseRequestType.rentAdjustment &&
+          role == 'tenant' &&
+          leaseRequest.tenantId == userId;
+
+      final isOwnerOrManager =
+          ['landowner', 'manager'].contains(role) &&
+          (leaseRequest.landownerId == userId || leaseRequest.managerId == userId);
+
+      if (!isTenantRejectingRent && !isOwnerOrManager) {
+        return Response(403, body: jsonEncode({'message': 'Not allowed to reject this request'}));
+      }
+
+      await leaseRepository.rejectLeaseRequest(requestId: requestId, rejectedBy: userId, reason: reason);
+
+      await notificationRepository.create(
+        NotificationModel(
+          userId: leaseRequest.initiatedById,
+          type: 'lease_request_rejected',
+          title: 'Request Rejected',
+          body: 'Your ${leaseRequest.type.value} request was rejected. Reason: $reason',
+          relatedId: requestId,
+          relatedCollection: 'lease_requests',
+          createdAt: DateTime.now(),
+          id: '',
+        ),
+      );
+
+      return Response.ok(jsonEncode({'message': 'Request rejected successfully', 'requestId': requestId}));
+    } on NotFoundException catch (e) {
+      return Response(404, body: jsonEncode({'message': e.message}));
+    } on ValidationException catch (e) {
+      return Response(400, body: jsonEncode({'message': e.message}));
+    } catch (e, stack) {
+      print('Reject lease request error: $e\n$stack');
+      return Response.internalServerError();
+    }
+  }
+
+  /// PATCH /leases/requests/<requestId>/cancel
+  Future<Response> cancelLeaseRequest(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final requestId = request.params['requestId'];
+
+      if (userId == null || requestId == null) return _unauthorized();
+
+      final leaseRequest = await leaseRepository.getLeaseRequestById(requestId);
+      if (leaseRequest.initiatedById != userId) {
+        return Response(403, body: jsonEncode({'message': 'Only the initiator can cancel this request'}));
+      }
+      if (leaseRequest.status != LeaseRequestStatus.pending) {
+        return Response(400, body: jsonEncode({'message': 'Only pending requests can be cancelled'}));
+      }
+
+      await leaseRepository.cancelLeaseRequest(requestId: requestId, cancelledBy: userId);
+
+      return Response.ok(jsonEncode({'message': 'Request cancelled successfully', 'requestId': requestId}));
+    } on NotFoundException catch (e) {
+      return Response(404, body: jsonEncode({'message': e.message}));
+    } on ValidationException catch (e) {
+      return Response(400, body: jsonEncode({'message': e.message}));
+    } catch (e, stack) {
+      print('Cancel lease request error: $e\n$stack');
+      return Response.internalServerError();
+    }
+  }
+
+  // REQUEST LISTS
+
+  /// GET /leases/requests
+  Future<Response> getMyLeaseRequests(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+      if (userId == null || role == null) return _unauthorized();
+
+      final requests = await leaseRepository.getPendingLeaseRequestsForUser(userId: userId, role: role);
+
+      return Response.ok(
+        jsonEncode({'requests': requests.map((r) => r.toMap()).toList(), 'message': 'Lease requests loaded'}),
+      );
+    } catch (e, stack) {
+      print('Get my lease requests error: $e\n$stack');
+      return Response.internalServerError();
+    }
+  }
+
+  /// GET /leases/requests/incoming
+  Future<Response> getIncomingLeaseRequests(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+
+      if (userId == null || !['landowner', 'manager'].contains(role)) {
+        return Response(403, body: jsonEncode({'message': 'Unauthorized'}));
+      }
+
+      final requests = await leaseRepository.getPendingLeaseRequestsForUser(userId: userId, role: role!);
+
+      return Response.ok(jsonEncode({'incomingRequests': requests.map((r) => r.toMap()).toList()}));
+    } catch (e, stack) {
+      print('Get incoming lease requests error: $e\n$stack');
+      return Response.internalServerError();
+    }
+  }
+
+  /// GET /leases/requests/<requestId>
+  Future<Response> getLeaseRequestById(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+      final requestId = request.params['requestId'];
+
+      if (userId == null || requestId == null) return _unauthorized();
+
+      final leaseRequest = await leaseRepository.getLeaseRequestById(requestId);
+
+      final allowed =
+          leaseRequest.tenantId == userId ||
+          leaseRequest.landownerId == userId ||
+          leaseRequest.managerId == userId ||
+          role == 'manager';
+
+      if (!allowed) {
+        return Response(403, body: jsonEncode({'message': 'Forbidden'}));
+      }
+
+      return Response.ok(jsonEncode({'request': leaseRequest.toMap()}));
+    } on NotFoundException catch (e) {
+      return Response(404, body: jsonEncode({'message': e.message}));
+    } catch (e, stack) {
+      print('Get lease request by id error: $e\n$stack');
+      return Response.internalServerError();
+    }
+  }
+
+  // SETTLEMENT
+
+  /// PATCH /leases/<id>/settlement/accept
+  Future<Response> acceptSettlement(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final leaseId = request.params['id'];
+      if (userId == null || leaseId == null) return _unauthorized();
+
+      final lease = await leaseRepository.getLeaseById(leaseId);
+      await leaseRepository.acceptSettlement(leaseId, userId);
+      await leaseRepository.terminateLease(leaseId, 'Settlement agreed', 'system');
+
+      await unitRepository.updateUnitStatus(
+        unitId: lease.unitId,
+        status: 'vacant',
+        currentTenantId: null,
+        isListedForRent: true,
+      );
+
+      return Response.ok(
+        jsonEncode({'message': 'Settlement accepted. Lease terminated successfully.', 'leaseId': leaseId}),
+      );
+    } catch (e, stack) {
+      print('Accept settlement error: $e\n$stack');
+      return Response.internalServerError();
+    }
+  }
+
+  /// PATCH /leases/<id>/settlement/dispute
+  Future<Response> disputeSettlement(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final leaseId = request.params['id'];
+      if (userId == null || leaseId == null) return _unauthorized();
+
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final disputeReason = body['reason'] as String?;
+      if (disputeReason == null || disputeReason.trim().isEmpty) {
+        return badRequest('Dispute reason is required');
+      }
+
+      final lease = await leaseRepository.getLeaseById(leaseId);
+      await leaseRepository.disputeSettlement(leaseId: leaseId, disputedBy: userId, reason: disputeReason);
+
+      final otherPartyId = lease.tenantId == userId ? lease.landownerId : lease.tenantId;
+      await notificationRepository.create(
+        NotificationModel(
+          userId: otherPartyId,
+          type: 'settlement_disputed',
+          title: 'Settlement Disputed',
+          body: 'The other party has disputed the settlement proposal.',
+          relatedId: leaseId,
+          relatedCollection: 'leases',
+          createdAt: DateTime.now(),
+          id: '',
+        ),
+      );
+
+      return Response.ok(jsonEncode({'message': 'Settlement disputed successfully', 'leaseId': leaseId}));
+    } catch (e, stack) {
+      print('Dispute settlement error: $e\n$stack');
+      return Response.internalServerError();
+    }
+  }
+
+  /// PATCH /leases/<id>/settlement/resolve
+  Future<Response> resolveSettlementDispute(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+      final leaseId = request.params['id'];
+
+      if (userId == null || leaseId == null) return _unauthorized();
+      if (!['landowner', 'manager'].contains(role)) {
+        return Response(403, body: jsonEncode({'message': 'Only landlords/managers can resolve disputes'}));
+      }
+
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final resolution = body['resolution'] as String?;
+      final finalAmount = (body['finalAmount'] as num?)?.toDouble();
+      final notes = body['notes'] as String?;
+
+      if (resolution == null) {
+        return badRequest('resolution (accept/reject/modify) is required');
+      }
+
+      await leaseRepository.resolveSettlementDispute(
+        leaseId: leaseId,
+        resolvedBy: userId,
+        resolution: resolution,
+        finalAmount: finalAmount,
+        notes: notes,
+      );
+
+      final lease = await leaseRepository.getLeaseById(leaseId);
+      await notificationRepository.create(
+        NotificationModel(
+          userId: lease.tenantId,
+          type: 'settlement_resolved',
+          title: 'Settlement Dispute Resolved',
+          body: 'The dispute has been resolved by the landlord.',
+          relatedId: leaseId,
+          relatedCollection: 'leases',
+          createdAt: DateTime.now(),
+          id: '',
+        ),
+      );
+
+      return Response.ok(
+        jsonEncode({
+          'message': 'Settlement dispute resolved',
+          'resolution': resolution,
+          'finalAmount': finalAmount,
+        }),
+      );
+    } catch (e, stack) {
+      print('Resolve settlement dispute error: $e\n$stack');
+      return Response.internalServerError();
+    }
+  }
+
+  // INTERNAL
 
   Future<PaymentModel> _recordLeasePaymentInternal({
     required LeaseModel lease,
@@ -1210,442 +1667,5 @@ class LeaseHandler {
     );
 
     return createdPayment;
-  }
-  // ====================== RENT ADJUSTMENT ======================
-
-  Future<Response> proposeRentAdjustment(Request request) async {
-    try {
-      final userId = request.context['userId'] as String?;
-      final role = request.context['role'] as String?;
-      final leaseId = request.params['id'];
-
-      if (userId == null || leaseId == null) return _unauthorized();
-      if (!['landowner', 'manager'].contains(role)) {
-        return Response(
-          403,
-          body: jsonEncode({'message': 'Only landlords/managers can propose rent adjustments'}),
-        );
-      }
-
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
-      final newMonthlyRent = (body['newMonthlyRent'] as num?)?.toDouble();
-      final reason = body['reason'] as String?;
-
-      if (newMonthlyRent == null || newMonthlyRent <= 0) {
-        return badRequest('Valid new monthly rent is required');
-      }
-      if (reason == null || reason.trim().isEmpty) {
-        return badRequest('Reason for rent adjustment is required');
-      }
-
-      final lease = await leaseRepository.getLeaseById(leaseId);
-
-      await leaseRepository.proposeRentAdjustment(
-        leaseId: leaseId,
-        newMonthlyRent: newMonthlyRent,
-        reason: reason,
-        proposedBy: userId,
-      );
-
-      await notificationRepository.create(
-        NotificationModel(
-          id: '',
-          userId: lease.tenantId,
-          type: 'rent_adjustment_proposed',
-          title: 'Rent Adjustment Proposed',
-          body:
-              'Your landlord proposed changing rent from ₦${lease.monthlyRent} to ₦$newMonthlyRent. Reason: $reason',
-          relatedId: leaseId,
-          relatedCollection: 'leases',
-          createdAt: DateTime.now(),
-        ),
-      );
-
-      await historyRepository.createHistoryEntry(
-        HistoryEntryModel(
-          userId: userId,
-          type: 'rent_adjustment_proposed',
-          title: 'Rent Adjustment Proposed',
-          description: 'Proposed rent change to ₦$newMonthlyRent for lease $leaseId',
-          relatedId: leaseId,
-          relatedCollection: 'leases',
-          timestamp: DateTime.now(),
-          id: '',
-        ),
-      );
-
-      return Response.ok(
-        jsonEncode({
-          'message': 'Rent adjustment proposed successfully',
-          'newMonthlyRent': newMonthlyRent,
-          'reason': reason,
-        }),
-      );
-    } catch (e, stack) {
-      print('Propose rent adjustment error: $e\n$stack');
-      return Response.internalServerError(body: jsonEncode({'message': 'Failed to propose rent adjustment'}));
-    }
-  }
-
-  Future<Response> approveRentAdjustment(Request request) async {
-    try {
-      final userId = request.context['userId'] as String?;
-      final role = request.context['role'] as String?;
-      final leaseId = request.params['id'];
-
-      if (userId == null || leaseId == null) return _unauthorized();
-      if (role != 'tenant') {
-        return Response(403, body: jsonEncode({'message': 'Only tenant can approve rent adjustment'}));
-      }
-
-      await leaseRepository.approveRentAdjustment(leaseId, userId);
-
-      await notificationRepository.create(
-        NotificationModel(
-          userId: userId,
-          type: 'rent_adjustment_approved',
-          title: 'Rent Adjustment Approved',
-          body: 'You have approved the rent adjustment.',
-          relatedId: leaseId,
-          relatedCollection: 'leases',
-          createdAt: DateTime.now(),
-          id: '',
-        ),
-      );
-
-      return Response.ok(jsonEncode({'message': 'Rent adjustment approved successfully'}));
-    } catch (e, stack) {
-      print('Approve rent adjustment error: $e\n$stack');
-      return Response.internalServerError();
-    }
-  }
-
-  Future<Response> rejectRentAdjustment(Request request) async {
-    try {
-      final userId = request.context['userId'] as String?;
-      final role = request.context['role'] as String?;
-      final leaseId = request.params['id'];
-
-      if (userId == null || leaseId == null) return _unauthorized();
-      if (role != 'tenant') {
-        return Response(403, body: jsonEncode({'message': 'Only tenant can reject rent adjustment'}));
-      }
-
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
-      final reason = body['reason'] as String? ?? 'No reason provided';
-
-      await leaseRepository.rejectRentAdjustment(leaseId, userId, reason);
-
-      return Response.ok(jsonEncode({'message': 'Rent adjustment rejected successfully'}));
-    } catch (e, stack) {
-      print('Reject rent adjustment error: $e\n$stack');
-      return Response.internalServerError();
-    }
-  }
-
-  // ====================== SETTLEMENT ======================
-
-  Future<Response> acceptSettlement(Request request) async {
-    try {
-      final userId = request.context['userId'] as String?;
-      final leaseId = request.params['id'];
-
-      if (userId == null || leaseId == null) return _unauthorized();
-
-      final lease = await leaseRepository.getLeaseById(leaseId);
-
-      await leaseRepository.acceptSettlement(leaseId, userId);
-      await leaseRepository.terminateLease(leaseId, 'Settlement agreed', 'system');
-
-      await unitRepository.updateUnitStatus(
-        unitId: lease.unitId,
-        status: 'vacant',
-        currentTenantId: null,
-        isListedForRent: true,
-      );
-
-      return Response.ok(
-        jsonEncode({'message': 'Settlement accepted. Lease terminated successfully.', 'leaseId': leaseId}),
-      );
-    } catch (e, stack) {
-      print('Accept settlement error: $e\n$stack');
-      return Response.internalServerError();
-    }
-  }
-
-  Future<Response> disputeSettlement(Request request) async {
-    try {
-      final userId = request.context['userId'] as String?;
-      final leaseId = request.params['id'];
-
-      if (userId == null || leaseId == null) return _unauthorized();
-
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
-      final disputeReason = body['reason'] as String?;
-
-      if (disputeReason == null || disputeReason.trim().isEmpty) {
-        return badRequest('Dispute reason is required');
-      }
-
-      final lease = await leaseRepository.getLeaseById(leaseId);
-
-      await leaseRepository.disputeSettlement(leaseId: leaseId, disputedBy: userId, reason: disputeReason);
-
-      final otherPartyId = lease.tenantId == userId ? lease.landownerId : lease.tenantId;
-
-      await notificationRepository.create(
-        NotificationModel(
-          userId: otherPartyId,
-          type: 'settlement_disputed',
-          title: 'Settlement Disputed',
-          body: 'The other party has disputed the settlement proposal.',
-          relatedId: leaseId,
-          relatedCollection: 'leases',
-          createdAt: DateTime.now(),
-          id: '',
-        ),
-      );
-
-      return Response.ok(jsonEncode({'message': 'Settlement disputed successfully', 'leaseId': leaseId}));
-    } catch (e, stack) {
-      print('Dispute settlement error: $e\n$stack');
-      return Response.internalServerError();
-    }
-  }
-
-  Future<Response> resolveSettlementDispute(Request request) async {
-    try {
-      final userId = request.context['userId'] as String?;
-      final role = request.context['role'] as String?;
-      final leaseId = request.params['id'];
-
-      if (userId == null || leaseId == null) return _unauthorized();
-      if (!['landowner', 'manager'].contains(role)) {
-        return Response(403, body: jsonEncode({'message': 'Only landlords/managers can resolve disputes'}));
-      }
-
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
-      final resolution = body['resolution'] as String?;
-      final finalAmount = (body['finalAmount'] as num?)?.toDouble();
-      final notes = body['notes'] as String?;
-
-      if (resolution == null) {
-        return badRequest('resolution (accept/reject/modify) is required');
-      }
-
-      await leaseRepository.resolveSettlementDispute(
-        leaseId: leaseId,
-        resolvedBy: userId,
-        resolution: resolution,
-        finalAmount: finalAmount,
-        notes: notes,
-      );
-
-      final lease = await leaseRepository.getLeaseById(leaseId);
-
-      await notificationRepository.create(
-        NotificationModel(
-          userId: lease.tenantId,
-          type: 'settlement_resolved',
-          title: 'Settlement Dispute Resolved',
-          body: 'The dispute has been resolved by the landlord.',
-          relatedId: leaseId,
-          relatedCollection: 'leases',
-          createdAt: DateTime.now(),
-          id: '',
-        ),
-      );
-
-      return Response.ok(
-        jsonEncode({
-          'message': 'Settlement dispute resolved',
-          'resolution': resolution,
-          'finalAmount': finalAmount,
-        }),
-      );
-    } catch (e, stack) {
-      print('Resolve settlement dispute error: $e\n$stack');
-      return Response.internalServerError();
-    }
-  }
-
-  // ====================== REQUESTS VIEWING ======================
-
-  Future<Response> getMyLeaseRequests(Request request) async {
-    try {
-      final userId = request.context['userId'] as String?;
-      if (userId == null) return _unauthorized();
-
-      final requests = await leaseRepository.getLeaseRequestsByUser(userId);
-
-      return Response.ok(jsonEncode({'myRequests': requests}));
-    } catch (e, stack) {
-      print('Get my lease requests error: $e\n$stack');
-      return Response.internalServerError();
-    }
-  }
-
-  Future<Response> getIncomingLeaseRequests(Request request) async {
-    try {
-      final userId = request.context['userId'] as String?;
-      final role = request.context['role'] as String?;
-
-      if (userId == null || !['landowner', 'manager'].contains(role)) {
-        return Response(403, body: jsonEncode({'message': 'Unauthorized'}));
-      }
-
-      final requests = await leaseRepository.getIncomingLeaseRequests(userId, role!);
-
-      return Response.ok(jsonEncode({'incomingRequests': requests}));
-    } catch (e, stack) {
-      print('Get incoming lease requests error: $e\n$stack');
-      return Response.internalServerError();
-    }
-  }
-
-  Future<Response> getLeaseRequestDetails(Request request) async {
-    try {
-      final userId = request.context['userId'] as String?;
-      final role = request.context['role'] as String?;
-      final leaseId = request.params['id'];
-
-      if (userId == null || leaseId == null) return _unauthorized();
-
-      final lease = await leaseRepository.getLeaseById(leaseId);
-
-      final isTenant = lease.tenantId == userId;
-      final isLandlordOrManager = lease.landownerId == userId || role == 'manager';
-
-      if (!isTenant && !isLandlordOrManager) {
-        return Response(403, body: jsonEncode({'message': 'Unauthorized to view this request'}));
-      }
-
-      String? requestType;
-      String? status;
-      String? reason;
-      DateTime? proposedAt;
-
-      if (lease.transferToTenantId != null && lease.transferStatus != null) {
-        requestType = 'transfer';
-        status = lease.transferStatus;
-        reason = lease.terminationReason;
-        proposedAt = lease.transferRequestedAt;
-      } else if (lease.terminationReason != null || lease.terminationRequestedAt != null) {
-        requestType = 'termination';
-        status = lease.status == 'terminated' ? 'approved' : 'pending';
-        reason = lease.terminationReason;
-        proposedAt = lease.terminationRequestedAt;
-      } else if (lease.proposedNewMonthlyRent != null) {
-        requestType = 'rent_adjustment';
-        status = lease.rentAdjustmentStatus;
-        reason = lease.rentAdjustmentReason;
-        proposedAt = lease.rentAdjustmentProposedAt;
-      } else if (lease.renewalRequestedAt != null) {
-        requestType = 'renewal';
-        status = 'pending';
-        proposedAt = lease.renewalRequestedAt;
-        reason = lease.renewalReason;
-      }
-
-      return Response.ok(
-        jsonEncode({
-          'requestDetails': {
-            'leaseId': lease.id,
-            'requestType': requestType,
-            'status': status ?? lease.status,
-            'reason': reason,
-            'proposedAt': proposedAt?.toIso8601String(),
-            'tenantId': lease.tenantId,
-            'landownerId': lease.landownerId,
-            'unitId': lease.unitId,
-            'monthlyRent': lease.monthlyRent,
-            'proposedNewMonthlyRent': lease.proposedNewMonthlyRent,
-            'newTenantId': lease.transferToTenantId,
-            'terminationReason': lease.terminationReason,
-            'renewalRequestedAt': lease.renewalRequestedAt?.toIso8601String(),
-          },
-        }),
-      );
-    } catch (e, stack) {
-      print('Get lease request details error: $e\n$stack');
-      return Response.internalServerError();
-    }
-  }
-
-  Future<Response> approveLeaseRequest(Request request) async {
-    try {
-      final userId = request.context['userId'] as String?;
-      final role = request.context['role'] as String?;
-      final leaseId = request.params['id'];
-
-      if (userId == null || leaseId == null) return _unauthorized();
-      if (!['landowner', 'manager'].contains(role)) {
-        return Response(403, body: jsonEncode({'message': 'Only landlords/managers can approve'}));
-      }
-
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
-      final requestType = body['requestType'] as String?;
-
-      if (requestType == null) return badRequest('requestType is required');
-
-      switch (requestType) {
-        case 'transfer':
-          await leaseRepository.approveLeaseTransfer(leaseId, userId);
-          break;
-        case 'termination':
-        case 'early_termination':
-          await leaseRepository.approveEarlyTermination(leaseId, userId);
-          break;
-        case 'rent_adjustment':
-          await leaseRepository.approveRentAdjustment(leaseId, userId);
-          break;
-        default:
-          return badRequest('Invalid requestType');
-      }
-
-      return Response.ok(jsonEncode({'message': 'Request approved successfully'}));
-    } catch (e, stack) {
-      print('Approve lease request error: $e\n$stack');
-      return Response.internalServerError();
-    }
-  }
-
-  Future<Response> rejectLeaseRequest(Request request) async {
-    try {
-      final userId = request.context['userId'] as String?;
-      final role = request.context['role'] as String?;
-      final leaseId = request.params['id'];
-
-      if (userId == null || leaseId == null) return _unauthorized();
-      if (!['landowner', 'manager'].contains(role)) {
-        return Response(403, body: jsonEncode({'message': 'Only landlords/managers can reject'}));
-      }
-
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
-      final requestType = body['requestType'] as String?;
-      final reason = body['reason'] as String? ?? 'No reason provided';
-
-      if (requestType == null) return badRequest('requestType is required');
-
-      switch (requestType) {
-        case 'transfer':
-          await leaseRepository.rejectLeaseTransfer(leaseId, userId, reason);
-          break;
-        case 'termination':
-        case 'early_termination':
-          await leaseRepository.rejectEarlyTermination(leaseId, userId, reason);
-          break;
-        case 'rent_adjustment':
-          await leaseRepository.rejectRentAdjustment(leaseId, userId, reason);
-          break;
-        default:
-          return badRequest('Invalid requestType');
-      }
-
-      return Response.ok(jsonEncode({'message': 'Request rejected successfully'}));
-    } catch (e, stack) {
-      print('Reject lease request error: $e\n$stack');
-      return Response.internalServerError();
-    }
   }
 }

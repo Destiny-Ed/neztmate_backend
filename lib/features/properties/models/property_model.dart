@@ -12,6 +12,7 @@ class PropertyModel {
   final double occupancyRate;
   DateTime createdAt;
   DateTime updatedAt;
+  final String rentPaymentMode; // 'offline' | 'online'
   List<String>? artisanIds;
   final List<Map<String, dynamic>> documents;
 
@@ -31,6 +32,7 @@ class PropertyModel {
     this.amenities,
     this.totalUnits = 0,
     this.occupancyRate = 0.0,
+    this.rentPaymentMode = 'offline',
     required this.createdAt,
     required this.updatedAt,
 
@@ -51,6 +53,7 @@ class PropertyModel {
       address: map['address'] as String,
       landownerId: map['landownerId'] as String,
       managerId: map['managerId'] as String?,
+      rentPaymentMode: map['rentPaymentMode'] as String? ?? 'offline',
       photoUrls: (map['photoUrls'] as List<dynamic>?)?.cast<String>(),
       amenities: (map['amenities'] as List<dynamic>?)?.cast<String>(),
       artisanIds: (map['artisanIds'] as List<dynamic>?)?.cast<String>(),
@@ -76,6 +79,7 @@ class PropertyModel {
     'managerId': managerId,
     'photoUrls': photoUrls,
     'amenities': amenities,
+    'rentPaymentMode': rentPaymentMode,
     'artisanIds': artisanIds,
     'totalUnits': totalUnits,
     'occupancyRate': occupancyRate,
@@ -96,6 +100,7 @@ class PropertyModel {
     String? address,
     String? landownerId,
     String? managerId,
+    String? rentPaymentMode,
 
     List<String>? photoUrls,
     List<String>? amenities,
@@ -115,6 +120,7 @@ class PropertyModel {
       id: id ?? this.id,
       name: name ?? this.name,
       type: type ?? this.type,
+      rentPaymentMode: rentPaymentMode ?? this.rentPaymentMode,
       address: address ?? this.address,
       documents: documents ?? this.documents,
       landownerId: landownerId ?? this.landownerId,

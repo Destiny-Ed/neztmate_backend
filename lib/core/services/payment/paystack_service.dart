@@ -7,8 +7,6 @@ import 'package:http/http.dart' as http;
 import 'package:neztmate_backend/core/cache/app_cache.dart';
 import 'dart:convert';
 
-import 'package:neztmate_backend/features/auth_user/models/user_model.dart';
-
 class PaystackService {
   final String baseUrl = 'https://api.paystack.co';
 

@@ -1,5 +1,5 @@
+import 'package:neztmate_backend/features/leases/models/lease_request_model.dart';
 import 'package:neztmate_backend/features/leases/models/lease_settlement_agreement_model.dart';
-import 'package:neztmate_backend/features/leases/models/lease_termination_request.dart';
 import 'package:neztmate_backend/features/leases/models/leases_model.dart';
 import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
 
@@ -30,8 +30,10 @@ abstract class LeaseRepository {
   );
   Future<void> confirmPaymentAndActivate(String leaseId, String confirmedBy);
 
-  // RENEWAL
+  // RENEWAL (finalization only)
+  /// Marks lease as awaiting renewal payment (does not create a request by itself)
   Future<void> markLeaseAsPendingRenewal(String leaseId);
+
   Future<LeaseModel> createRenewalLease({
     required String oldLeaseId,
     required DateTime newStartDate,
@@ -40,27 +42,8 @@ abstract class LeaseRepository {
     String? reason,
     String? paymentReceiptUrl,
   });
-  Future<LeaseModel> renewLeaseAfterPayment(String leaseId); // keep for backward compatibility
 
-  // TRANSFER
-  Future<void> requestLeaseTransfer({
-    required String leaseId,
-    required String newTenantId,
-    required String reason,
-  });
-  Future<void> approveLeaseTransfer(String leaseId, String approvedBy);
-  Future<void> rejectLeaseTransfer(String leaseId, String rejectedBy, String reason);
-
-  // EARLY TERMINATION
-  Future<void> requestEarlyTermination({
-    required String leaseId,
-    required String reason,
-    required String requestedBy,
-  });
-  Future<void> approveEarlyTermination(String leaseId, String approvedBy);
-  Future<void> rejectEarlyTermination(String leaseId, String rejectedBy, String reason);
-  Future<List<LeaseTerminationRequest>> getTerminationRequests(String userId);
-  Future<Map<String, dynamic>> calculateEarlyTerminationSettlement(String leaseId, UnitRepository unitRepo);
+  Future<LeaseModel> renewLeaseAfterPayment(String leaseId);
 
   // SETTLEMENT
   Future<void> proposeSettlement(LeaseSettlementAgreement settlement);
@@ -73,25 +56,39 @@ abstract class LeaseRepository {
   Future<void> resolveSettlementDispute({
     required String leaseId,
     required String resolvedBy,
-    required String resolution,
+    required String resolution, // accept | reject | modify
     double? finalAmount,
     String? notes,
   });
 
-  // RENT ADJUSTMENT
-  Future<void> proposeRentAdjustment({
-    required String leaseId,
-    required double newMonthlyRent,
-    required String reason,
-    required String proposedBy,
+  // LEASE REQUESTS
+  Future<LeaseRequestModel> createLeaseRequest(LeaseRequestModel request);
+  Future<LeaseRequestModel> getLeaseRequestById(String requestId);
+  Future<LeaseRequestModel?> getActiveLeaseRequest(String leaseId, {LeaseRequestType? type});
+  Future<List<LeaseRequestModel>> getLeaseRequestsByLease(String leaseId);
+  Future<List<LeaseRequestModel>> getLeaseRequestsByTenant(String tenantId);
+  Future<List<LeaseRequestModel>> getLeaseRequestsForLandowner(String landownerId);
+  Future<List<LeaseRequestModel>> getLeaseRequestsForManager(String managerId);
+  Future<List<LeaseRequestModel>> getPendingLeaseRequestsForUser({
+    required String userId,
+    required String role, // tenant | landowner | manager
   });
-  Future<void> approveRentAdjustment(String leaseId, String approvedBy);
-  Future<void> rejectRentAdjustment(String leaseId, String rejectedBy, String reason);
 
-  // REQUEST VIEWING
-  Future<List<Map<String, dynamic>>> getLeaseRequestsByUser(String userId);
-  Future<List<Map<String, dynamic>>> getIncomingLeaseRequests(String userId, String role);
-  Future<void> updateLeaseRequestStatus(String leaseId, String requestType, String status, String? reason);
+  /// Approves request + applies final lease side-effects (transfer, terminate, rent change, etc.)
+  Future<void> approveLeaseRequest({required String requestId, required String approvedBy, String? notes});
+
+  Future<void> rejectLeaseRequest({
+    required String requestId,
+    required String rejectedBy,
+    required String reason,
+  });
+
+  Future<void> cancelLeaseRequest({required String requestId, required String cancelledBy});
+
+  Future<void> completeLeaseRequest(String requestId);
+
+  /// Helper used when approving early termination
+  Future<Map<String, dynamic>> calculateEarlyTerminationSettlement(String leaseId, UnitRepository unitRepo);
 
   // SYSTEM / CRON
   Future<int> updateExpiredLeasesToInactive();

@@ -61,7 +61,7 @@ class FirestoreApplicationDataSource implements ApplicationRemoteDataSource {
     if (!doc.exists) throw NotFoundException('Application', id);
 
     await _applications.doc(id).update({
-      'status': 'Approved',
+      'status': 'approved',
       'reviewedAt': DateTime.now().toIso8601String(),
       'reviewedBy': reviewedBy,
     });
@@ -77,7 +77,7 @@ class FirestoreApplicationDataSource implements ApplicationRemoteDataSource {
     if (!doc.exists) throw NotFoundException('Application', id);
 
     await _applications.doc(id).update({
-      'status': 'Rejected',
+      'status': 'rejected',
       'reviewedAt': DateTime.now().toIso8601String(),
       'reviewedBy': reviewedBy,
       'reason': reason,
@@ -96,7 +96,7 @@ class FirestoreApplicationDataSource implements ApplicationRemoteDataSource {
     }
 
     await _applications.doc(id).update({
-      'status': 'Withdrawn',
+      'status': 'withdrawn',
       'reviewedAt': DateTime.now().toIso8601String(),
       'reason': reason ?? 'Withdrawn by tenant',
     });
@@ -105,10 +105,7 @@ class FirestoreApplicationDataSource implements ApplicationRemoteDataSource {
   @override
   Future<List<ApplicationModel>> getApplicationsForManagerOrOwner(String userId, String role) async {
     try {
-      final snap = await _applications.where('status', WhereFilter.notIn, [
-        'fee_pending',
-        'Fee_Pending', 'withdrawn', 'Withdrawns'
-      ]).get();
+      final snap = await _applications.where('status', WhereFilter.notIn, ['fee_pending', 'withdrawn']).get();
       if (snap.docs.isEmpty) return [];
 
       final allApplications = snap.docs
