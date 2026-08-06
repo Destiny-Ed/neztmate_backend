@@ -7,6 +7,7 @@ import 'package:neztmate_backend/features/auth_user/repositories/user_repository
 import 'package:neztmate_backend/features/leases/models/leases_model.dart';
 import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
 import 'package:neztmate_backend/features/leases/service/lease_pdf_service.dart';
+import 'package:neztmate_backend/features/leases/service/upload_pdf_service.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
 import 'package:neztmate_backend/features/payments/models/payments.dart';
@@ -645,13 +646,15 @@ class ApplicationHandler {
       String? generatedPdfUrl;
 
       if (!isCustomLease) {
-        generatedPdfUrl = await leaseService.generateLeasePdf(
+        final leasePdf = await leaseService.generateLeasePdf(
           lease: createdLease,
           unit: await unitRepository.getUnitById(application.unitId),
           property: await propertyRepository.getPropertyById(application.propertyId),
           tenant: await userRepository.getUserById(application.tenantId),
           landowner: await userRepository.getUserById(lease.landownerId),
         );
+        //upload generatedPdfUrl to storage and get the URL
+        generatedPdfUrl = await UploadPdfService.uploadPdfToStorage(leasePdf, folder: 'leases/${lease.id}');
       }
 
       // Update lease with generated PDF
