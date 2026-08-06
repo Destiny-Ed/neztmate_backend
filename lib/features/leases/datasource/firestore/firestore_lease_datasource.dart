@@ -13,11 +13,21 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
 
   CollectionReference get _leases => firestore.collection('leases');
 
+  //  BASIC CRUD
+
   @override
   Future<LeaseModel> createLease(LeaseModel lease) async {
     final docRef = _leases.doc(lease.id.isEmpty ? null : lease.id);
     await docRef.set(lease.toMap());
     return lease.copyWith(id: docRef.id);
+  }
+
+  @override
+  Future<LeaseModel> createManualLease(LeaseModel lease) async {
+    final docRef = _leases.doc();
+    final newLease = lease.copyWith(id: docRef.id);
+    await docRef.set(newLease.toMap());
+    return newLease;
   }
 
   @override
@@ -28,42 +38,14 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   }
 
   @override
-  Future<List<LeaseModel>> getActiveLeasesByTenant(String tenantId) async {
-    final snap = await _leases
-        .where('tenantId', WhereFilter.equal, tenantId)
-        .where('status', WhereFilter.equal, 'active')
-        .get();
-    return snap.docs.map((d) => LeaseModel.fromMap(d.data())).toList();
-  }
+  Future<LeaseModel> getLeaseByApplicationId(String applicationId) async {
+    final snap = await _leases.where('applicationId', WhereFilter.equal, applicationId).limit(1).get();
 
-  @override
-  Future<List<LeaseModel>> getLeasesByTenant(String tenantId) async {
-    final snap = await _leases.where('tenantId', WhereFilter.equal, tenantId).get();
-    return snap.docs.map((d) => LeaseModel.fromMap(d.data())).toList();
-  }
+    if (snap.docs.isEmpty) {
+      throw NotFoundException('Lease', 'application:$applicationId');
+    }
 
-  @override
-  Future<List<LeaseModel>> getLeasesByLandowner(String landownerId) async {
-    final snap = await _leases
-        .where('landownerId', WhereFilter.equal, landownerId)
-        .where('status', WhereFilter.equal, 'pending payment')
-        .get();
-    return snap.docs.map((d) => LeaseModel.fromMap(d.data())).toList();
-  }
-
-  @override
-  Future<List<LeaseModel>> getLeasesByManager(String managerId) async {
-    final snap = await _leases
-        .where('managerId', WhereFilter.equal, managerId)
-        .where('status', WhereFilter.equal, 'pending payment')
-        .get();
-    return snap.docs.map((d) => LeaseModel.fromMap(d.data())).toList();
-  }
-
-  @override
-  Future<List<LeaseModel>> getLeasesByUnit(String unitId) async {
-    final snap = await _leases.where('unitId', WhereFilter.equal, unitId).get();
-    return snap.docs.map((d) => LeaseModel.fromMap(d.data())).toList();
+    return LeaseModel.fromMap(snap.docs.first.data() as Map<String, dynamic>);
   }
 
   @override
@@ -72,119 +54,51 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   }
 
   @override
-  Future<void> terminateLease(String id, String reason, String terminatedBy) async {
-    await firestore.collection('leases').doc(id).update({
-      'status': 'terminated',
-      'terminationReason': reason,
-      'terminatedAt': DateTime.now().toIso8601String(),
-      'terminatedBy': terminatedBy,
-      'updatedAt': DateTime.now().toIso8601String(),
-    });
-  }
-
-  @override
-  Future<void> approveLeaseTransfer(String leaseId, String approvedBy) async {
-    final lease = await getLeaseById(leaseId);
-
-    if (lease.transferToTenantId == null) throw Exception('No transfer request');
-
-    // Create new lease for replacement tenant
-    final newLease = LeaseModel(
-      id: '',
-      unitId: lease.unitId,
-      tenantId: lease.transferToTenantId!,
-      landownerId: lease.landownerId,
-      managerId: lease.managerId,
-      startDate: DateTime.now(),
-      endDate: lease.endDate,
-      monthlyRent: lease.monthlyRent,
-      fees: lease.fees,
-      status: 'active',
-      createdAt: DateTime.now(),
-      updatedAt: DateTime.now(),
-      applicationId: '',
-      propertyId: lease.propertyId,
-    );
-
-    await createLease(newLease);
-
-    // Terminate old lease
-    await _leases.doc(leaseId).update({
-      'status': 'transferred',
-      'transferStatus': 'approved',
-      'transferApprovedBy': approvedBy,
-      'transferApprovedAt': DateTime.now().toIso8601String(),
-    });
-  }
-
-  @override
-  Future<LeaseModel> getLeaseByApplicationId(String applicationId) async {
-    final snap = await firestore
-        .collection('leases')
-        .where('applicationId', WhereFilter.equal, applicationId)
-        .limit(1)
-        .get();
-
-    if (snap.docs.isEmpty) throw NotFoundException('Lease', 'application:$applicationId');
-
-    final doc = snap.docs.first;
-    return LeaseModel.fromMap(doc.data() as Map<String, dynamic>);
-  }
-
-  @override
-  Future<void> markLeaseAsSigned(
-    String leaseId,
-    String signedPdfUrl,
-    String paymentReceiptUrl,
-    String signedBy,
-  ) async {
-    await firestore.collection('leases').doc(leaseId).update({
-      'signedAgreementPdfUrl': signedPdfUrl,
-      'signedAt': DateTime.now().toIso8601String(),
-      'paymentReceiptUrl': paymentReceiptUrl,
-      'signedBy': signedBy,
-      'status': 'pending payment',
-      'updatedAt': DateTime.now().toIso8601String(),
-    });
-  }
-
-  @override
   Future<void> updateLeaseStatus(String leaseId, String status) async {
-    await firestore.collection('leases').doc(leaseId).update({
-      'status': status,
-      'updatedAt': DateTime.now().toIso8601String(),
-    });
+    await _leases.doc(leaseId).update({'status': status, 'updatedAt': DateTime.now().toIso8601String()});
+  }
+
+  //  QUERIES
+
+  @override
+  Future<List<LeaseModel>> getActiveLeasesByTenant(String tenantId) async {
+    final snap = await _leases
+        .where('tenantId', WhereFilter.equal, tenantId)
+        .where('status', WhereFilter.equal, 'active')
+        .get();
+    return snap.docs.map((d) => LeaseModel.fromMap(d.data() as Map<String, dynamic>)).toList();
   }
 
   @override
-  Future<LeaseModel> renewLeaseAfterPayment(String leaseId) async {
-    final lease = await getLeaseById(leaseId);
+  Future<List<LeaseModel>> getLeasesByTenant(String tenantId) async {
+    final snap = await _leases.where('tenantId', WhereFilter.equal, tenantId).get();
+    return snap.docs.map((d) => LeaseModel.fromMap(d.data() as Map<String, dynamic>)).toList();
+  }
 
-    final newEndDate = lease.endDate.add(const Duration(days: 365)); // 1 year renewal
+  @override
+  Future<List<LeaseModel>> getLeasesByLandowner(String landownerId) async {
+    final snap = await _leases.where('landownerId', WhereFilter.equal, landownerId).get();
+    return snap.docs.map((d) => LeaseModel.fromMap(d.data() as Map<String, dynamic>)).toList();
+  }
 
-    final renewedLease = lease.copyWith(
-      id: "",
-      startDate: lease.endDate,
-      endDate: newEndDate,
-      nextDueDate: lease.endDate.add(const Duration(days: 365)), // next rent due in 1 year
-      status: 'active',
-      isRenewed: true,
-      renewedAt: DateTime.now(),
-      previousLeaseId: leaseId,
-      updatedAt: DateTime.now(),
-      createdAt: DateTime.now(),
-    );
+  @override
+  Future<List<LeaseModel>> getLeasesByManager(String managerId) async {
+    final snap = await _leases.where('managerId', WhereFilter.equal, managerId).get();
+    return snap.docs.map((d) => LeaseModel.fromMap(d.data() as Map<String, dynamic>)).toList();
+  }
 
-    return await createLease(renewedLease);
+  @override
+  Future<List<LeaseModel>> getLeasesByUnit(String unitId) async {
+    final snap = await _leases.where('unitId', WhereFilter.equal, unitId).get();
+    return snap.docs.map((d) => LeaseModel.fromMap(d.data() as Map<String, dynamic>)).toList();
   }
 
   @override
   Future<List<LeaseModel>> getAllActiveLeases() async {
     try {
-      final snap = await firestore
-          .collection('leases')
+      final snap = await _leases
           .where('status', WhereFilter.equal, 'active')
-          .orderBy('endDate', descending: false) // Earliest ending first
+          .orderBy('endDate', descending: false)
           .get();
 
       return snap.docs.map((doc) => LeaseModel.fromMap(doc.data() as Map<String, dynamic>)).toList();
@@ -199,8 +113,7 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
     try {
       final thresholdDate = DateTime.now().add(Duration(days: withinDays));
 
-      final snap = await firestore
-          .collection('leases')
+      final snap = await _leases
           .where('status', WhereFilter.equal, 'active')
           .where('endDate', WhereFilter.lessThanOrEqual, thresholdDate.toIso8601String())
           .orderBy('endDate', descending: false)
@@ -213,33 +126,102 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
     }
   }
 
+  //  SIGNING & ACTIVATION
+
   @override
-  Future<int> updateExpiredLeasesToInactive() async {
-    try {
-      final now = DateTime.now().toIso8601String();
-      final snap = await firestore
-          .collection('leases')
-          .where('status', WhereFilter.equal, 'active')
-          .where('endDate', WhereFilter.lessThan, now)
-          .get();
-
-      int updatedCount = 0;
-
-      for (var doc in snap.docs) {
-        await firestore.collection('leases').doc(doc.id).update({
-          'status': 'inactive',
-          'updatedAt': DateTime.now().toIso8601String(),
-        });
-        updatedCount++;
-      }
-
-      print('Updated $updatedCount leases to Inactive');
-      return updatedCount;
-    } catch (e) {
-      print('Error updating expired leases: $e');
-      return 0;
-    }
+  Future<void> markLeaseAsSigned(
+    String leaseId,
+    String signedPdfUrl,
+    String paymentReceiptUrl,
+    String signedBy,
+  ) async {
+    await _leases.doc(leaseId).update({
+      'signedAgreementPdfUrl': signedPdfUrl,
+      'signedAt': DateTime.now().toIso8601String(),
+      'paymentReceiptUrl': paymentReceiptUrl,
+      'signedBy': signedBy,
+      'status': 'pending payment',
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
   }
+
+  @override
+  Future<void> confirmPaymentAndActivate(String leaseId, String confirmedBy) async {
+    await _leases.doc(leaseId).update({
+      'status': 'active',
+      'paymentConfirmedAt': DateTime.now().toIso8601String(),
+      'paymentConfirmedBy': confirmedBy,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  //  RENEWAL
+
+  @override
+  Future<void> markLeaseAsPendingRenewal(String leaseId) async {
+    await _leases.doc(leaseId).update({
+      'status': 'pending payment',
+      'renewalRequestedAt': DateTime.now().toIso8601String(),
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  @override
+  Future<LeaseModel> createRenewalLease({
+    required String oldLeaseId,
+    required DateTime newStartDate,
+    required DateTime newEndDate,
+    required double monthlyRent,
+    String? reason,
+    String? paymentReceiptUrl,
+  }) async {
+    final oldLease = await getLeaseById(oldLeaseId);
+
+    final newLease = oldLease.copyWith(
+      id: '',
+      startDate: newStartDate,
+      endDate: newEndDate,
+      nextDueDate: newEndDate,
+      monthlyRent: monthlyRent,
+      status: 'active',
+      isRenewed: true,
+      previousLeaseId: oldLeaseId,
+      renewalReason: reason,
+      paymentReceiptUrl: paymentReceiptUrl ?? oldLease.paymentReceiptUrl,
+      renewedAt: DateTime.now(),
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    final created = await createLease(newLease);
+
+    // Keep old lease for history
+    await _leases.doc(oldLeaseId).update({
+      'status': 'renewed',
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+
+    return created;
+  }
+
+  @override
+  Future<LeaseModel> renewLeaseAfterPayment(String leaseId) async {
+    final lease = await getLeaseById(leaseId);
+    final durationMonths = lease.durationMonths ?? 12;
+    final newStartDate = lease.endDate;
+    final newEndDate = newStartDate.add(Duration(days: durationMonths * 30));
+
+    return createRenewalLease(
+      oldLeaseId: leaseId,
+      newStartDate: newStartDate,
+      newEndDate: newEndDate,
+      monthlyRent: lease.monthlyRent,
+      reason: 'Automatic renewal after payment',
+      paymentReceiptUrl: lease.paymentReceiptUrl,
+    );
+  }
+
+  //  TRANSFER
 
   @override
   Future<void> requestLeaseTransfer({
@@ -258,6 +240,42 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   }
 
   @override
+  Future<void> approveLeaseTransfer(String leaseId, String approvedBy) async {
+    final lease = await getLeaseById(leaseId);
+
+    if (lease.transferToTenantId == null) {
+      throw Exception('No transfer request found');
+    }
+
+    final newLease = LeaseModel(
+      id: '',
+      unitId: lease.unitId,
+      tenantId: lease.transferToTenantId!,
+      landownerId: lease.landownerId,
+      managerId: lease.managerId,
+      propertyId: lease.propertyId,
+      applicationId: 'transfer_${DateTime.now().millisecondsSinceEpoch}',
+      startDate: DateTime.now(),
+      endDate: lease.endDate,
+      monthlyRent: lease.monthlyRent,
+      fees: lease.fees,
+      status: 'active',
+      createdAt: DateTime.now(),
+      updatedAt: DateTime.now(),
+    );
+
+    await createLease(newLease);
+
+    await _leases.doc(leaseId).update({
+      'status': 'transferred',
+      'transferStatus': 'approved',
+      'transferApprovedBy': approvedBy,
+      'transferApprovedAt': DateTime.now().toIso8601String(),
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  @override
   Future<void> rejectLeaseTransfer(String leaseId, String rejectedBy, String reason) async {
     await _leases.doc(leaseId).update({
       'transferStatus': 'rejected',
@@ -268,6 +286,8 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
     });
   }
 
+  //  EARLY TERMINATION
+
   @override
   Future<void> requestEarlyTermination({
     required String leaseId,
@@ -275,7 +295,7 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
     required String requestedBy,
   }) async {
     await _leases.doc(leaseId).update({
-      'status': 'EarlyTerminationRequested',
+      'status': 'early_termination_requested',
       'terminationReason': reason,
       'terminationRequestedBy': requestedBy,
       'terminationRequestedAt': DateTime.now().toIso8601String(),
@@ -284,45 +304,69 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   }
 
   @override
+  Future<void> approveEarlyTermination(String leaseId, String approvedBy) async {
+    await _leases.doc(leaseId).update({
+      'status': 'terminated',
+      'terminationApprovedBy': approvedBy,
+      'terminationApprovedAt': DateTime.now().toIso8601String(),
+      'requestStatus': 'approved',
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  @override
+  Future<void> rejectEarlyTermination(String leaseId, String rejectedBy, String reason) async {
+    await _leases.doc(leaseId).update({
+      'requestStatus': 'rejected',
+      'terminationRejectedBy': rejectedBy,
+      'terminationRejectionReason': reason,
+      'terminationRejectedAt': DateTime.now().toIso8601String(),
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  @override
+  Future<List<LeaseTerminationRequest>> getTerminationRequests(String userId) async {
+    final snap = await _leases
+        .where('landownerId', WhereFilter.equal, userId)
+        .where('status', WhereFilter.arrayContains, ['early_termination_requested', 'transfer_requested'])
+        .orderBy('updatedAt', descending: true)
+        .get();
+
+    return snap.docs.map((doc) {
+      return LeaseTerminationRequest.fromMap(doc.data() as Map<String, dynamic>);
+    }).toList();
+  }
+
+  @override
   Future<Map<String, dynamic>> calculateEarlyTerminationSettlement(
     String leaseId,
     UnitRepository unitRepo,
   ) async {
     final lease = await getLeaseById(leaseId);
-    final unit = await unitRepo.getUnitById(lease.unitId); // Get unit for fees
+    final unit = await unitRepo.getUnitById(lease.unitId);
 
     final now = DateTime.now();
     final totalLeaseDays = lease.endDate.difference(lease.startDate).inDays;
     final remainingDays = lease.endDate.difference(now).inDays.clamp(0, totalLeaseDays);
 
     final monthlyRent = lease.monthlyRent;
-    final dailyRent = monthlyRent / 365;
+    final dailyRent = monthlyRent / 30; // more accurate for monthly rent
 
-    // Prorated rent for remaining period
     final proratedRentDue = (dailyRent * remainingDays).roundToDouble();
 
-    // Other fees from unit (service charges, etc.)
     double additionalFeesDue = 0.0;
     if (unit.fees != null) {
       for (var fee in unit.fees!) {
         if (fee.isOneTime == false) {
-          // recurring fees
           additionalFeesDue += fee.amount;
         }
       }
     }
 
-    // Penalty for early termination (e.g., 10% of remaining rent)
     double penalty = (proratedRentDue * 0.10).roundToDouble();
-
-    // If tenant provides replacement, waive penalty
     final hasReplacement = lease.transferToTenantId != null;
-    if (hasReplacement) {
-      penalty = 0.0;
-    }
-
-    final netBalanceDueFromTenant = proratedRentDue + additionalFeesDue + penalty;
-    final netRefundToTenant = 0.0; // No security deposit
+    if (hasReplacement) penalty = 0.0;
 
     return {
       'remainingDays': remainingDays,
@@ -330,8 +374,8 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
       'additionalFeesDue': additionalFeesDue,
       'penalty': penalty,
       'hasReplacement': hasReplacement,
-      'netBalanceDueFromTenant': netBalanceDueFromTenant,
-      'netRefundToTenant': netRefundToTenant,
+      'netBalanceDueFromTenant': proratedRentDue + additionalFeesDue + penalty,
+      'netRefundToTenant': 0.0,
       'notes': hasReplacement
           ? 'Penalty waived due to replacement tenant'
           : 'Early termination penalty applied (10% of remaining rent)',
@@ -339,35 +383,14 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
     };
   }
 
-  @override
-  Future<List<LeaseTerminationRequest>> getTerminationRequests(String userId) async {
-    final snap = await firestore
-        .collection('leases')
-        .where('landownerId', WhereFilter.equal, userId)
-        .where(
-          'status',
-          WhereFilter.isIn,
-          ['EarlyTerminationRequested', 'TransferRequested'].map((e) => e.toLowerCase()),
-        )
-        .orderBy('updatedAt', descending: true)
-        .get();
-
-    return snap.docs.map((doc) {
-      final data = doc.data() as Map<String, dynamic>;
-      return LeaseTerminationRequest.fromMap(data);
-    }).toList();
-  }
-
-  // SETTLEMENT AGREEMENTS
+  //  SETTLEMENT
 
   @override
   Future<void> proposeSettlement(LeaseSettlementAgreement settlement) async {
     final docRef = firestore.collection('lease_settlements').doc();
     final newSettlement = settlement.copyWith(id: docRef.id);
-
     await docRef.set(newSettlement.toMap());
 
-    // Link settlement to lease
     await _leases.doc(settlement.leaseId).update({
       'currentSettlementId': newSettlement.id,
       'settlementStatus': 'proposed',
@@ -377,7 +400,6 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
 
   @override
   Future<void> acceptSettlement(String leaseId, String acceptedBy) async {
-    // Find latest settlement for this lease
     final snap = await firestore
         .collection('lease_settlements')
         .where('leaseId', WhereFilter.equal, leaseId)
@@ -387,16 +409,12 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
 
     if (snap.docs.isEmpty) throw NotFoundException('Settlement', leaseId);
 
-    final settlementDoc = snap.docs.first;
-    final settlementId = settlementDoc.id;
-
-    await firestore.collection('lease_settlements').doc(settlementId).update({
+    await firestore.collection('lease_settlements').doc(snap.docs.first.id).update({
       'status': 'agreed',
       'agreedAt': DateTime.now().toIso8601String(),
       'agreedBy': acceptedBy,
     });
 
-    // Update lease status
     await _leases.doc(leaseId).update({
       'settlementStatus': 'agreed',
       'updatedAt': DateTime.now().toIso8601String(),
@@ -418,10 +436,7 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
 
     if (snap.docs.isEmpty) throw NotFoundException('Settlement', leaseId);
 
-    final settlementDoc = snap.docs.first;
-    final settlementId = settlementDoc.id;
-
-    await firestore.collection('lease_settlements').doc(settlementId).update({
+    await firestore.collection('lease_settlements').doc(snap.docs.first.id).update({
       'status': 'disputed',
       'disputedBy': disputedBy,
       'disputeReason': reason,
@@ -438,7 +453,7 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   Future<void> resolveSettlementDispute({
     required String leaseId,
     required String resolvedBy,
-    required String resolution, // 'accept', 'reject', 'modify'
+    required String resolution,
     double? finalAmount,
     String? notes,
   }) async {
@@ -451,10 +466,7 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
 
     if (snap.docs.isEmpty) throw NotFoundException('Settlement', leaseId);
 
-    final settlementDoc = snap.docs.first;
-    final settlementId = settlementDoc.id;
-
-    await firestore.collection('lease_settlements').doc(settlementId).update({
+    await firestore.collection('lease_settlements').doc(snap.docs.first.id).update({
       'status': resolution == 'accept' ? 'agreed' : 'rejected',
       'resolvedBy': resolvedBy,
       'resolution': resolution,
@@ -469,17 +481,7 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
     });
   }
 
-  @override
-  Future<void> confirmPaymentAndActivate(String leaseId, String confirmedBy) async {
-    await _leases.doc(leaseId).update({
-      'status': 'active',
-      'paymentConfirmedAt': DateTime.now().toIso8601String(),
-      'paymentConfirmedBy': confirmedBy,
-      'updatedAt': DateTime.now().toIso8601String(),
-    });
-
-    print('✅ Lease activated and tenant added to unit after payment confirmation');
-  }
+  //  RENT ADJUSTMENT
 
   @override
   Future<void> proposeRentAdjustment({
@@ -524,68 +526,49 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
     });
   }
 
+  //  REQUEST VIEWING
+
   @override
   Future<List<Map<String, dynamic>>> getLeaseRequestsByUser(String userId) async {
-    final snap = await firestore
-        .collection('leases')
-        .where('tenantId', WhereFilter.equal, userId)
-        .where('requestStatus', WhereFilter.notEqual, null) // has any request
-        .get();
+    final snap = await _leases.where('tenantId', WhereFilter.equal, userId).get();
 
     return snap.docs.map((doc) {
       final data = doc.data() as Map<String, dynamic>;
       return {
         'leaseId': doc.id,
         'requestType': data['requestType'],
-        'status': data['requestStatus'],
-        'reason': data['requestReason'],
-        'proposedAt': data['requestProposedAt'],
+        'status': data['requestStatus'] ?? data['transferStatus'] ?? data['rentAdjustmentStatus'],
+        'reason': data['requestReason'] ?? data['terminationReason'] ?? data['rentAdjustmentReason'],
+        'proposedAt':
+            data['requestProposedAt'] ??
+            data['transferRequestedAt'] ??
+            data['terminationRequestedAt'] ??
+            data['rentAdjustmentProposedAt'],
       };
     }).toList();
   }
 
   @override
   Future<List<Map<String, dynamic>>> getIncomingLeaseRequests(String userId, String role) async {
-    var query = firestore.collection('leases');
+    final field = role == 'landowner' ? 'landownerId' : 'managerId';
 
-    final snap = await query
-        .where(role == 'landowner' ? 'landownerId' : 'managerId', WhereFilter.equal, userId)
-        .where('requestStatus', WhereFilter.notEqual, null)
-        .get();
+    final snap = await _leases.where(field, WhereFilter.equal, userId).get();
 
     return snap.docs.map((doc) {
       final data = doc.data() as Map<String, dynamic>;
       return {
         'leaseId': doc.id,
         'requestType': data['requestType'],
-        'status': data['requestStatus'],
-        'reason': data['requestReason'],
-        'proposedAt': data['requestProposedAt'],
+        'status': data['requestStatus'] ?? data['transferStatus'] ?? data['rentAdjustmentStatus'],
+        'reason': data['requestReason'] ?? data['terminationReason'] ?? data['rentAdjustmentReason'],
+        'proposedAt':
+            data['requestProposedAt'] ??
+            data['transferRequestedAt'] ??
+            data['terminationRequestedAt'] ??
+            data['rentAdjustmentProposedAt'],
         'tenantId': data['tenantId'],
       };
     }).toList();
-  }
-
-  @override
-  Future<void> approveEarlyTermination(String leaseId, String approvedBy) async {
-    await _leases.doc(leaseId).update({
-      'status': 'Terminated',
-      'terminationApprovedBy': approvedBy,
-      'terminationApprovedAt': DateTime.now().toIso8601String(),
-      'requestStatus': 'approved',
-      'updatedAt': DateTime.now().toIso8601String(),
-    });
-  }
-
-  @override
-  Future<void> rejectEarlyTermination(String leaseId, String rejectedBy, String reason) async {
-    await _leases.doc(leaseId).update({
-      'requestStatus': 'rejected',
-      'terminationRejectedBy': rejectedBy,
-      'terminationRejectionReason': reason,
-      'terminationRejectedAt': DateTime.now().toIso8601String(),
-      'updatedAt': DateTime.now().toIso8601String(),
-    });
   }
 
   @override
@@ -599,6 +582,46 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
       'requestType': requestType,
       'requestStatus': status,
       'requestReason': reason,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  //  SYSTEM / CRON
+
+  @override
+  Future<int> updateExpiredLeasesToInactive() async {
+    try {
+      final now = DateTime.now().toIso8601String();
+      final snap = await _leases
+          .where('status', WhereFilter.equal, 'active')
+          .where('endDate', WhereFilter.lessThan, now)
+          .get();
+
+      int updatedCount = 0;
+
+      for (var doc in snap.docs) {
+        await _leases.doc(doc.id).update({
+          'status': 'inactive',
+          'updatedAt': DateTime.now().toIso8601String(),
+        });
+        updatedCount++;
+      }
+
+      print('Updated $updatedCount leases to inactive');
+      return updatedCount;
+    } catch (e) {
+      print('Error updating expired leases: $e');
+      return 0;
+    }
+  }
+
+  @override
+  Future<void> terminateLease(String id, String reason, String terminatedBy) async {
+    await _leases.doc(id).update({
+      'status': 'terminated',
+      'terminationReason': reason,
+      'terminatedAt': DateTime.now().toIso8601String(),
+      'terminatedBy': terminatedBy,
       'updatedAt': DateTime.now().toIso8601String(),
     });
   }
