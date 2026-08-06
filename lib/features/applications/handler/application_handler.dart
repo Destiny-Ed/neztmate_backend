@@ -610,6 +610,7 @@ class ApplicationHandler {
       final application = await applicationRepository.getApplicationById(appId);
 
       final unit = await unitRepository.getUnitById(application.unitId);
+      final property = await propertyRepository.getPropertyById(application.propertyId);
 
       // 2. Create Lease Record
       final leaseService = LeasePdfService();
@@ -623,6 +624,7 @@ class ApplicationHandler {
         unitId: application.unitId,
         tenantId: application.tenantId,
         propertyId: application.propertyId,
+        rentPaymentMode: property.rentPaymentMode,
         landownerId: role == 'landowner' ? approverId : application.landownerId,
         managerId: role == 'manager' ? approverId : null,
         startDate: startDate,
@@ -630,7 +632,7 @@ class ApplicationHandler {
         durationMonths: durationMonths,
         monthlyRent: application.proposedRent ?? unit.monthlyRent,
         fees: unit.fees,
-        status: 'pending signature',
+        status: 'pending_signature',
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );

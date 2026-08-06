@@ -13,6 +13,8 @@ class LeaseModel {
   final DateTime endDate;
   final DateTime? nextDueDate;
 
+  final String rentPaymentMode;
+
   final double monthlyRent;
   final int? durationMonths;
   final double? monthlyRentEquivalent;
@@ -74,6 +76,7 @@ class LeaseModel {
     required this.landownerId,
     required this.propertyId,
     this.managerId,
+    this.rentPaymentMode = 'offline', // default to offline
     this.paymentReceiptUrl,
     required this.startDate,
     required this.endDate,
@@ -133,6 +136,7 @@ class LeaseModel {
       monthlyRentEquivalent: map['monthlyRentEquivalent'] as double?,
       startDate: DateTime.parse(map['startDate'] as String),
       endDate: DateTime.parse(map['endDate'] as String),
+      rentPaymentMode: map['rentPaymentMode'] as String? ?? 'offline',
       nextDueDate: map['nextDueDate'] != null ? DateTime.parse(map['nextDueDate'] as String) : null,
       monthlyRent: (map['monthlyRent'] as num).toDouble(),
       durationMonths: (map['durationMonths'] as num?)?.toInt(),
@@ -201,6 +205,7 @@ class LeaseModel {
     'landownerId': landownerId,
     'propertyId': propertyId,
     'managerId': managerId,
+    'rentPaymentMode': rentPaymentMode,
     'startDate': startDate.toIso8601String(),
     'endDate': endDate.toIso8601String(),
     'nextDueDate': nextDueDate?.toIso8601String(),
@@ -257,6 +262,7 @@ class LeaseModel {
     String? propertyId,
     String? managerId,
     DateTime? startDate,
+    String? rentPaymentMode,
     DateTime? endDate,
     double? monthlyRentEquivalent,
     DateTime? nextDueDate,
@@ -308,6 +314,7 @@ class LeaseModel {
       managerId: managerId ?? this.managerId,
       monthlyRentEquivalent: monthlyRentEquivalent ?? this.monthlyRentEquivalent,
       propertyId: propertyId ?? this.propertyId,
+      rentPaymentMode: rentPaymentMode ?? this.rentPaymentMode,
       paymentReceiptUrl: paymentReceiptUrl ?? this.paymentReceiptUrl,
       startDate: startDate ?? this.startDate,
       endDate: endDate ?? this.endDate,
