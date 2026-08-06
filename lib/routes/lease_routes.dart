@@ -4,55 +4,44 @@ import 'package:shelf_router/shelf_router.dart';
 Router leaseRoutes(LeaseHandler handler) {
   final router = Router();
 
-  // ====================== VIEW ======================
+  // View
   router.get('/me', handler.getMyLeases);
-  router.get('/<id>', handler.getLeaseById);
-  router.get('/application/<id>', handler.getLeaseByApplicationId);
   router.get('/property/<propertyId>', handler.getLeasesByProperty);
+  router.get('/application/<id>', handler.getLeaseByApplicationId);
+  router.get('/<id>', handler.getLeaseById);
 
-  // ====================== SIGNING ======================
+  // Sign / payment / status
   router.patch('/<id>/sign', handler.signLease);
-
-  // ====================== MANUAL LEASE ======================
-  router.post('/manual', handler.createManualLease);
-
-  // ====================== PAYMENT ======================
   router.patch('/<id>/confirm-payment', handler.confirmPaymentReceived);
-
-  // ====================== STATUS ======================
   router.patch('/<id>/status', handler.updateLeaseStatus);
 
-  // ====================== RENEWAL (OFFLINE) ======================
-  router.post('/<id>/request-renewal', handler.requestRenewal); // Tenant
-  router.post('/<id>/offer-renewal', handler.offerRenewal); // Landlord
-  router.post('/<id>/confirm-renewal-payment', handler.confirmRenewalPayment); // Tenant uploads receipt
-  router.post('/<id>/approve-renewal-payment', handler.approveRenewalPayment); // Landlord confirms
+  // Renewal
+  router.post('/<id>/request-renewal', handler.requestRenewal);
+  router.post('/<id>/offer-renewal', handler.offerRenewal);
+  router.post('/<id>/confirm-renewal-payment', handler.confirmRenewalPayment);
+  router.post('/<id>/approve-renewal-payment', handler.approveRenewalPayment);
 
-  // ====================== TRANSFER ======================
+  // Manual
+  router.post('/manual', handler.createManualLease);
+
+  // Requests (create on lease)
   router.post('/<id>/transfer', handler.requestLeaseTransfer);
-  router.patch('/<id>/approve-transfer', handler.approveLeaseTransfer);
-  router.patch('/<id>/reject-transfer', handler.rejectLeaseTransfer);
-
-  // ====================== EARLY TERMINATION ======================
   router.post('/<id>/early-termination', handler.requestEarlyTermination);
+  router.post('/<id>/adjust-rent', handler.proposeRentAdjustment);
   router.patch('/<id>/terminate', handler.terminateLeaseByLandowner);
 
-  // ====================== RENT ADJUSTMENT ======================
-  router.post('/<id>/adjust-rent', handler.proposeRentAdjustment);
-  router.patch('/<id>/approve-rent-adjustment', handler.approveRentAdjustment);
-  router.patch('/<id>/reject-rent-adjustment', handler.rejectRentAdjustment);
+  // Requests (act by requestId) — register BEFORE /<id> catch-alls if needed
+  router.get('/requests', handler.getMyLeaseRequests);
+  router.get('/requests/incoming', handler.getIncomingLeaseRequests);
+  router.get('/requests/<requestId>', handler.getLeaseRequestById);
+  router.patch('/requests/<requestId>/approve', handler.approveLeaseRequest);
+  router.patch('/requests/<requestId>/reject', handler.rejectLeaseRequest);
+  router.patch('/requests/<requestId>/cancel', handler.cancelLeaseRequest);
 
-  // ====================== SETTLEMENT ======================
+  // Settlement
   router.patch('/<id>/settlement/accept', handler.acceptSettlement);
   router.patch('/<id>/settlement/dispute', handler.disputeSettlement);
   router.patch('/<id>/settlement/resolve', handler.resolveSettlementDispute);
-
-  // ====================== REQUESTS (UNIFIED) ======================
-  router.get('/requests', handler.getMyLeaseRequests);
-  router.get('/requests/incoming', handler.getIncomingLeaseRequests);
-  router.get('/<id>/request-details', handler.getLeaseRequestDetails);
-  router.patch('/<id>/approve-request', handler.approveLeaseRequest);
-  router.patch('/<id>/reject-request', handler.rejectLeaseRequest);
 
   return router;
 }

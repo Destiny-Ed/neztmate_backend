@@ -1,6 +1,6 @@
 import 'package:neztmate_backend/features/leases/datasource/lease_remote_datasource.dart';
+import 'package:neztmate_backend/features/leases/models/lease_request_model.dart';
 import 'package:neztmate_backend/features/leases/models/lease_settlement_agreement_model.dart';
-import 'package:neztmate_backend/features/leases/models/lease_termination_request.dart';
 import 'package:neztmate_backend/features/leases/models/leases_model.dart';
 import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
 import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
@@ -10,7 +10,7 @@ class LeaseRepositoryImpl implements LeaseRepository {
 
   LeaseRepositoryImpl(this.dataSource);
 
-  //  BASIC CRUD
+  // BASIC CRUD
   @override
   Future<LeaseModel> createLease(LeaseModel lease) => dataSource.createLease(lease);
 
@@ -31,7 +31,7 @@ class LeaseRepositoryImpl implements LeaseRepository {
   Future<void> updateLeaseStatus(String leaseId, String status) =>
       dataSource.updateLeaseStatus(leaseId, status);
 
-  //  QUERIES
+  // QUERIES
   @override
   Future<List<LeaseModel>> getActiveLeasesByTenant(String tenantId) =>
       dataSource.getActiveLeasesByTenant(tenantId);
@@ -56,7 +56,7 @@ class LeaseRepositoryImpl implements LeaseRepository {
   Future<List<LeaseModel>> getExpiringLeases({int withinDays = 5}) =>
       dataSource.getExpiringLeases(withinDays: withinDays);
 
-  //  SIGNING & ACTIVATION
+  // SIGNING & ACTIVATION
   @override
   Future<void> markLeaseAsSigned(
     String leaseId,
@@ -69,7 +69,7 @@ class LeaseRepositoryImpl implements LeaseRepository {
   Future<void> confirmPaymentAndActivate(String leaseId, String confirmedBy) =>
       dataSource.confirmPaymentAndActivate(leaseId, confirmedBy);
 
-  //  RENEWAL
+  // RENEWAL
   @override
   Future<void> markLeaseAsPendingRenewal(String leaseId) => dataSource.markLeaseAsPendingRenewal(leaseId);
 
@@ -93,47 +93,7 @@ class LeaseRepositoryImpl implements LeaseRepository {
   @override
   Future<LeaseModel> renewLeaseAfterPayment(String leaseId) => dataSource.renewLeaseAfterPayment(leaseId);
 
-  //  TRANSFER
-  @override
-  Future<void> requestLeaseTransfer({
-    required String leaseId,
-    required String newTenantId,
-    required String reason,
-  }) => dataSource.requestLeaseTransfer(leaseId: leaseId, newTenantId: newTenantId, reason: reason);
-
-  @override
-  Future<void> approveLeaseTransfer(String leaseId, String approvedBy) =>
-      dataSource.approveLeaseTransfer(leaseId, approvedBy);
-
-  @override
-  Future<void> rejectLeaseTransfer(String leaseId, String rejectedBy, String reason) =>
-      dataSource.rejectLeaseTransfer(leaseId, rejectedBy, reason);
-
-  //  EARLY TERMINATION
-  @override
-  Future<void> requestEarlyTermination({
-    required String leaseId,
-    required String reason,
-    required String requestedBy,
-  }) => dataSource.requestEarlyTermination(leaseId: leaseId, reason: reason, requestedBy: requestedBy);
-
-  @override
-  Future<void> approveEarlyTermination(String leaseId, String approvedBy) =>
-      dataSource.approveEarlyTermination(leaseId, approvedBy);
-
-  @override
-  Future<void> rejectEarlyTermination(String leaseId, String rejectedBy, String reason) =>
-      dataSource.rejectEarlyTermination(leaseId, rejectedBy, reason);
-
-  @override
-  Future<List<LeaseTerminationRequest>> getTerminationRequests(String userId) =>
-      dataSource.getTerminationRequests(userId);
-
-  @override
-  Future<Map<String, dynamic>> calculateEarlyTerminationSettlement(String leaseId, UnitRepository unitRepo) =>
-      dataSource.calculateEarlyTerminationSettlement(leaseId, unitRepo);
-
-  //  SETTLEMENT
+  // SETTLEMENT
   @override
   Future<void> proposeSettlement(LeaseSettlementAgreement settlement) =>
       dataSource.proposeSettlement(settlement);
@@ -164,42 +124,64 @@ class LeaseRepositoryImpl implements LeaseRepository {
     notes: notes,
   );
 
-  //  RENT ADJUSTMENT
+  // LEASE REQUESTS
   @override
-  Future<void> proposeRentAdjustment({
-    required String leaseId,
-    required double newMonthlyRent,
+  Future<LeaseRequestModel> createLeaseRequest(LeaseRequestModel request) =>
+      dataSource.createLeaseRequest(request);
+
+  @override
+  Future<LeaseRequestModel> getLeaseRequestById(String requestId) =>
+      dataSource.getLeaseRequestById(requestId);
+
+  @override
+  Future<LeaseRequestModel?> getActiveLeaseRequest(String leaseId, {LeaseRequestType? type}) =>
+      dataSource.getActiveLeaseRequest(leaseId, type: type);
+
+  @override
+  Future<List<LeaseRequestModel>> getLeaseRequestsByLease(String leaseId) =>
+      dataSource.getLeaseRequestsByLease(leaseId);
+
+  @override
+  Future<List<LeaseRequestModel>> getLeaseRequestsByTenant(String tenantId) =>
+      dataSource.getLeaseRequestsByTenant(tenantId);
+
+  @override
+  Future<List<LeaseRequestModel>> getLeaseRequestsForLandowner(String landownerId) =>
+      dataSource.getLeaseRequestsForLandowner(landownerId);
+
+  @override
+  Future<List<LeaseRequestModel>> getLeaseRequestsForManager(String managerId) =>
+      dataSource.getLeaseRequestsForManager(managerId);
+
+  @override
+  Future<List<LeaseRequestModel>> getPendingLeaseRequestsForUser({
+    required String userId,
+    required String role,
+  }) => dataSource.getPendingLeaseRequestsForUser(userId: userId, role: role);
+
+  @override
+  Future<void> approveLeaseRequest({required String requestId, required String approvedBy, String? notes}) =>
+      dataSource.approveLeaseRequest(requestId: requestId, approvedBy: approvedBy, notes: notes);
+
+  @override
+  Future<void> rejectLeaseRequest({
+    required String requestId,
+    required String rejectedBy,
     required String reason,
-    required String proposedBy,
-  }) => dataSource.proposeRentAdjustment(
-    leaseId: leaseId,
-    newMonthlyRent: newMonthlyRent,
-    reason: reason,
-    proposedBy: proposedBy,
-  );
+  }) => dataSource.rejectLeaseRequest(requestId: requestId, rejectedBy: rejectedBy, reason: reason);
 
   @override
-  Future<void> approveRentAdjustment(String leaseId, String approvedBy) =>
-      dataSource.approveRentAdjustment(leaseId, approvedBy);
+  Future<void> cancelLeaseRequest({required String requestId, required String cancelledBy}) =>
+      dataSource.cancelLeaseRequest(requestId: requestId, cancelledBy: cancelledBy);
 
   @override
-  Future<void> rejectRentAdjustment(String leaseId, String rejectedBy, String reason) =>
-      dataSource.rejectRentAdjustment(leaseId, rejectedBy, reason);
-
-  //  REQUEST VIEWING
-  @override
-  Future<List<Map<String, dynamic>>> getLeaseRequestsByUser(String userId) =>
-      dataSource.getLeaseRequestsByUser(userId);
+  Future<void> completeLeaseRequest(String requestId) => dataSource.completeLeaseRequest(requestId);
 
   @override
-  Future<List<Map<String, dynamic>>> getIncomingLeaseRequests(String userId, String role) =>
-      dataSource.getIncomingLeaseRequests(userId, role);
+  Future<Map<String, dynamic>> calculateEarlyTerminationSettlement(String leaseId, UnitRepository unitRepo) =>
+      dataSource.calculateEarlyTerminationSettlement(leaseId, unitRepo);
 
-  @override
-  Future<void> updateLeaseRequestStatus(String leaseId, String requestType, String status, String? reason) =>
-      dataSource.updateLeaseRequestStatus(leaseId, requestType, status, reason);
-
-  //  SYSTEM / CRON
+  // SYSTEM / CRON
   @override
   Future<int> updateExpiredLeasesToInactive() => dataSource.updateExpiredLeasesToInactive();
 
