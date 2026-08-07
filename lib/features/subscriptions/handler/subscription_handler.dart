@@ -202,6 +202,23 @@ class SubscriptionHandler {
         return badRequest('Invalid or inactive plan');
       }
 
+      // Already on this plan?
+      final current = await subscriptionRepository.getActiveSubscription(userId);
+      if (current != null) {
+        final currentPlanId = current.planId.toLowerCase();
+        final requestedPlanId = planId.toLowerCase();
+        if (currentPlanId == requestedPlanId || currentPlanId == plan.name.toLowerCase()) {
+          return Response(
+            400,
+            body: jsonEncode({
+              'message': 'You are already subscribed to the ${plan.name} plan',
+              'currentPlanId': current.planId,
+              'status': current.status,
+            }),
+          );
+        }
+      }
+
       // Free plan → activate immediately (no Paystack)
       final amount = billingCycle == 'yearly' ? plan.yearlyPrice : plan.monthlyPrice;
       if (amount <= 0) {
