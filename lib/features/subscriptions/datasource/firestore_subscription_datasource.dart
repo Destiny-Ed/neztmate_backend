@@ -11,6 +11,34 @@ class FirestoreSubscriptionRepository implements SubscriptionRepository {
   CollectionReference get _plans => firestore.collection('subscription_plans');
   CollectionReference get _subscriptions => firestore.collection('user_subscriptions');
 
+  // Firestore
+  @override
+  Future<SubscriptionPlanModel> createPlan(SubscriptionPlanModel plan) async {
+    final docRef = firestore.collection('subscription_plans').doc(plan.id.isNotEmpty ? plan.id : null);
+    final created = plan.copyWith(id: docRef.id, createdAt: DateTime.now(), updatedAt: DateTime.now());
+    await docRef.set(created.toMap());
+    return created;
+  }
+
+  @override
+  Future<void> updatePlan(SubscriptionPlanModel plan) async {
+    await firestore.collection('subscription_plans').doc(plan.id).update({
+      ...plan.toMap(),
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  @override
+  Future<SubscriptionPlanModel?> getPlanById(String id) async {
+    final snap = await firestore
+        .collection('subscription_plans')
+        .where('id', WhereFilter.equal, id)
+        .limit(1)
+        .get();
+    if (snap.docs.isEmpty) return null;
+    return SubscriptionPlanModel.fromMap(snap.docs.first.data() as Map<String, dynamic>);
+  }
+
   @override
   Future<List<SubscriptionPlanModel>> getAllPlans() async {
     final snapshot = await _plans.where('isActive', WhereFilter.equal, true).get();
@@ -87,19 +115,5 @@ class FirestoreSubscriptionRepository implements SubscriptionRepository {
       'status': status,
       'updatedAt': DateTime.now().toIso8601String(),
     });
-  }
-
-  @override
-  Future<SubscriptionPlanModel?> getPlanById(String planId) async {
-    try {
-      final doc = await _plans.doc(planId).get();
-
-      if (!doc.exists) return null;
-
-      return SubscriptionPlanModel.fromMap(doc.data() as Map<String, dynamic>);
-    } catch (e) {
-      print('Error fetching plan by ID: $e');
-      return null;
-    }
   }
 }

@@ -3,10 +3,12 @@ import 'package:neztmate_backend/features/history/model/user_history_model.dart'
 import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
+import 'package:neztmate_backend/features/subscriptions/model/plan_subscription_model.dart';
 import 'package:neztmate_backend/features/subscriptions/model/user_subscription_model.dart';
 import 'package:neztmate_backend/features/subscriptions/repository/subscription_repository.dart';
 import 'package:shelf/shelf.dart';
 import 'package:neztmate_backend/core/error.dart';
+import 'package:shelf_router/shelf_router.dart';
 import '../../auth_user/repositories/user_repository.dart';
 
 class SubscriptionHandler {
@@ -21,6 +23,122 @@ class SubscriptionHandler {
     this.notificationRepository,
     this.historyRepository,
   );
+
+  /// POST /subscriptions/plans  (admin)
+  Future<Response> createPlan(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+
+      if (userId == null) return unauthorized('Unauthorized');
+
+      // if (role != 'admin') {
+      //   return Response(403, body: jsonEncode({'message': 'Only admins can create plans'}));
+      // }
+
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+
+      final name = (body['name'] as String?)?.trim().toLowerCase();
+      final monthlyPrice = (body['monthlyPrice'] as num?)?.toDouble();
+      final yearlyPrice = (body['yearlyPrice'] as num?)?.toDouble();
+      final maxListings = body['maxListings'] as int?;
+
+      if (name == null || name.isEmpty) {
+        return badRequest('name is required');
+      }
+      if (!['free', 'basic', 'premium', 'enterprise'].contains(name)) {
+        return badRequest('name must be one of: free, basic, premium, enterprise');
+      }
+      if (monthlyPrice == null || monthlyPrice < 0) {
+        return badRequest('Valid monthlyPrice is required');
+      }
+      if (yearlyPrice == null || yearlyPrice < 0) {
+        return badRequest('Valid yearlyPrice is required');
+      }
+      if (maxListings == null) {
+        return badRequest('maxListings is required (-1 for unlimited)');
+      }
+
+      final existing = await subscriptionRepository.getPlanById(name);
+      if (existing != null) {
+        return Response(409, body: jsonEncode({'message': 'Plan "$name" already exists'}));
+      }
+
+      final plan = SubscriptionPlanModel(
+        id: name,
+        name: name,
+        monthlyPrice: monthlyPrice,
+        yearlyPrice: yearlyPrice,
+        maxListings: maxListings,
+        hasAgentAssignment: body['hasAgentAssignment'] as bool? ?? false,
+        hasAdvancedScreening: body['hasAdvancedScreening'] as bool? ?? false,
+        hasAnalytics: body['hasAnalytics'] as bool? ?? false,
+        hasPrioritySupport: body['hasPrioritySupport'] as bool? ?? false,
+        isActive: body['isActive'] as bool? ?? true,
+      );
+
+      final created = await subscriptionRepository.createPlan(plan);
+
+      return Response.ok(
+        jsonEncode({
+          'message': 'Plan created successfully',
+          'plan': {'id': created.id, ...created.toMap()},
+        }),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, stack) {
+      print('Create plan error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to create plan'}));
+    }
+  }
+
+  /// PATCH /subscriptions/plans/<id>  (admin)
+  Future<Response> updatePlan(Request request) async {
+    try {
+      final role = request.context['role'] as String?;
+      final planId = request.params['id'];
+
+      if (role != 'admin') {
+        return Response(403, body: jsonEncode({'message': 'Only admins can update plans'}));
+      }
+      if (planId == null || planId.isEmpty) {
+        return badRequest('Plan id is required');
+      }
+
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final existing = await subscriptionRepository.getPlanById(planId);
+
+      if (existing == null) {
+        return Response(404, body: jsonEncode({'message': 'Plan not found'}));
+      }
+
+      final updated = SubscriptionPlanModel(
+        id: existing.id,
+        name: existing.name, // name/id should not change after create
+        monthlyPrice: (body['monthlyPrice'] as num?)?.toDouble() ?? existing.monthlyPrice,
+        yearlyPrice: (body['yearlyPrice'] as num?)?.toDouble() ?? existing.yearlyPrice,
+        maxListings: body['maxListings'] as int? ?? existing.maxListings,
+        hasAgentAssignment: body['hasAgentAssignment'] as bool? ?? existing.hasAgentAssignment,
+        hasAdvancedScreening: body['hasAdvancedScreening'] as bool? ?? existing.hasAdvancedScreening,
+        hasAnalytics: body['hasAnalytics'] as bool? ?? existing.hasAnalytics,
+        hasPrioritySupport: body['hasPrioritySupport'] as bool? ?? existing.hasPrioritySupport,
+        isActive: body['isActive'] as bool? ?? existing.isActive,
+      );
+
+      await subscriptionRepository.updatePlan(updated);
+
+      return Response.ok(
+        jsonEncode({
+          'message': 'Plan updated successfully',
+          'plan': {'id': updated.id, ...updated.toMap()},
+        }),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, stack) {
+      print('Update plan error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to update plan'}));
+    }
+  }
 
   /// GET /subscriptions/plans - Get all available plans
   Future<Response> getPlans(Request request) async {

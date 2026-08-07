@@ -2,6 +2,10 @@ import 'package:neztmate_backend/features/subscriptions/model/plan_subscription_
 import 'package:neztmate_backend/features/subscriptions/model/user_subscription_model.dart';
 
 abstract class SubscriptionRepository {
+  // abstract
+  Future<SubscriptionPlanModel> createPlan(SubscriptionPlanModel plan);
+  Future<void> updatePlan(SubscriptionPlanModel plan);
+  Future<SubscriptionPlanModel?> getPlanById(String id);
   Future<List<SubscriptionPlanModel>> getAllPlans();
   Future<UserSubscriptionModel?> getActiveSubscription(String userId);
   Future<UserSubscriptionModel> createSubscription(UserSubscriptionModel subscription);
@@ -11,5 +15,4 @@ abstract class SubscriptionRepository {
 
   Future<List<UserSubscriptionModel>> getExpiredSubscriptions();
   Future<void> updateSubscriptionStatus(String subscriptionId, {required String status});
-  Future<SubscriptionPlanModel?> getPlanById(String planId);
 }

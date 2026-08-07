@@ -9,6 +9,8 @@ class SubscriptionPlanModel {
   final bool hasAnalytics;
   final bool hasPrioritySupport;
   final bool isActive;
+  final DateTime? createdAt;
+  final DateTime? updatedAt;
 
   SubscriptionPlanModel({
     required this.id,
@@ -21,6 +23,8 @@ class SubscriptionPlanModel {
     this.hasAnalytics = false,
     this.hasPrioritySupport = false,
     this.isActive = true,
+    this.createdAt,
+    this.updatedAt,
   });
 
   factory SubscriptionPlanModel.fromMap(Map<String, dynamic> map) {
@@ -35,10 +39,13 @@ class SubscriptionPlanModel {
       hasAnalytics: map['hasAnalytics'] ?? false,
       hasPrioritySupport: map['hasPrioritySupport'] ?? false,
       isActive: map['isActive'] ?? true,
+      createdAt: map['createdAt'] != null ? DateTime.parse(map['createdAt']) : null,
+      updatedAt: map['updatedAt'] != null ? DateTime.parse(map['updatedAt']) : null,
     );
   }
 
   Map<String, dynamic> toMap() => {
+    'id': id,
     'name': name,
     'monthlyPrice': monthlyPrice,
     'yearlyPrice': yearlyPrice,
@@ -48,5 +55,37 @@ class SubscriptionPlanModel {
     'hasAnalytics': hasAnalytics,
     'hasPrioritySupport': hasPrioritySupport,
     'isActive': isActive,
+    'createdAt': createdAt?.toIso8601String(),
+    'updatedAt': updatedAt?.toIso8601String(),
   };
+
+  SubscriptionPlanModel copyWith({
+    String? id,
+    String? name,
+    double? monthlyPrice,
+    double? yearlyPrice,
+    int? maxListings,
+    bool? hasAgentAssignment,
+    bool? hasAdvancedScreening,
+    bool? hasAnalytics,
+    bool? hasPrioritySupport,
+    bool? isActive,
+    DateTime? createdAt,
+    DateTime? updatedAt,
+  }) {
+    return SubscriptionPlanModel(
+      id: id ?? this.id,
+      name: name ?? this.name,
+      monthlyPrice: monthlyPrice ?? this.monthlyPrice,
+      yearlyPrice: yearlyPrice ?? this.yearlyPrice,
+      maxListings: maxListings ?? this.maxListings,
+      hasAgentAssignment: hasAgentAssignment ?? this.hasAgentAssignment,
+      hasAdvancedScreening: hasAdvancedScreening ?? this.hasAdvancedScreening,
+      hasAnalytics: hasAnalytics ?? this.hasAnalytics,
+      hasPrioritySupport: hasPrioritySupport ?? this.hasPrioritySupport,
+      isActive: isActive ?? this.isActive,
+      createdAt: createdAt ?? this.createdAt,
+      updatedAt: updatedAt ?? this.updatedAt,
+    );
+  }
 }
