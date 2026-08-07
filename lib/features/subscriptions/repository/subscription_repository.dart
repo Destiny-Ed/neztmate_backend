@@ -19,4 +19,7 @@ abstract class SubscriptionRepository {
   Future<List<UserSubscriptionModel>> getExpiredSubscriptions();
   Future<void> updateSubscriptionStatus(String subscriptionId, {required String status});
   Future<UserSubscriptionModel?> getSubscriptionById(String id);
+
+  /// Deactivate all active/pending subscriptions for [userId] except [exceptId].
+  Future<void> deactivateOtherSubscriptions(String userId, {required String exceptId});
 }

@@ -147,4 +147,37 @@ class FirestoreSubscriptionRepository implements SubscriptionRepository {
     final data = doc.data() as Map<String, dynamic>;
     return UserSubscriptionModel.fromMap({...data, 'id': doc.id});
   }
+
+  @override
+  Future<void> deactivateOtherSubscriptions(String userId, {required String exceptId}) async {
+    final snap = await firestore
+        .collection('user_subscriptions')
+        .where('userId', WhereFilter.equal, userId)
+        .get();
+
+    final updates = <Future>[];
+
+    for (final doc in snap.docs) {
+      if (doc.id == exceptId) continue;
+
+      final data = doc.data() as Map<String, dynamic>;
+      final status = (data['status'] as String?)?.toLowerCase() ?? '';
+
+      // Only touch active / pending ones
+      if (!['active', 'pending_payment'].contains(status)) continue;
+
+      updates.add(
+        firestore.collection('user_subscriptions').doc(doc.id).update({
+          'status': 'replaced',
+          'replacedBy': exceptId,
+          'deactivatedAt': DateTime.now().toIso8601String(),
+          'updatedAt': DateTime.now().toIso8601String(),
+        }),
+      );
+    }
+
+    if (updates.isNotEmpty) {
+      await Future.wait(updates);
+    }
+  }
 }

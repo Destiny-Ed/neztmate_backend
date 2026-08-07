@@ -241,7 +241,7 @@ class PaymentHandler {
           await subscriptionRepository.activateSubscription(sub.id, amountPaid: amount);
 
           // Optional: cancel other active subs for same user
-          // await subscriptionRepository.deactivateOtherSubscriptions(sub.userId, exceptId: sub.id);
+          await subscriptionRepository.deactivateOtherSubscriptions(sub.userId, exceptId: sub.id);
 
           await historyRepository.createHistoryEntry(
             HistoryEntryModel(
