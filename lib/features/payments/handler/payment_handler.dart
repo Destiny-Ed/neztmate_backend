@@ -199,16 +199,6 @@ class PaymentHandler {
       // Update main payment record
       await paymentRepository.markAsPaidByReference(reference, receiptUrl ?? '', reference);
 
-      final platformFee = amount * 0.05; // 5% platform fee
-      final netAmount = amount - platformFee;
-
-      String recipientId = '';
-      String recipientType = '';
-
-      double managerCommissionAmount = 0.0;
-      double managerCommissionRate = 0.0;
-      String? managerId;
-
       //  APPLICATION FEE
       if (payment.type == 'application_fee' && metadata['applicationId'] != null) {
         final appId = metadata['applicationId'] as String;
@@ -230,13 +220,15 @@ class PaymentHandler {
             id: '',
           ),
         );
+
+        return Response.ok('Application Webhook processed successfully');
       }
 
       //SUBSCRIPTION
 
       if (payment.type == 'subscription') {
         final subscriptionId = metadata['subscriptionId'] as String?;
-        final userId = metadata['userId'] as String?;
+        // final userId = metadata['userId'] as String?;
         final planId = metadata['planId'] as String?;
 
         UserSubscriptionModel? sub;
@@ -278,7 +270,19 @@ class PaymentHandler {
             ),
           );
         }
+
+        return Response.ok('Subscription Webhook processed successfully');
       }
+
+      final platformFee = amount * 0.05; // 5% platform fee
+      final netAmount = amount - platformFee;
+
+      String recipientId = '';
+      String recipientType = '';
+
+      double managerCommissionAmount = 0.0;
+      double managerCommissionRate = 0.0;
+      String? managerId;
 
       //  TASK PAYMENT
       if (payment.type == 'task_payment' && payment.taskId != null) {
