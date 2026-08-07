@@ -193,6 +193,8 @@ class PaymentHandler {
 
       final payment = await paymentRepository.getPaymentByReference(reference);
 
+      print("Payment type::: ${payment.type}");
+
       // Mark as processed immediately
       await paymentRepository.markPaymentAsProcessed(reference);
 
@@ -230,6 +232,8 @@ class PaymentHandler {
         final subscriptionId = metadata['subscriptionId'] as String?;
         // final userId = metadata['userId'] as String?;
         final planId = metadata['planId'] as String?;
+
+        print("Processing subscription::: ${payment.type}");
 
         UserSubscriptionModel? sub;
         if (subscriptionId != null && subscriptionId.isNotEmpty) {
@@ -270,6 +274,8 @@ class PaymentHandler {
             ),
           );
         }
+
+        print("Subscription Webhook processed successfully");
 
         return Response.ok('Subscription Webhook processed successfully');
       }
