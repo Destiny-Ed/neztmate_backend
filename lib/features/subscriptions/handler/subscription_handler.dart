@@ -222,7 +222,7 @@ class SubscriptionHandler {
       // Free plan → activate immediately (no Paystack)
       final amount = billingCycle == 'yearly' ? plan.yearlyPrice : plan.monthlyPrice;
       final isFree = plan.id.toLowerCase() == 'free';
-      if (amount <= 0 || isFree) {
+      if (isFree) {
         final freeSub = UserSubscriptionModel(
           id: '',
           userId: userId,
