@@ -20,6 +20,8 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
     if (cached != null) return cached;
 
     final doc = await _users.doc(id).get();
+    print("my id ::: $id");
+
     if (!doc.exists) {
       throw NotFoundException('User', id);
     }
