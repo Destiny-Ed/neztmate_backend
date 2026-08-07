@@ -161,7 +161,7 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   @override
   Future<void> markLeaseAsPendingRenewal(String leaseId) async {
     await _leases.doc(leaseId).update({
-      'status': 'pending_payment',
+      'status': 'pending_renewal_payment',
       'renewalRequestedAt': DateTime.now().toIso8601String(),
       'updatedAt': DateTime.now().toIso8601String(),
     });
@@ -521,7 +521,7 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
 
       case LeaseRequestType.renewal:
         // Renewal payment flow usually finalizes via createRenewalLease after payment
-        // Optionally mark lease pending_payment here if needed
+        // Optionally mark lease pending_renewal here if needed
         await markLeaseAsPendingRenewal(request.leaseId);
         break;
 

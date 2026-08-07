@@ -31,7 +31,7 @@ Router leaseRoutes(LeaseHandler handler) {
   router.patch('/<id>/terminate', handler.terminateLeaseByLandowner);
 
   // Requests (act by requestId) — register BEFORE /<id> catch-alls if needed
-  router.get('/requests', handler.getMyLeaseRequests);
+  router.get('/requests/my-request', handler.getMyLeaseRequests);
   router.get('/requests/incoming', handler.getIncomingLeaseRequests);
   router.get('/requests/<requestId>', handler.getLeaseRequestById);
   router.patch('/requests/<requestId>/approve', handler.approveLeaseRequest);

@@ -59,8 +59,6 @@ class UserReviewHandler {
         );
       }
 
-      print("reviewer id:::: $reviewerId");
-
       final reviewer = await userRepository.getUserById(reviewerId);
 
       final review = UserReviewModel(
@@ -78,8 +76,6 @@ class UserReviewHandler {
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
-
-      print("created review reviewer id:::: ${review.reviewerId}");
 
       final created = await reviewRepository.createReview(review);
 

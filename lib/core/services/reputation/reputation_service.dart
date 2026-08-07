@@ -10,6 +10,8 @@ class UserReputationService {
 
   UserReputationService(this.userRepository, this.paymentRepository, this.reviewRepository);
 
+  //TODO: CREATE ENTITY(PROPERTY) REVIEW
+
   /// Full reputation update including payment on-time rate
   Future<void> updateUserReputation(String userId) async {
     final user = await userRepository.getUserById(userId);

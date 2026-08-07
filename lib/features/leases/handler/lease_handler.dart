@@ -484,7 +484,7 @@ class LeaseHandler {
         ),
       );
 
-      await leaseRepository.markLeaseAsPendingRenewal(leaseId);
+      // await leaseRepository.markLeaseAsPendingRenewal(leaseId);
 
       await notificationRepository.create(
         NotificationModel(
@@ -503,7 +503,7 @@ class LeaseHandler {
         jsonEncode({
           'message': 'Renewal request submitted successfully',
           'request': created.toMap(),
-          'status': 'pending_payment',
+          'status': 'pending_renewal',
         }),
       );
     } on ValidationException catch (e) {
