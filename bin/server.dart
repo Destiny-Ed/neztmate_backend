@@ -214,10 +214,18 @@ void main() async {
   router.post('/webhook/verification', injector<VerificationHandler>().handleWebhook);
 
   // Affiliate routes
-  router.mount('/affiliates/', affiliateRoutes(injector<AffiliateHandler>()).call);
+  router.mount(
+    '/affiliates/',
+    Pipeline().addMiddleware(authMiddleWare).addHandler(affiliateRoutes(injector<AffiliateHandler>()).call),
+  );
 
   // Subscription routes
-  router.mount('/subscriptions/', subscriptionRoutes(injector<SubscriptionHandler>()).call);
+  router.mount(
+    '/subscriptions/',
+    Pipeline()
+        .addMiddleware(authMiddleWare)
+        .addHandler(subscriptionRoutes(injector<SubscriptionHandler>()).call),
+  );
 
   //  SWAGGER UI SETUP
 
