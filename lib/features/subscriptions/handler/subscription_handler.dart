@@ -28,13 +28,14 @@ class SubscriptionHandler {
   Future<Response> createPlan(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
+
       final role = request.context['role'] as String?;
 
-      // if (userId == null) return unauthorized('Unauthorized');
+      if (userId == null) return unauthorized('Unauthorized');
 
-      // if (role != 'admin') {
-      //   return Response(403, body: jsonEncode({'message': 'Only admins can create plans'}));
-      // }
+      if (role != 'admin') {
+        return Response(403, body: jsonEncode({'message': 'Only admins can create plans'}));
+      }
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
 
@@ -156,6 +157,7 @@ class SubscriptionHandler {
   Future<Response> getMySubscription(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
+
       if (userId == null) return unauthorized('You are not authorized');
 
       final subscription = await subscriptionRepository.getActiveSubscription(userId);
