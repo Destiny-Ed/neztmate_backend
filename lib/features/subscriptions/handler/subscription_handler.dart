@@ -30,7 +30,7 @@ class SubscriptionHandler {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
 
-      if (userId == null) return unauthorized('Unauthorized');
+      // if (userId == null) return unauthorized('Unauthorized');
 
       // if (role != 'admin') {
       //   return Response(403, body: jsonEncode({'message': 'Only admins can create plans'}));
