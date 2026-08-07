@@ -20,6 +20,8 @@ import 'package:neztmate_backend/features/payments/models/payout_account_model.d
 import 'package:neztmate_backend/features/payments/models/withdrawal_model.dart';
 import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
+import 'package:neztmate_backend/features/subscriptions/model/user_subscription_model.dart';
+import 'package:neztmate_backend/features/subscriptions/repository/subscription_repository.dart';
 import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
@@ -35,6 +37,7 @@ class PaymentHandler {
   final UserReputationService userReputationService;
   final PropertyRepository propertyRepository;
   final UserRepository userRepository;
+  final SubscriptionRepository subscriptionRepository;
 
   PaymentHandler(
     this.paymentRepository,
@@ -47,6 +50,7 @@ class PaymentHandler {
     this.userReputationService,
     this.propertyRepository,
     this.userRepository,
+    this.subscriptionRepository,
   );
 
   final PaystackService paystackService = PaystackService();
@@ -227,6 +231,55 @@ class PaymentHandler {
           ),
         );
       }
+
+      //SUBSCRIPTION
+
+      if (payment.type == 'subscription') {
+        final subscriptionId = metadata['subscriptionId'] as String?;
+        final userId = metadata['userId'] as String?;
+        final planId = metadata['planId'] as String?;
+
+        UserSubscriptionModel? sub;
+        if (subscriptionId != null && subscriptionId.isNotEmpty) {
+          sub = await subscriptionRepository.getSubscriptionById(subscriptionId);
+        }
+        sub ??= await subscriptionRepository.getSubscriptionByReference(reference);
+
+        if (sub != null && sub.status != 'active') {
+          await subscriptionRepository.activateSubscription(sub.id, amountPaid: amount);
+
+          // Optional: cancel other active subs for same user
+          // await subscriptionRepository.deactivateOtherSubscriptions(sub.userId, exceptId: sub.id);
+
+          await historyRepository.createHistoryEntry(
+            HistoryEntryModel(
+              userId: sub.userId,
+              type: 'subscription_activated',
+              title: 'Subscription Activated',
+              description:
+                  'Payment of ₦${amount.toStringAsFixed(0)} confirmed for plan ${planId ?? sub.planId}.',
+              relatedId: sub.id,
+              relatedCollection: 'subscriptions',
+              timestamp: DateTime.now(),
+              id: '',
+            ),
+          );
+
+          await notificationRepository.create(
+            NotificationModel(
+              id: '',
+              userId: sub.userId,
+              type: 'subscription_activated',
+              title: 'Subscription Activated',
+              body: 'Your subscription is now active. Enjoy premium features!',
+              relatedId: sub.id,
+              relatedCollection: 'subscriptions',
+              createdAt: DateTime.now(),
+            ),
+          );
+        }
+      }
+
       //  TASK PAYMENT
       if (payment.type == 'task_payment' && payment.taskId != null) {
         final task = await maintenanceRepository.getTaskById(payment.taskId!);

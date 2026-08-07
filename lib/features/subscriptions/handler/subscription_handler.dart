@@ -1,8 +1,11 @@
 import 'dart:convert';
+import 'package:neztmate_backend/core/services/payment/paystack_service.dart';
 import 'package:neztmate_backend/features/history/model/user_history_model.dart';
 import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
+import 'package:neztmate_backend/features/payments/models/payments.dart';
+import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
 import 'package:neztmate_backend/features/subscriptions/model/plan_subscription_model.dart';
 import 'package:neztmate_backend/features/subscriptions/model/user_subscription_model.dart';
 import 'package:neztmate_backend/features/subscriptions/repository/subscription_repository.dart';
@@ -16,13 +19,17 @@ class SubscriptionHandler {
   final UserRepository userRepository;
   final NotificationRepository notificationRepository;
   final HistoryRepository historyRepository;
+  final PaymentRepository paymentRepository;
 
   SubscriptionHandler(
     this.subscriptionRepository,
     this.userRepository,
     this.notificationRepository,
     this.historyRepository,
+    this.paymentRepository,
   );
+
+  final paystackService = PaystackService();
 
   /// POST /subscriptions/plans  (admin)
   Future<Response> createPlan(Request request) async {
@@ -181,63 +188,125 @@ class SubscriptionHandler {
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final planId = body['planId'] as String?;
-      final billingCycle = body['billingCycle'] as String? ?? 'monthly';
+      final billingCycle = (body['billingCycle'] as String? ?? 'monthly').toLowerCase();
 
-      if (planId == null) return badRequest('planId is required');
+      if (planId == null || planId.isEmpty) {
+        return badRequest('planId is required');
+      }
+      if (!['monthly', 'yearly'].contains(billingCycle)) {
+        return badRequest('billingCycle must be monthly or yearly');
+      }
 
       final plan = await subscriptionRepository.getPlanById(planId);
-      if (plan == null) return badRequest('Invalid plan');
+      if (plan == null || !plan.isActive) {
+        return badRequest('Invalid or inactive plan');
+      }
 
-      // Create subscription record
+      // Free plan → activate immediately (no Paystack)
+      final amount = billingCycle == 'yearly' ? plan.yearlyPrice : plan.monthlyPrice;
+      if (amount <= 0) {
+        final freeSub = UserSubscriptionModel(
+          id: '',
+          userId: userId,
+          planId: plan.id,
+          status: 'active',
+          startDate: DateTime.now(),
+          endDate: billingCycle == 'yearly'
+              ? DateTime.now().add(const Duration(days: 365))
+              : DateTime.now().add(const Duration(days: 30)),
+          billingCycle: billingCycle,
+          amountPaid: 0,
+        );
+        final created = await subscriptionRepository.createSubscription(freeSub);
+
+        await historyRepository.createHistoryEntry(
+          HistoryEntryModel(
+            userId: userId,
+            type: 'subscription_activated',
+            title: '${plan.name} Subscription Activated',
+            description: 'Free plan activated.',
+            relatedId: created.id,
+            relatedCollection: 'subscriptions',
+            timestamp: DateTime.now(),
+            id: '',
+          ),
+        );
+
+        return Response.ok(
+          jsonEncode({
+            'message': 'Free plan activated',
+            'subscription': created.toMap(),
+            'requiresPayment': false,
+          }),
+        );
+      }
+
+      final user = await userRepository.getUserById(userId);
+      final reference = 'nm_sub_${planId}_${userId.substring(0, 8)}_${DateTime.now().millisecondsSinceEpoch}';
+
+      // Pending subscription (activated only after webhook)
       final subscription = UserSubscriptionModel(
         id: '',
         userId: userId,
-        planId: planId,
-        status: 'active',
+        planId: plan.id,
+        status: 'pending_payment',
         startDate: DateTime.now(),
         endDate: billingCycle == 'yearly'
             ? DateTime.now().add(const Duration(days: 365))
             : DateTime.now().add(const Duration(days: 30)),
         billingCycle: billingCycle,
-        amountPaid: 0.0, // Updated after actual payment
+        amountPaid: 0,
+        paymentReference: reference,
       );
 
       final created = await subscriptionRepository.createSubscription(subscription);
 
-      // Log History
-      await historyRepository.createHistoryEntry(
-        HistoryEntryModel(
-          userId: userId,
-          type: 'subscription_activated',
-          title: '${plan.name} Subscription Activated',
-          description: 'You subscribed to ${plan.name} plan (${billingCycle}).',
-          relatedId: created.id,
-          relatedCollection: 'subscriptions',
-          timestamp: DateTime.now(),
+      // Pending payment record
+      await paymentRepository.createPayment(
+        PaymentModel(
           id: '',
-        ),
-      );
-
-      // Send Notification
-      await notificationRepository.create(
-        NotificationModel(
-          id: '',
-          userId: userId,
-          type: 'subscription_activated',
-          title: 'Subscription Activated',
-          body: 'Your ${plan.name} subscription is now active. Enjoy premium features!',
-          relatedId: created.id,
-          relatedCollection: 'subscriptions',
+          leaseId: '',
+          payerId: userId,
+          propertyId: null,
+          unitId: null,
+          amount: amount,
+          status: 'pending',
+          method: 'Paystack',
+          transactionRef: reference,
+          type: 'subscription',
           createdAt: DateTime.now(),
         ),
       );
 
+      final init = await paystackService.initializeTransaction(
+        email: user.email,
+        amount: amount,
+        reference: reference,
+        metadata: {
+          'userId': userId,
+          'planId': plan.id,
+          'subscriptionId': created.id,
+          'billingCycle': billingCycle,
+          'type': 'subscription',
+        },
+      );
+
       return Response.ok(
-        jsonEncode({'message': 'Subscription activated successfully', 'subscription': created.toMap()}),
+        jsonEncode({
+          'message': 'Complete payment to activate subscription',
+          'requiresPayment': true,
+          'authorizationUrl': init['authorization_url'],
+          'reference': reference,
+          'amount': amount,
+          'subscription': created.toMap(),
+        }),
+        headers: {'Content-Type': 'application/json'},
       );
     } catch (e, stack) {
       print('Subscribe error: $e\n$stack');
-      return Response.internalServerError(body: jsonEncode({'message': 'Failed to activate subscription'}));
+      return Response.internalServerError(
+        body: jsonEncode({'message': 'Failed to initialize subscription payment'}),
+      );
     }
   }
 

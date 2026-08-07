@@ -8,6 +8,8 @@ class UserSubscriptionModel {
   final String billingCycle; // monthly, yearly
   final double amountPaid;
   final String? paystackSubscriptionCode;
+  // UserSubscriptionModel
+  final String? paymentReference;
 
   UserSubscriptionModel({
     required this.id,
@@ -19,6 +21,7 @@ class UserSubscriptionModel {
     required this.billingCycle,
     required this.amountPaid,
     this.paystackSubscriptionCode,
+    this.paymentReference,
   });
 
   factory UserSubscriptionModel.fromMap(Map<String, dynamic> map) {
@@ -32,11 +35,12 @@ class UserSubscriptionModel {
       billingCycle: map['billingCycle'],
       amountPaid: (map['amountPaid'] as num).toDouble(),
       paystackSubscriptionCode: map['paystackSubscriptionCode'],
+      paymentReference: map["paymentReference"] as String?,
     );
   }
 
   Map<String, dynamic> toMap() => {
-    'id' : id,
+    'id': id,
     'userId': userId,
     'planId': planId,
     'status': status,
@@ -45,6 +49,7 @@ class UserSubscriptionModel {
     'billingCycle': billingCycle,
     'amountPaid': amountPaid,
     'paystackSubscriptionCode': paystackSubscriptionCode,
+    'paymentReference': paymentReference,
   };
 
   UserSubscriptionModel copyWith({
@@ -57,6 +62,7 @@ class UserSubscriptionModel {
     String? billingCycle,
     double? amountPaid,
     String? paystackSubscriptionCode,
+    String? paymentReference,
   }) {
     return UserSubscriptionModel(
       id: id ?? this.id,
@@ -68,6 +74,7 @@ class UserSubscriptionModel {
       billingCycle: billingCycle ?? this.billingCycle,
       amountPaid: amountPaid ?? this.amountPaid,
       paystackSubscriptionCode: paystackSubscriptionCode ?? this.paystackSubscriptionCode,
+      paymentReference: paymentReference ?? this.paymentReference,
     );
   }
 }

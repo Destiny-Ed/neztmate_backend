@@ -116,4 +116,35 @@ class FirestoreSubscriptionRepository implements SubscriptionRepository {
       'updatedAt': DateTime.now().toIso8601String(),
     });
   }
+
+  @override
+  Future<UserSubscriptionModel?> getSubscriptionByReference(String reference) async {
+    final snap = await firestore
+        .collection('user_subscriptions')
+        .where('paymentReference', WhereFilter.equal, reference)
+        .limit(1)
+        .get();
+    if (snap.docs.isEmpty) return null;
+    final data = snap.docs.first.data() as Map<String, dynamic>;
+    return UserSubscriptionModel.fromMap({...data, 'id': snap.docs.first.id});
+  }
+
+  @override
+  Future<void> activateSubscription(String subscriptionId, {required double amountPaid}) async {
+    await firestore.collection('user_subscriptions').doc(subscriptionId).update({
+      'status': 'active',
+      'amountPaid': amountPaid,
+      'activatedAt': DateTime.now().toIso8601String(),
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  @override
+  Future<UserSubscriptionModel?> getSubscriptionById(String id) async {
+    final doc = await firestore.collection('user_subscriptions').doc(id).get();
+    if (!doc.exists) return null;
+
+    final data = doc.data() as Map<String, dynamic>;
+    return UserSubscriptionModel.fromMap({...data, 'id': doc.id});
+  }
 }
