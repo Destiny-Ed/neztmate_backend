@@ -19,13 +19,18 @@ class VerificationHandler {
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
 
+      final idType = body['idType'];
+
+      final user = await userRepository.getUserById(userId);
+      final userName = user.fullName.split(' ');
       final jobId = await verificationService.initiateVerification(
         userId: userId,
         idNumber: body['idNumber'],
-        firstName: body['firstName'],
-        lastName: body['lastName'],
-        phone: body['phone'],
-        email: body['email'],
+
+        firstName: userName.first,
+        lastName: userName.last,
+        phone: user.phone,
+        email: user.email,
       );
 
       return Response.ok(
