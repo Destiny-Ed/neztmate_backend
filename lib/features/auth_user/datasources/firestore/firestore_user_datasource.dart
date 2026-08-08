@@ -117,8 +117,7 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
         // 3. Total Active Tenants
         final leasesSnap = await firestore
             .collection('leases')
-            .where('landownerId', WhereFilter.equal, userId)
-            .where('managerId', WhereFilter.equal, userId)
+            .where(propertyField, WhereFilter.equal, userId)
             .where('status', WhereFilter.equal, 'active')
             .where('status', WhereFilter.equal, 'inactive')
             .get();
@@ -127,14 +126,14 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
         // 4. Maintenance Requests
         final requestsSnap = await firestore
             .collection('maintenance_requests')
-            .where('managerId', WhereFilter.equal, userId)
+            .where(propertyField, WhereFilter.equal, userId)
             .get();
         maintenanceRequests = requestsSnap.docs.length;
 
         // 5. Tasks (Submitted & Completed)
         final tasksSnap = await firestore
             .collection('tasks')
-            .where('managerId', WhereFilter.equal, userId)
+            .where(propertyField, WhereFilter.equal, userId)
             .get();
         submittedTasks = tasksSnap.docs.length;
 

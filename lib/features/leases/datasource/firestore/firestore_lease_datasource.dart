@@ -161,7 +161,7 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   @override
   Future<void> markLeaseAsPendingRenewal(String leaseId) async {
     await _leases.doc(leaseId).update({
-      // 'status': 'pending_renewal_payment',
+      'status': 'pending_renewal_payment',
       'renewalRequestedAt': DateTime.now().toIso8601String(),
       'updatedAt': DateTime.now().toIso8601String(),
     });
@@ -459,16 +459,19 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
     if (role == 'tenant') {
       query = _leaseRequests
           .where('tenantId', WhereFilter.equal, userId)
-          .where('status', WhereFilter.equal, LeaseRequestStatus.pending.value);
+          .where('status', WhereFilter.equal, LeaseRequestStatus.pending.value)
+          .where('status', WhereFilter.equal, LeaseRequestStatus.approved.value);
     } else if (role == 'manager') {
       query = _leaseRequests
           .where('managerId', WhereFilter.equal, userId)
-          .where('status', WhereFilter.equal, LeaseRequestStatus.pending.value);
+          .where('status', WhereFilter.equal, LeaseRequestStatus.pending.value)
+          .where('status', WhereFilter.equal, LeaseRequestStatus.approved.value);
     } else {
       // landowner
       query = _leaseRequests
           .where('landownerId', WhereFilter.equal, userId)
-          .where('status', WhereFilter.equal, LeaseRequestStatus.pending.value);
+          .where('status', WhereFilter.equal, LeaseRequestStatus.pending.value)
+          .where('status', WhereFilter.equal, LeaseRequestStatus.approved.value);
     }
 
     final snap = await query.orderBy('createdAt', descending: true).get();
@@ -521,7 +524,7 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
 
       case LeaseRequestType.renewal:
         // Renewal payment flow usually finalizes via createRenewalLease after payment
-        // Optionally mark lease pending_renewal here if needed
+        // Optionally mark lease pending_renewal_payment here if needed
         await markLeaseAsPendingRenewal(request.leaseId);
         break;
 
