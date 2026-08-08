@@ -521,6 +521,8 @@ class LeaseHandler {
         ),
       );
 
+      await leaseRepository.markLeaseAsPendingRenewal(leaseId);
+
       await notificationRepository.create(
         NotificationModel(
           id: '',

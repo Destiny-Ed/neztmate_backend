@@ -118,6 +118,7 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
         final leasesSnap = await firestore
             .collection('leases')
             .where('landownerId', WhereFilter.equal, userId)
+            .where('managerId', WhereFilter.equal, userId)
             .where('status', WhereFilter.equal, 'active')
             .where('status', WhereFilter.equal, 'inactive')
             .get();

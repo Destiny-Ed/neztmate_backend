@@ -161,7 +161,7 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   @override
   Future<void> markLeaseAsPendingRenewal(String leaseId) async {
     await _leases.doc(leaseId).update({
-      'status': 'pending_renewal_payment',
+      // 'status': 'pending_renewal_payment',
       'renewalRequestedAt': DateTime.now().toIso8601String(),
       'updatedAt': DateTime.now().toIso8601String(),
     });
