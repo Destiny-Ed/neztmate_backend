@@ -777,6 +777,10 @@ class LeaseHandler {
         customDurationMonth: months,
       );
 
+      final payoutAccount = await paymentRepository.getDefaultPayoutAccount(
+        lease.managerId ?? lease.landownerId,
+      );
+
       return Response.ok(
         jsonEncode({
           'message': "Renewal payment summary loaded successfully",
@@ -785,6 +789,18 @@ class LeaseHandler {
           'paymentMode': lease.rentPaymentMode,
           // 'preferredStartDate': metadata['preferredStartDate'],
           "paymentSummary": paymentSummary,
+          'paymentAccount': payoutAccount == null
+              ? null
+              : {
+                  'id': payoutAccount.id,
+                  'ownerId': payoutAccount.userId,
+                  'ownerType': payoutAccount.userId == lease.managerId ? 'Manager' : 'Landowner',
+                  'accountName': payoutAccount.accountName,
+                  'accountNumber': payoutAccount.accountNumber,
+                  'bankName': payoutAccount.bankName,
+                  'bankCode': payoutAccount.bankCode,
+                  'currency': 'NGN',
+                },
         }),
         headers: {'Content-Type': 'application/json'},
       );
