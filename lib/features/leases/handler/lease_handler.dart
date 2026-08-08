@@ -454,6 +454,37 @@ class LeaseHandler {
         return Response(403, body: jsonEncode({'message': 'Only tenants can request renewal'}));
       }
 
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>? ?? {};
+
+      final renewalDuration = body['renewalDuration'] as String?;
+      final preferredStartDateRaw = body['preferredStartDate'] as String?;
+      final notes = body['notes'] as String?;
+      final autoRenew = body['autoRenew'] as bool? ?? false;
+
+      if (renewalDuration == null || renewalDuration.trim().isEmpty) {
+        return badRequest('renewalDuration is required (e.g. "12 Months")');
+      }
+
+      final allowedDurations = ['12 Months', '18 Months', '24 Months', '6 Months'];
+      if (!allowedDurations.contains(renewalDuration.trim())) {
+        return badRequest('Invalid renewalDuration. Allowed: ${allowedDurations.join(", ")}');
+      }
+
+      if (preferredStartDateRaw == null || preferredStartDateRaw.trim().isEmpty) {
+        return badRequest('preferredStartDate is required');
+      }
+
+      DateTime preferredStartDate;
+      try {
+        preferredStartDate = DateTime.parse(preferredStartDateRaw);
+      } catch (_) {
+        return badRequest('preferredStartDate must be a valid ISO date');
+      }
+
+      if (preferredStartDate.isBefore(DateTime.now().subtract(const Duration(days: 1)))) {
+        return badRequest('preferredStartDate cannot be in the past');
+      }
+
       final lease = await leaseRepository.getLeaseById(leaseId);
       if (lease.tenantId != userId) {
         return Response(403, body: jsonEncode({'message': 'This is not your lease'}));
@@ -477,14 +508,18 @@ class LeaseHandler {
           initiatedById: userId,
           assignedToId: lease.managerId ?? lease.landownerId,
           title: 'Lease Renewal Request',
-          reason: 'Tenant requested renewal',
-          metadata: {},
+          reason: notes?.trim().isNotEmpty == true ? notes!.trim() : 'Tenant requested renewal',
+          message: notes?.trim(),
+          metadata: {
+            'renewalDuration': renewalDuration.trim(),
+            'preferredStartDate': preferredStartDate.toIso8601String(),
+            'autoRenew': autoRenew,
+            if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+          },
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
         ),
       );
-
-      // await leaseRepository.markLeaseAsPendingRenewal(leaseId);
 
       await notificationRepository.create(
         NotificationModel(
@@ -492,12 +527,27 @@ class LeaseHandler {
           userId: lease.landownerId,
           type: 'renewal_requested',
           title: 'Tenant Requested Renewal',
-          body: 'Your tenant has requested to renew the lease.',
+          body: 'Your tenant has requested to renew the lease for $renewalDuration.',
           relatedId: created.id,
           relatedCollection: 'lease_requests',
           createdAt: DateTime.now(),
         ),
       );
+
+      if (lease.managerId != null && lease.managerId != lease.landownerId) {
+        await notificationRepository.create(
+          NotificationModel(
+            id: '',
+            userId: lease.managerId!,
+            type: 'renewal_requested',
+            title: 'Tenant Requested Renewal',
+            body: 'A tenant has requested to renew the lease for $renewalDuration.',
+            relatedId: created.id,
+            relatedCollection: 'lease_requests',
+            createdAt: DateTime.now(),
+          ),
+        );
+      }
 
       return Response.ok(
         jsonEncode({
@@ -526,9 +576,49 @@ class LeaseHandler {
         return Response(403, body: jsonEncode({'message': 'Only landowners/managers can offer renewal'}));
       }
 
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>? ?? {};
+
+      final renewalDuration = body['renewalDuration'] as String?;
+      final preferredStartDateRaw = body['preferredStartDate'] as String?;
+      final notes = body['notes'] as String?;
+      final autoRenew = body['autoRenew'] as bool? ?? false;
+      final proposedRent = (body['proposedRent'] as num?)?.toDouble();
+
+      if (renewalDuration == null || renewalDuration.trim().isEmpty) {
+        return badRequest('renewalDuration is required (e.g. "12 Months")');
+      }
+
+      final allowedDurations = ['12 Months', '18 Months', '24 Months', '6 Months'];
+      if (!allowedDurations.contains(renewalDuration.trim())) {
+        return badRequest('Invalid renewalDuration. Allowed: ${allowedDurations.join(", ")}');
+      }
+
+      if (preferredStartDateRaw == null || preferredStartDateRaw.trim().isEmpty) {
+        return badRequest('preferredStartDate is required');
+      }
+
+      DateTime preferredStartDate;
+      try {
+        preferredStartDate = DateTime.parse(preferredStartDateRaw);
+      } catch (_) {
+        return badRequest('preferredStartDate must be a valid ISO date');
+      }
+
+      if (preferredStartDate.isBefore(DateTime.now().subtract(const Duration(days: 1)))) {
+        return badRequest('preferredStartDate cannot be in the past');
+      }
+
       final lease = await leaseRepository.getLeaseById(leaseId);
       if (lease.status.toLowerCase() != 'inactive') {
         return badRequest('Only inactive leases can be offered for renewal');
+      }
+
+      // Optional ownership check
+      if (role == 'landowner' && lease.landownerId != userId) {
+        return Response(403, body: jsonEncode({'message': 'This is not your property lease'}));
+      }
+      if (role == 'manager' && lease.managerId != userId) {
+        return Response(403, body: jsonEncode({'message': 'You are not the manager of this lease'}));
       }
 
       final created = await leaseRepository.createLeaseRequest(
@@ -546,8 +636,15 @@ class LeaseHandler {
           initiatedById: userId,
           assignedToId: lease.tenantId,
           title: 'Lease Renewal Offer',
-          reason: 'Landlord offered renewal',
-          metadata: {},
+          reason: notes?.trim().isNotEmpty == true ? notes!.trim() : 'Landlord offered renewal',
+          message: notes?.trim(),
+          metadata: {
+            'renewalDuration': renewalDuration.trim(),
+            'preferredStartDate': preferredStartDate.toIso8601String(),
+            'autoRenew': autoRenew,
+            if (proposedRent != null) 'proposedRent': proposedRent,
+            if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+          },
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
         ),
@@ -561,7 +658,7 @@ class LeaseHandler {
           userId: lease.tenantId,
           type: 'renewal_offered',
           title: 'Lease Renewal Available',
-          body: 'Your landlord has offered to renew your lease. Please make payment to continue.',
+          body: 'Your landlord has offered to renew your lease for $renewalDuration.',
           relatedId: created.id,
           relatedCollection: 'lease_requests',
           createdAt: DateTime.now(),
@@ -1186,6 +1283,8 @@ class LeaseHandler {
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final newMonthlyRent = (body['newMonthlyRent'] as num?)?.toDouble();
+      final effectiveStartDateRaw = body['effectiveStartDate'] as String?;
+
       final reason = body['reason'] as String?;
 
       if (newMonthlyRent == null || newMonthlyRent <= 0) {
@@ -1195,6 +1294,16 @@ class LeaseHandler {
         return badRequest('Reason for rent adjustment is required');
       }
 
+      if (effectiveStartDateRaw == null || effectiveStartDateRaw.trim().isEmpty) {
+        return badRequest('effectiveStartDate is required');
+      }
+
+      DateTime effectiveStartDate;
+      try {
+        effectiveStartDate = DateTime.parse(effectiveStartDateRaw);
+      } catch (_) {
+        return badRequest('effectiveStartDate must be a valid ISO date');
+      }
       final lease = await leaseRepository.getLeaseById(leaseId);
 
       final created = await leaseRepository.createLeaseRequest(
@@ -1213,7 +1322,12 @@ class LeaseHandler {
           assignedToId: lease.tenantId,
           title: 'Rent Adjustment Proposal',
           reason: reason,
-          metadata: {'newMonthlyRent': newMonthlyRent, 'currentMonthlyRent': lease.monthlyRent},
+          metadata: {
+            'newMonthlyRent': newMonthlyRent,
+            'currentMonthlyRent': lease.monthlyRent,
+            'reason': reason,
+            'effectiveStartDate': effectiveStartDate,
+          },
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
         ),
