@@ -459,22 +459,20 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
     Query query;
 
     if (role == 'tenant') {
-      query = _leaseRequests.where('tenantId', WhereFilter.equal, userId).where(
-        'status',
-        WhereFilter.arrayContains,
-        [LeaseRequestStatus.pending.value, LeaseRequestStatus.approved.value],
-      );
+      query = _leaseRequests.where('tenantId', WhereFilter.equal, userId).where('status', WhereFilter.isIn, [
+        LeaseRequestStatus.pending.value,
+        LeaseRequestStatus.approved.value,
+      ]);
     } else if (role == 'manager') {
-      query = _leaseRequests.where('managerId', WhereFilter.equal, userId).where(
-        'status',
-        WhereFilter.arrayContains,
-        [LeaseRequestStatus.pending.value, LeaseRequestStatus.approved.value],
-      );
+      query = _leaseRequests.where('managerId', WhereFilter.equal, userId).where('status', WhereFilter.isIn, [
+        LeaseRequestStatus.pending.value,
+        LeaseRequestStatus.approved.value,
+      ]);
     } else {
       // landowner
       query = _leaseRequests.where('landownerId', WhereFilter.equal, userId).where(
         'status',
-        WhereFilter.arrayContains,
+        WhereFilter.isIn,
         [LeaseRequestStatus.pending.value, LeaseRequestStatus.approved.value],
       );
     }
