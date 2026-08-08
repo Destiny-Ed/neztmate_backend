@@ -6,7 +6,6 @@ import 'package:neztmate_backend/features/notifications/repository/notification_
 import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
 import 'package:neztmate_backend/features/properties/models/property_model.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
-import 'package:neztmate_backend/features/subscriptions/repository/subscription_repository.dart';
 import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
 import 'package:shelf/shelf.dart';
 import 'package:neztmate_backend/core/error.dart';
