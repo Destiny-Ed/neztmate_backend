@@ -745,6 +745,57 @@ class LeaseHandler {
     }
   }
 
+  /// GET /leases/<id>/renewal-payment-summary
+  Future<Response> getRenewalPaymentSummary(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final leaseId = request.params['id'];
+      if (userId == null || leaseId == null) return _unauthorized();
+
+      final lease = await leaseRepository.getLeaseById(leaseId);
+
+      final isParty = lease.tenantId == userId || lease.landownerId == userId || lease.managerId == userId;
+      if (!isParty) {
+        return Response(403, body: jsonEncode({'message': 'Forbidden'}));
+      }
+
+      final unit = await unitRepository.getUnitById(lease.unitId);
+
+      // Latest approved / pending renewal request
+      final renewalRequest = await leaseRepository.getActiveLeaseRequest(
+        leaseId,
+        type: LeaseRequestType.renewal,
+      );
+
+      final metadata = renewalRequest?.metadata ?? {};
+      final durationStr = (metadata['renewalDuration'] as String?) ?? '12 Months';
+      final months = _parseDurationMonths(durationStr);
+
+      final paymentSummary = LeasePaymentCalculatorService.calculate(
+        lease: lease,
+        unit: unit,
+        customDurationMonth: months,
+      );
+
+      return Response.ok(
+        jsonEncode({
+          'message': "Renewal payment summary loaded successfully",
+          'leaseId': leaseId,
+          'requestId': renewalRequest?.id,
+          'paymentMode': lease.rentPaymentMode,
+          // 'preferredStartDate': metadata['preferredStartDate'],
+          "paymentSummary": paymentSummary,
+        }),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, stack) {
+      print('Renewal payment summary error: $e\n$stack');
+      return Response.internalServerError(
+        body: jsonEncode({'message': 'Failed to calculate renewal summary'}),
+      );
+    }
+  }
+
   /// POST /leases/<id>/approve-renewal-payment
   Future<Response> approveRenewalPayment(Request request) async {
     try {
@@ -1784,4 +1835,12 @@ class LeaseHandler {
 
     return createdPayment;
   }
+}
+
+int _parseDurationMonths(String duration) {
+  final lower = duration.toLowerCase();
+  final match = RegExp(r'(\d+)').firstMatch(lower);
+  final n = int.tryParse(match?.group(1) ?? '') ?? 12;
+  if (lower.contains('year')) return n * 12;
+  return n; // "12 Months" → 12
 }

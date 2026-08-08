@@ -2,11 +2,15 @@ import 'package:neztmate_backend/features/leases/models/leases_model.dart';
 import 'package:neztmate_backend/features/units/models/unit_model.dart';
 
 class LeasePaymentCalculatorService {
-  static Map<String, dynamic> calculate({required LeaseModel lease, required UnitModel unit}) {
+  static Map<String, dynamic> calculate({
+    required LeaseModel lease,
+    required UnitModel unit,
+    int? customDurationMonth,
+  }) {
     final monthlyRent = unit.monthlyRent;
 
     final durationMonths = lease.durationMonths ?? 12;
-    final renewalDurationMonths = durationMonths < 12 ? durationMonths : 12;
+    final renewalDurationMonths = customDurationMonth ?? (durationMonths < 12 ? durationMonths : 12);
 
     final totalRentForLease = monthlyRent * durationMonths;
     final totalRentForLeaseRenewal = monthlyRent * renewalDurationMonths;

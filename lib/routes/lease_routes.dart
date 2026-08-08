@@ -30,6 +30,8 @@ Router leaseRoutes(LeaseHandler handler) {
   router.post('/<id>/adjust-rent', handler.proposeRentAdjustment);
   router.patch('/<id>/terminate', handler.terminateLeaseByLandowner);
 
+  router.get('/<id>/renewal-payment-summary', handler.getRenewalPaymentSummary);
+
   // Requests (act by requestId) — register BEFORE /<id> catch-alls if needed
   router.get('/requests/my-request', handler.getMyLeaseRequests);
   router.get('/requests/incoming', handler.getIncomingLeaseRequests);

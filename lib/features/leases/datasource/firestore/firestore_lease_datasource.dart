@@ -398,7 +398,7 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   Future<LeaseRequestModel?> getActiveLeaseRequest(String leaseId, {LeaseRequestType? type}) async {
     var query = _leaseRequests.where('leaseId', WhereFilter.equal, leaseId).where(
       'status',
-      WhereFilter.arrayContains,
+      WhereFilter.isIn,
       [LeaseRequestStatus.pending.value, LeaseRequestStatus.approved.value],
     );
 
