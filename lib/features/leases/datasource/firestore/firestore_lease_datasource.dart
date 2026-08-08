@@ -161,7 +161,7 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   @override
   Future<void> markLeaseAsPendingRenewal(String leaseId) async {
     await _leases.doc(leaseId).update({
-      'status': 'pending_renewal_payment',
+      // 'status': 'pending_renewal_payment',
       'renewalRequestedAt': DateTime.now().toIso8601String(),
       'updatedAt': DateTime.now().toIso8601String(),
     });
@@ -396,9 +396,11 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
 
   @override
   Future<LeaseRequestModel?> getActiveLeaseRequest(String leaseId, {LeaseRequestType? type}) async {
-    var query = _leaseRequests
-        .where('leaseId', WhereFilter.equal, leaseId)
-        .where('status', WhereFilter.equal, LeaseRequestStatus.pending.value);
+    var query = _leaseRequests.where('leaseId', WhereFilter.equal, leaseId).where(
+      'status',
+      WhereFilter.arrayContains,
+      [LeaseRequestStatus.pending.value, LeaseRequestStatus.approved.value],
+    );
 
     if (type != null) {
       query = query.where('type', WhereFilter.equal, type.value);
@@ -457,21 +459,24 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
     Query query;
 
     if (role == 'tenant') {
-      query = _leaseRequests
-          .where('tenantId', WhereFilter.equal, userId)
-          .where('status', WhereFilter.equal, LeaseRequestStatus.pending.value)
-          .where('status', WhereFilter.equal, LeaseRequestStatus.approved.value);
+      query = _leaseRequests.where('tenantId', WhereFilter.equal, userId).where(
+        'status',
+        WhereFilter.arrayContains,
+        [LeaseRequestStatus.pending.value, LeaseRequestStatus.approved.value],
+      );
     } else if (role == 'manager') {
-      query = _leaseRequests
-          .where('managerId', WhereFilter.equal, userId)
-          .where('status', WhereFilter.equal, LeaseRequestStatus.pending.value)
-          .where('status', WhereFilter.equal, LeaseRequestStatus.approved.value);
+      query = _leaseRequests.where('managerId', WhereFilter.equal, userId).where(
+        'status',
+        WhereFilter.arrayContains,
+        [LeaseRequestStatus.pending.value, LeaseRequestStatus.approved.value],
+      );
     } else {
       // landowner
-      query = _leaseRequests
-          .where('landownerId', WhereFilter.equal, userId)
-          .where('status', WhereFilter.equal, LeaseRequestStatus.pending.value)
-          .where('status', WhereFilter.equal, LeaseRequestStatus.approved.value);
+      query = _leaseRequests.where('landownerId', WhereFilter.equal, userId).where(
+        'status',
+        WhereFilter.arrayContains,
+        [LeaseRequestStatus.pending.value, LeaseRequestStatus.approved.value],
+      );
     }
 
     final snap = await query.orderBy('createdAt', descending: true).get();

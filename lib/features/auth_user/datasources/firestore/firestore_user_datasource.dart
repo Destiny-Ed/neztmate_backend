@@ -118,8 +118,7 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
         final leasesSnap = await firestore
             .collection('leases')
             .where(propertyField, WhereFilter.equal, userId)
-            .where('status', WhereFilter.equal, 'active')
-            .where('status', WhereFilter.equal, 'inactive')
+            .where('status', WhereFilter.arrayContains, ['active', 'inactive'])
             .get();
         totalTenants = leasesSnap.docs.length;
 
