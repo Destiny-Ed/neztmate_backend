@@ -764,8 +764,7 @@ class LeaseHandler {
 
       final updatedRequest = await leaseRepository.updateLeaseRequest(
         renewalRequest.copyWith(
-          status: LeaseRequestStatus.paymentSubmitted, // or a dedicated paymentSubmitted if you add it
-          // Prefer adding: LeaseRequestStatus.paymentSubmitted
+          status: LeaseRequestStatus.paymentSubmitted,
           metadata: updatedMetadata,
           message: 'Tenant submitted offline payment proof',
           updatedAt: DateTime.now(),
@@ -1489,12 +1488,12 @@ class LeaseHandler {
         return badRequest('effectiveStartDate is required');
       }
 
-      DateTime effectiveStartDate;
-      try {
-        effectiveStartDate = DateTime.parse(effectiveStartDateRaw);
-      } catch (_) {
-        return badRequest('effectiveStartDate must be a valid ISO date');
-      }
+      // DateTime effectiveStartDate;
+      // try {
+      //   effectiveStartDate = DateTime.parse(effectiveStartDateRaw);
+      // } catch (_) {
+      //   return badRequest('effectiveStartDate must be a valid ISO date');
+      // }
       final lease = await leaseRepository.getLeaseById(leaseId);
 
       final created = await leaseRepository.createLeaseRequest(
@@ -1517,7 +1516,7 @@ class LeaseHandler {
             'newMonthlyRent': newMonthlyRent,
             'currentMonthlyRent': lease.monthlyRent,
             'reason': reason,
-            'effectiveStartDate': effectiveStartDate,
+            'effectiveStartDate': effectiveStartDateRaw,
           },
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
