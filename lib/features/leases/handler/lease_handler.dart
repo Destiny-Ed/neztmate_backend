@@ -386,6 +386,7 @@ class LeaseHandler {
         transactionRef: 'nm_${DateTime.now().millisecondsSinceEpoch}',
         receiptUrl: lease.paymentReceiptUrl,
         confirmedBy: userId,
+        type: isRenewal ? 'rent_renewal' : 'rent',
       );
 
       if (isRenewal) {
@@ -946,11 +947,24 @@ class LeaseHandler {
       final proposedRent =
           (renewalRequest.metadata['proposedRent'] as num?)?.toDouble() ?? oldLease.monthlyRent;
 
+      final amountPaid = (renewalRequest.metadata['amountPaid'] as double?)?.toDouble() ?? 0;
+
       final newLease = await leaseRepository.renewLeaseAfterPayment(
         oldLease,
         durationMonths,
         proposedRent,
         receiptUrl,
+      );
+
+      await _recordLeasePaymentInternal(
+        lease: newLease,
+        amount: amountPaid,
+        paymentMethod: 'bank transfer',
+        transactionRef:
+            'nm_rent_renewal_${newLease.id.substring(0, 5)}${DateTime.now().millisecondsSinceEpoch}',
+        receiptUrl: receiptUrl,
+        confirmedBy: userId,
+        type: 'rent_renewal',
       );
 
       await unitRepository.updateUnitStatus(
@@ -1912,6 +1926,7 @@ class LeaseHandler {
     String? transactionRef,
     String? receiptUrl,
     required String confirmedBy,
+    required String type,
   }) async {
     final payment = PaymentModel(
       id: '',
@@ -1925,7 +1940,7 @@ class LeaseHandler {
       method: paymentMethod,
       transactionRef: transactionRef,
       receiptUrl: receiptUrl,
-      type: 'rent',
+      type: type,
       createdAt: DateTime.now(),
     );
 
