@@ -350,7 +350,7 @@ class PaymentHandler {
           final durationStr = metadata['renewalDuration'] as String?;
           final durationMonths = parseDurationMonths(durationStr ?? '12 months');
           final newLease = await leaseRepository.renewLeaseAfterPayment(
-            lease,
+            lease.copyWith(durationMonths: durationMonths),
             durationMonths,
             proposedRent,
             null,

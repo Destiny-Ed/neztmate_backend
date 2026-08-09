@@ -950,7 +950,7 @@ class LeaseHandler {
       final amountPaid = (renewalRequest.metadata['amountPaid'] as double?)?.toDouble() ?? 0;
 
       final newLease = await leaseRepository.renewLeaseAfterPayment(
-        oldLease,
+        oldLease.copyWith(durationMonths: durationMonths),
         durationMonths,
         proposedRent,
         receiptUrl,

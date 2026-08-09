@@ -19,8 +19,9 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   @override
   Future<LeaseModel> createLease(LeaseModel lease) async {
     final docRef = _leases.doc(lease.id.isEmpty ? null : lease.id);
-    await docRef.set(lease.toMap());
-    return lease.copyWith(id: docRef.id);
+    final newLease = lease.copyWith(id: docRef.id);
+    await docRef.set(newLease.toMap());
+    return newLease;
   }
 
   @override
