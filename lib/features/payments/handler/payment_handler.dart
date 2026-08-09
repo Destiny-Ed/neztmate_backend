@@ -6,6 +6,7 @@ import 'package:neztmate_backend/features/applications/repository/application_re
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
 import 'package:neztmate_backend/features/history/model/user_history_model.dart';
 import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
+import 'package:neztmate_backend/features/leases/handler/lease_handler.dart';
 import 'package:neztmate_backend/features/leases/models/leases_model.dart';
 import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
 import 'package:neztmate_backend/features/leases/service/lease_payment_calculator_service.dart';
@@ -345,7 +346,29 @@ class PaymentHandler {
 
         // Update lease & unit
         if (payment.type?.toLowerCase() == 'rent-renewal') {
-          await leaseRepository.renewLeaseAfterPayment(payment.leaseId!);
+          final proposedRent = (metadata['proposedRent'] as num?)?.toDouble() ?? lease.monthlyRent;
+          final durationStr = metadata['renewalDuration'] as String?;
+          final durationMonths = parseDurationMonths(durationStr ?? '12 months');
+          final newLease = await leaseRepository.renewLeaseAfterPayment(
+            lease,
+            durationMonths,
+            proposedRent,
+            null,
+          );
+
+          await notificationRepository.create(
+            NotificationModel(
+              id: '',
+              userId: lease.tenantId,
+              type: 'lease_renewed',
+              title: 'Lease Renewed Successfully',
+              body:
+                  'Your lease has been renewed until ${newLease.endDate.toIso8601String().split("T").first}',
+              relatedId: newLease.id,
+              relatedCollection: 'leases',
+              createdAt: DateTime.now(),
+            ),
+          );
         } else {
           await leaseRepository.confirmPaymentAndActivate(payment.leaseId!, 'paystack_webhook');
         }

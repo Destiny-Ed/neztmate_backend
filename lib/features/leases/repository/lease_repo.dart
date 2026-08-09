@@ -43,7 +43,12 @@ abstract class LeaseRepository {
     String? paymentReceiptUrl,
   });
 
-  Future<LeaseModel> renewLeaseAfterPayment(String leaseId);
+  Future<LeaseModel> renewLeaseAfterPayment(
+    LeaseModel oldLease,
+    int? durationMonths,
+    double? proposedRent,
+    String? paymentReceiptUrl,
+  );
 
   // SETTLEMENT
   Future<void> proposeSettlement(LeaseSettlementAgreement settlement);
@@ -73,6 +78,7 @@ abstract class LeaseRepository {
     required String userId,
     required String role, // tenant | landowner | manager
   });
+  Future<LeaseRequestModel> updateLeaseRequest(LeaseRequestModel request);
 
   /// Approves request + applies final lease side-effects (transfer, terminate, rent change, etc.)
   Future<void> approveLeaseRequest({required String requestId, required String approvedBy, String? notes});

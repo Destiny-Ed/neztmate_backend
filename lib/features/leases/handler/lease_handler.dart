@@ -697,9 +697,14 @@ class LeaseHandler {
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final receiptUrl = body['receiptUrl'] as String?;
       final amountPaid = (body['amountPaid'] as num?)?.toDouble();
+      final requestId = body['requestId'] as String?;
 
       if (receiptUrl == null || receiptUrl.trim().isEmpty) {
         return badRequest('receiptUrl is required');
+      }
+
+      if (requestId == null || requestId.trim().isEmpty) {
+        return badRequest('requestId is required');
       }
       if (amountPaid == null || amountPaid <= 0) {
         return badRequest('Valid amountPaid is required');
@@ -710,13 +715,60 @@ class LeaseHandler {
         return Response(403, body: jsonEncode({'message': 'This is not your lease'}));
       }
 
-      final status = lease.status.toLowerCase().replaceAll(' ', '_');
-      if (status != 'pending_payment') {
-        return badRequest('Lease is not awaiting payment');
+      final renewalRequest = await leaseRepository.getLeaseRequestById(requestId);
+
+      if (renewalRequest.leaseId != leaseId) {
+        return badRequest('Request does not belong to this lease');
+      }
+      if (renewalRequest.tenantId != userId) {
+        return Response(403, body: jsonEncode({'message': 'This is not your renewal request'}));
+      }
+      if (renewalRequest.type != LeaseRequestType.renewal) {
+        return badRequest('Not a renewal request');
       }
 
-      await leaseRepository.updateLease(
-        lease.copyWith(paymentReceiptUrl: receiptUrl, status: 'payment_submitted', updatedAt: DateTime.now()),
+      final reqStatus = renewalRequest.status;
+      if (![
+        LeaseRequestStatus.approved,
+        LeaseRequestStatus.paymentRequired,
+        LeaseRequestStatus.pending,
+      ].contains(reqStatus)) {
+        return badRequest('This renewal request is not awaiting payment proof');
+      }
+
+      final unit = await unitRepository.getUnitById(renewalRequest.unitId);
+
+      // verify amount against calculator / metadata
+      final metadata = renewalRequest.metadata;
+      final durationStr = (metadata['renewalDuration'] as String?) ?? '12 Months';
+      final months = parseDurationMonths(durationStr);
+
+      final expectedSummary = await LeasePaymentCalculatorService.calculate(
+        lease: lease,
+        unit: unit,
+        customDurationMonth: months,
+      );
+      if ((amountPaid != double.tryParse(expectedSummary['renewalPayment']['total'].toString()))) {
+        return badRequest('Amount mismatch');
+      }
+
+      final updatedMetadata = {
+        ...renewalRequest.metadata,
+        'receiptUrl': receiptUrl.trim(),
+        'amountPaid': amountPaid,
+        'paymentMethod': 'offline',
+        'paymentSubmittedAt': DateTime.now().toIso8601String(),
+        'paymentSubmittedBy': userId,
+      };
+
+      final updatedRequest = await leaseRepository.updateLeaseRequest(
+        renewalRequest.copyWith(
+          status: LeaseRequestStatus.paymentSubmitted, // or a dedicated paymentSubmitted if you add it
+          // Prefer adding: LeaseRequestStatus.paymentSubmitted
+          metadata: updatedMetadata,
+          message: 'Tenant submitted offline payment proof',
+          updatedAt: DateTime.now(),
+        ),
       );
 
       await notificationRepository.create(
@@ -725,18 +777,35 @@ class LeaseHandler {
           userId: lease.landownerId,
           type: 'renewal_payment_submitted',
           title: 'Renewal Payment Submitted',
-          body: 'Tenant has submitted payment proof for lease renewal. Please confirm.',
-          relatedId: leaseId,
-          relatedCollection: 'leases',
+          body:
+              'Tenant submitted payment proof (₦${amountPaid.toStringAsFixed(0)}) for lease renewal. Please review and approve.',
+          relatedId: updatedRequest.id,
+          relatedCollection: 'lease_requests',
           createdAt: DateTime.now(),
         ),
       );
+
+      if (lease.managerId != null && lease.managerId != lease.landownerId) {
+        await notificationRepository.create(
+          NotificationModel(
+            id: '',
+            userId: lease.managerId!,
+            type: 'renewal_payment_submitted',
+            title: 'Renewal Payment Submitted',
+            body: 'Tenant submitted renewal payment proof. Please review.',
+            relatedId: updatedRequest.id,
+            relatedCollection: 'lease_requests',
+            createdAt: DateTime.now(),
+          ),
+        );
+      }
 
       return Response.ok(
         jsonEncode({
           'message': 'Payment proof submitted successfully. Waiting for landlord confirmation.',
           'leaseId': leaseId,
-          'status': 'payment_submitted',
+          'requestId': updatedRequest.id,
+          'requestStatus': updatedRequest.status.value,
         }),
       );
     } catch (e, stack) {
@@ -769,7 +838,7 @@ class LeaseHandler {
 
       final metadata = renewalRequest?.metadata ?? {};
       final durationStr = (metadata['renewalDuration'] as String?) ?? '12 Months';
-      final months = _parseDurationMonths(durationStr);
+      final months = parseDurationMonths(durationStr);
 
       final paymentSummary = LeasePaymentCalculatorService.calculate(
         lease: lease,
@@ -789,7 +858,7 @@ class LeaseHandler {
           'paymentMode': lease.rentPaymentMode,
           // 'preferredStartDate': metadata['preferredStartDate'],
           "paymentSummary": paymentSummary,
-          'paymentAccount': payoutAccount == null
+          'paymentAccount': (payoutAccount == null || lease.rentPaymentMode.toLowerCase() == 'online')
               ? null
               : {
                   'id': payoutAccount.id,
@@ -827,23 +896,61 @@ class LeaseHandler {
         );
       }
 
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>? ?? {};
+      final requestId = body['requestId'] as String?;
+
+      if (requestId == null || requestId.trim().isEmpty) {
+        return badRequest('requestId is required');
+      }
       final oldLease = await leaseRepository.getLeaseById(leaseId);
-      final status = oldLease.status.toLowerCase().replaceAll(' ', '_');
-      if (status != 'payment_submitted') {
-        return badRequest('No payment has been submitted for this renewal');
+
+      if (role == 'landowner' && oldLease.landownerId != userId) {
+        return Response(403, body: jsonEncode({'message': 'Not your lease'}));
+      }
+      if (role == 'manager' && oldLease.managerId != userId) {
+        return Response(403, body: jsonEncode({'message': 'Not your managed lease'}));
       }
 
-      final durationMonths = oldLease.durationMonths ?? 12;
-      final newStartDate = oldLease.endDate;
-      final newEndDate = newStartDate.add(Duration(days: durationMonths * 30));
+      final renewalRequest = await leaseRepository.getLeaseRequestById(requestId);
 
-      final newLease = await leaseRepository.createRenewalLease(
-        oldLeaseId: leaseId,
-        newStartDate: newStartDate,
-        newEndDate: newEndDate,
-        monthlyRent: oldLease.monthlyRent,
-        reason: 'Renewal after offline payment confirmation',
-        paymentReceiptUrl: oldLease.paymentReceiptUrl,
+      if (renewalRequest.leaseId != leaseId) {
+        return badRequest('Request does not belong to this lease');
+      }
+      if (renewalRequest.type != LeaseRequestType.renewal) {
+        return badRequest('Not a renewal request');
+      }
+
+      final receiptUrl = renewalRequest.metadata['receiptUrl'] as String?;
+      if (receiptUrl == null || receiptUrl.isEmpty) {
+        return badRequest('Tenant has not submitted a payment receipt yet');
+      }
+
+      // Mark request completed
+      await leaseRepository.updateLeaseRequest(
+        renewalRequest.copyWith(
+          status: LeaseRequestStatus.completed,
+          resolvedAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+          metadata: {
+            ...renewalRequest.metadata,
+            'paymentApprovedAt': DateTime.now().toIso8601String(),
+            'paymentApprovedBy': userId,
+          },
+        ),
+      );
+
+      // Duration from request metadata, fallback to lease
+      final durationStr = renewalRequest.metadata['renewalDuration'] as String?;
+      final durationMonths = parseDurationMonths(durationStr ?? '12 months');
+
+      final proposedRent =
+          (renewalRequest.metadata['proposedRent'] as num?)?.toDouble() ?? oldLease.monthlyRent;
+
+      final newLease = await leaseRepository.renewLeaseAfterPayment(
+        oldLease,
+        durationMonths,
+        proposedRent,
+        receiptUrl,
       );
 
       await unitRepository.updateUnitStatus(
@@ -859,7 +966,7 @@ class LeaseHandler {
           userId: oldLease.tenantId,
           type: 'lease_renewed',
           title: 'Lease Renewed Successfully',
-          body: 'Your lease has been renewed until ${newEndDate.toIso8601String().split("T").first}',
+          body: 'Your lease has been renewed until ${newLease.endDate.toIso8601String().split("T").first}',
           relatedId: newLease.id,
           relatedCollection: 'leases',
           createdAt: DateTime.now(),
@@ -869,9 +976,10 @@ class LeaseHandler {
       return Response.ok(
         jsonEncode({
           'message': 'Renewal payment approved. New lease is now active.',
+          'requestId': renewalRequest.id,
           'newLeaseId': newLease.id,
           'oldLeaseId': leaseId,
-          'newEndDate': newEndDate.toIso8601String(),
+          'newEndDate': newLease.endDate.toIso8601String(),
         }),
       );
     } catch (e, stack) {
@@ -1853,7 +1961,7 @@ class LeaseHandler {
   }
 }
 
-int _parseDurationMonths(String duration) {
+int parseDurationMonths(String duration) {
   final lower = duration.toLowerCase();
   final match = RegExp(r'(\d+)').firstMatch(lower);
   final n = int.tryParse(match?.group(1) ?? '') ?? 12;

@@ -26,7 +26,15 @@ extension LeaseRequestTypeX on LeaseRequestType {
   }
 }
 
-enum LeaseRequestStatus { pending, approved, rejected, cancelled, completed }
+enum LeaseRequestStatus {
+  pending,
+  approved,
+  rejected,
+  cancelled,
+  completed,
+  paymentRequired,
+  paymentSubmitted,
+}
 
 extension LeaseRequestStatusX on LeaseRequestStatus {
   String get value => switch (this) {
@@ -35,6 +43,8 @@ extension LeaseRequestStatusX on LeaseRequestStatus {
     LeaseRequestStatus.rejected => "rejected",
     LeaseRequestStatus.cancelled => "cancelled",
     LeaseRequestStatus.completed => "completed",
+    LeaseRequestStatus.paymentRequired => "payment_required",
+    LeaseRequestStatus.paymentSubmitted => "payment_submitted",
   };
 
   static LeaseRequestStatus from(String value) {

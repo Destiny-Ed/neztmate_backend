@@ -56,6 +56,10 @@ class LeaseRepositoryImpl implements LeaseRepository {
   Future<List<LeaseModel>> getExpiringLeases({int withinDays = 5}) =>
       dataSource.getExpiringLeases(withinDays: withinDays);
 
+  @override
+  Future<LeaseRequestModel> updateLeaseRequest(LeaseRequestModel request) =>
+      dataSource.updateLeaseRequest(request);
+
   // SIGNING & ACTIVATION
   @override
   Future<void> markLeaseAsSigned(
@@ -91,7 +95,13 @@ class LeaseRepositoryImpl implements LeaseRepository {
   );
 
   @override
-  Future<LeaseModel> renewLeaseAfterPayment(String leaseId) => dataSource.renewLeaseAfterPayment(leaseId);
+  Future<LeaseModel> renewLeaseAfterPayment(
+    LeaseModel oldLease,
+    int? durationMonths,
+    double? proposedRent,
+
+    String? paymentReceiptUrl,
+  ) => dataSource.renewLeaseAfterPayment(oldLease, durationMonths, proposedRent, paymentReceiptUrl);
 
   // SETTLEMENT
   @override

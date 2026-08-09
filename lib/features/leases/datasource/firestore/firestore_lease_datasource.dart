@@ -161,7 +161,7 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   @override
   Future<void> markLeaseAsPendingRenewal(String leaseId) async {
     await _leases.doc(leaseId).update({
-      // 'status': 'pending_renewal_payment',
+      'status': 'payment_required',
       'renewalRequestedAt': DateTime.now().toIso8601String(),
       'updatedAt': DateTime.now().toIso8601String(),
     });
@@ -188,7 +188,8 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
       isRenewed: true,
       previousLeaseId: oldLeaseId,
       renewalReason: reason,
-      paymentReceiptUrl: paymentReceiptUrl ?? oldLease.paymentReceiptUrl,
+      paymentReceiptUrl: paymentReceiptUrl ?? "",
+      paymentConfirmedAt: DateTime.now(),
       renewedAt: DateTime.now(),
       createdAt: DateTime.now(),
       updatedAt: DateTime.now(),
@@ -198,7 +199,8 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
 
     // Keep old lease for history
     await _leases.doc(oldLeaseId).update({
-      'status': 'renewed',
+      'status': 'expired',
+      'isRenewed': true,
       'updatedAt': DateTime.now().toIso8601String(),
     });
 
@@ -206,19 +208,25 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   }
 
   @override
-  Future<LeaseModel> renewLeaseAfterPayment(String leaseId) async {
-    final lease = await getLeaseById(leaseId);
-    final durationMonths = lease.durationMonths ?? 12;
-    final newStartDate = lease.endDate;
-    final newEndDate = newStartDate.add(Duration(days: durationMonths * 30));
+  Future<LeaseModel> renewLeaseAfterPayment(
+    LeaseModel oldLease,
+    int? durationMonths,
+    double? proposedRent,
+    String? paymentReceiptUrl,
+  ) async {
+    final renewalDurationMonths = durationMonths ?? 12;
+    final newStartDate = oldLease.endDate;
+    final newEndDate = newStartDate.add(Duration(days: renewalDurationMonths * 30));
 
     return createRenewalLease(
-      oldLeaseId: leaseId,
+      oldLeaseId: oldLease.id,
       newStartDate: newStartDate,
       newEndDate: newEndDate,
-      monthlyRent: lease.monthlyRent,
-      reason: 'Automatic renewal after payment',
-      paymentReceiptUrl: lease.paymentReceiptUrl,
+      monthlyRent: proposedRent ?? oldLease.monthlyRent,
+      reason: paymentReceiptUrl == null
+          ? 'Payment confirmed by system'
+          : 'Renewal after offline payment confirmation',
+      paymentReceiptUrl: paymentReceiptUrl,
     );
   }
 
@@ -462,19 +470,26 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
       query = _leaseRequests.where('tenantId', WhereFilter.equal, userId).where('status', WhereFilter.isIn, [
         LeaseRequestStatus.pending.value,
         LeaseRequestStatus.approved.value,
+        LeaseRequestStatus.paymentRequired.value,
+        LeaseRequestStatus.paymentSubmitted.value,
       ]);
     } else if (role == 'manager') {
       query = _leaseRequests.where('managerId', WhereFilter.equal, userId).where('status', WhereFilter.isIn, [
         LeaseRequestStatus.pending.value,
         LeaseRequestStatus.approved.value,
+        LeaseRequestStatus.paymentRequired.value,
+        LeaseRequestStatus.paymentSubmitted.value,
       ]);
     } else {
       // landowner
-      query = _leaseRequests.where('landownerId', WhereFilter.equal, userId).where(
-        'status',
-        WhereFilter.isIn,
-        [LeaseRequestStatus.pending.value, LeaseRequestStatus.approved.value],
-      );
+      query = _leaseRequests
+          .where('landownerId', WhereFilter.equal, userId)
+          .where('status', WhereFilter.isIn, [
+            LeaseRequestStatus.pending.value,
+            LeaseRequestStatus.approved.value,
+            LeaseRequestStatus.paymentRequired.value,
+            LeaseRequestStatus.paymentSubmitted.value,
+          ]);
     }
 
     final snap = await query.orderBy('createdAt', descending: true).get();
@@ -594,6 +609,33 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
     });
 
     // Lease status is intentionally NOT changed
+  }
+
+  @override
+  Future<LeaseRequestModel> updateLeaseRequest(LeaseRequestModel request) async {
+    if (request.id.isEmpty) {
+      throw ValidationException('Lease request id is required');
+    }
+
+    final docRef = _leaseRequests.doc(request.id);
+    final doc = await docRef.get();
+
+    if (!doc.exists) {
+      throw NotFoundException('LeaseRequest', request.id);
+    }
+
+    final updated = request.copyWith(updatedAt: DateTime.now());
+
+    await docRef.update({
+      ...updated.toMap(),
+      'updatedAt': updated.updatedAt.toIso8601String(),
+      if (updated.resolvedAt != null) 'resolvedAt': updated.resolvedAt!.toIso8601String(),
+    });
+
+    final snap = await docRef.get();
+
+    final data = snap.data() as Map<String, dynamic>;
+    return LeaseRequestModel.fromMap(data);
   }
 
   @override

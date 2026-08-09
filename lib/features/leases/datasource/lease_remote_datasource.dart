@@ -20,6 +20,7 @@ abstract class LeaseRemoteDataSource {
   Future<List<LeaseModel>> getLeasesByUnit(String unitId);
   Future<List<LeaseModel>> getAllActiveLeases();
   Future<List<LeaseModel>> getExpiringLeases({int withinDays = 5});
+  Future<LeaseRequestModel> updateLeaseRequest(LeaseRequestModel request);
 
   // SIGNING & ACTIVATION
   Future<void> markLeaseAsSigned(
@@ -43,7 +44,12 @@ abstract class LeaseRemoteDataSource {
     String? paymentReceiptUrl,
   });
 
-  Future<LeaseModel> renewLeaseAfterPayment(String leaseId);
+  Future<LeaseModel> renewLeaseAfterPayment(
+    LeaseModel oldLease,
+    int? durationMonths,
+    double? proposedRent,
+    String? paymentReceiptUrl,
+  );
 
   // SETTLEMENT
   Future<void> proposeSettlement(LeaseSettlementAgreement settlement);
