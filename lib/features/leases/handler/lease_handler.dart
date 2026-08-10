@@ -1072,11 +1072,12 @@ class LeaseHandler {
         tenant = await userRepository.getUserByEmail(tenantEmail);
       } catch (_) {
         final newTenantId = const Uuid().v4();
-        tenant = User(
+        final newTenant = User(
           id: newTenantId,
           email: tenantEmail,
           fullName: tenantFullName,
           role: 'tenant',
+          roles: ["tenant"],
           phone: tenantPhone,
           createdAt: DateTime.now(),
           lastLogin: DateTime.now(),
@@ -1085,7 +1086,7 @@ class LeaseHandler {
           country: 'Nigeria',
           primaryRole: 'tenant',
         );
-        await userRepository.createUser(tenant);
+        tenant = await userRepository.createUser(newTenant);
       }
 
       // Check if tenant already has an active lease
