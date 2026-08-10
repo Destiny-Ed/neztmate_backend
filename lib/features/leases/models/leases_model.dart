@@ -20,6 +20,7 @@ class LeaseModel {
   final double? monthlyRentEquivalent;
 
   final List<UnitFee>? fees;
+  final Map<String, dynamic>? pendingRenewalTerms;
 
   final String
   status; // 'Pending Signature', 'Pending Payment', 'Inactive', 'Active', 'Expired', 'Terminated', 'Renew', 'Cancelled'
@@ -84,6 +85,7 @@ class LeaseModel {
     this.nextDueDate,
     required this.monthlyRent,
     this.fees,
+    this.pendingRenewalTerms,
     this.durationMonths,
     this.status = 'Pending Signature',
     this.generatedLeasePdfUrl,
@@ -141,7 +143,7 @@ class LeaseModel {
       monthlyRent: (map['monthlyRent'] as num).toDouble(),
       durationMonths: (map['durationMonths'] as num?)?.toInt(),
       fees: (map['fees'] as List?)?.map((e) => UnitFee.fromMap(e)).toList(),
-
+      pendingRenewalTerms: (map['pendingRenewalTerms']),
       status: map['status'] as String? ?? 'Pending Signature',
       generatedLeasePdfUrl: map['generatedLeasePdfUrl'] as String?,
       customLeasePdfUrl: map['customLeasePdfUrl'] as String?,
@@ -211,6 +213,8 @@ class LeaseModel {
     'nextDueDate': nextDueDate?.toIso8601String(),
     'monthlyRent': monthlyRent,
     'fees': fees?.map((e) => e.toMap()).toList(),
+    'pendingRenewalTerms': pendingRenewalTerms,
+
     'monthlyRentEquivalent': monthlyRentEquivalent,
     'durationMonths': durationMonths,
     'status': status,
@@ -275,6 +279,7 @@ class LeaseModel {
     String? signedAgreementPdfUrl,
     String? terminationReason,
     List<UnitFee>? fees,
+    Map<String, dynamic>? pendingRenewalTerms,
     DateTime? terminatedAt,
     DateTime? renewalRequestedAt,
     DateTime? terminationRequestedAt,
@@ -321,6 +326,7 @@ class LeaseModel {
       nextDueDate: nextDueDate ?? this.nextDueDate,
       monthlyRent: monthlyRent ?? this.monthlyRent,
       fees: fees ?? this.fees,
+      pendingRenewalTerms: pendingRenewalTerms ?? this.pendingRenewalTerms,
       durationMonths: durationMonths ?? this.durationMonths,
       status: status ?? this.status,
       generatedLeasePdfUrl: generatedLeasePdfUrl ?? this.generatedLeasePdfUrl,

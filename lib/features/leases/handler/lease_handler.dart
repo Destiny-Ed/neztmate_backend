@@ -52,7 +52,7 @@ class LeaseHandler {
     final unit = await unitRepository.getUnitById(lease.unitId);
     final property = await propertyRepository.getPropertyById(lease.propertyId);
     final neighbors = await tenantRepository.getTenantNeighbors(lease.propertyId, lease.tenantId);
-    final paymentSummary = LeasePaymentCalculatorService.calculate(lease: lease, unit: unit);
+    final paymentSummary = await LeasePaymentCalculatorService.calculateForLease(lease: lease, unit: unit);
     final payoutAccount = await paymentRepository.getDefaultPayoutAccount(
       lease.managerId ?? lease.landownerId,
     );
@@ -373,7 +373,7 @@ class LeaseHandler {
       final isRenewal = body['isRenewal'] as bool? ?? false;
 
       final unit = await unitRepository.getUnitById(lease.unitId);
-      final paymentSummary = LeasePaymentCalculatorService.calculate(lease: lease, unit: unit);
+      final paymentSummary = await LeasePaymentCalculatorService.calculateForLease(lease: lease, unit: unit);
 
       final double totalAmount = isRenewal
           ? (paymentSummary['renewalPayment']?['total'] as num? ?? lease.monthlyRent).toDouble()
@@ -744,7 +744,7 @@ class LeaseHandler {
       final durationStr = (metadata['renewalDuration'] as String?) ?? '12 Months';
       final months = parseDurationMonths(durationStr);
 
-      final expectedSummary = await LeasePaymentCalculatorService.calculate(
+      final expectedSummary = await LeasePaymentCalculatorService.calculateForLease(
         lease: lease,
         unit: unit,
         customDurationMonth: months,
@@ -840,7 +840,7 @@ class LeaseHandler {
       final durationStr = (metadata['renewalDuration'] as String?) ?? '12 Months';
       final months = parseDurationMonths(durationStr);
 
-      final paymentSummary = LeasePaymentCalculatorService.calculate(
+      final paymentSummary = LeasePaymentCalculatorService.calculateForLease(
         lease: lease,
         unit: unit,
         customDurationMonth: months,
@@ -1457,6 +1457,18 @@ class LeaseHandler {
   // RENT ADJUSTMENT REQUEST
 
   /// POST /leases/<id>/adjust-rent
+  /// Body (at least one of rent or fees required):
+  /// {
+  ///   "reason": "...",
+  ///   "newMonthlyRent": 150000,           // optional
+  ///   "recurringFees": [                   // optional – full list to use at renewal
+  ///     { "name": "Service Charge", "amount": 12500, "isPercentage": false }
+  ///   ],
+  ///   "oneTimeFees": [ ... ],              // optional
+  ///   "feeUpdateMode": "replace",          // replace | merge (default replace)
+  ///   "notes": "..."
+  /// }
+  /// POST /leases/<id>/adjust-rent
   Future<Response> proposeRentAdjustment(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
@@ -1472,29 +1484,90 @@ class LeaseHandler {
       }
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
-      final newMonthlyRent = (body['newMonthlyRent'] as num?)?.toDouble();
-      final effectiveStartDateRaw = body['effectiveStartDate'] as String?;
-
       final reason = body['reason'] as String?;
+      final notes = body['notes'] as String?;
+      final newMonthlyRent = (body['newMonthlyRent'] as num?)?.toDouble();
+      final feeUpdateMode = (body['feeUpdateMode'] as String?)?.toLowerCase() ?? 'replace';
 
-      if (newMonthlyRent == null || newMonthlyRent <= 0) {
-        return badRequest('Valid new monthly rent is required');
-      }
       if (reason == null || reason.trim().isEmpty) {
-        return badRequest('Reason for rent adjustment is required');
+        return badRequest('Reason for adjustment is required');
       }
 
-      if (effectiveStartDateRaw == null || effectiveStartDateRaw.trim().isEmpty) {
-        return badRequest('effectiveStartDate is required');
+      List<UnitFee>? parseFees(List<dynamic>? raw, {required bool defaultOneTime}) {
+        if (raw == null) return null;
+        return raw.map((e) {
+          final m = Map<String, dynamic>.from(e as Map);
+          final name = m['name']?.toString().trim() ?? '';
+          final amount = (m['amount'] as num?)?.toDouble();
+          if (name.isEmpty || amount == null || amount < 0) {
+            throw ValidationException('Each fee needs a name and a valid amount (>= 0)');
+          }
+          return UnitFee(
+            name: name,
+            amount: amount,
+            isPercentage: m['isPercentage'] as bool? ?? false,
+            isOneTime: m['isOneTime'] as bool? ?? defaultOneTime,
+          );
+        }).toList();
       }
 
-      // DateTime effectiveStartDate;
-      // try {
-      //   effectiveStartDate = DateTime.parse(effectiveStartDateRaw);
-      // } catch (_) {
-      //   return badRequest('effectiveStartDate must be a valid ISO date');
-      // }
+      List<UnitFee>? recurringFees;
+      List<UnitFee>? oneTimeFees;
+      try {
+        // recurring → isOneTime: false by default
+        recurringFees = parseFees(body['recurringFees'] as List<dynamic>?, defaultOneTime: false);
+        // one-time → isOneTime: true by default
+        oneTimeFees = parseFees(body['oneTimeFees'] as List<dynamic>?, defaultOneTime: true);
+      } on ValidationException catch (e) {
+        return badRequest(e.message);
+      }
+
+      final hasRent = newMonthlyRent != null;
+      final hasRecurring = recurringFees != null;
+      final hasOneTime = oneTimeFees != null;
+
+      if (!hasRent && !hasRecurring && !hasOneTime) {
+        return badRequest('Provide at least one of: newMonthlyRent, recurringFees, oneTimeFees');
+      }
+      if (hasRent && newMonthlyRent <= 0) {
+        return badRequest('newMonthlyRent must be greater than 0');
+      }
+      if (!['replace', 'merge'].contains(feeUpdateMode)) {
+        return badRequest('feeUpdateMode must be "replace" or "merge"');
+      }
+
       final lease = await leaseRepository.getLeaseById(leaseId);
+
+      if (role == 'landowner' && lease.landownerId != userId) {
+        return Response(403, body: jsonEncode({'message': 'Not your lease'}));
+      }
+      if (role == 'manager' && lease.managerId != userId) {
+        return Response(403, body: jsonEncode({'message': 'Not your managed lease'}));
+      }
+
+      final status = lease.status.toLowerCase().replaceAll(' ', '_');
+      if (!['active', 'inactive', 'expired', 'pending_renewal'].contains(status)) {
+        return badRequest('Rent adjustment is only allowed for active or renewable leases');
+      }
+
+      final existingPending = await leaseRepository.getActiveLeaseRequest(
+        leaseId,
+        type: LeaseRequestType.rentAdjustment,
+      );
+      if (existingPending != null) {
+        return badRequest('There is already a pending adjustment. Cancel or resolve it first.');
+      }
+
+      // Current fees from lease/unit – adjust field names to your LeaseModel
+      final currentRecurring = (lease.fees ?? []).where((f) => !f.isOneTime).toList();
+      final currentOneTime = (lease.fees ?? []).where((f) => f.isOneTime).toList();
+
+      final changes = <String>[];
+      if (hasRent) {
+        changes.add('rent ₦${lease.monthlyRent.toStringAsFixed(0)} → ₦${newMonthlyRent.toStringAsFixed(0)}');
+      }
+      if (hasRecurring) changes.add('recurring fees updated');
+      if (hasOneTime) changes.add('one-time fees updated');
 
       final created = await leaseRepository.createLeaseRequest(
         LeaseRequestModel(
@@ -1510,13 +1583,21 @@ class LeaseHandler {
           initiatedBy: role == 'manager' ? LeaseRequestActor.manager : LeaseRequestActor.landlord,
           initiatedById: userId,
           assignedToId: lease.tenantId,
-          title: 'Rent Adjustment Proposal',
-          reason: reason,
+          title: 'Terms adjustment for next renewal',
+          reason: reason.trim(),
+          message: notes?.trim(),
           metadata: {
-            'newMonthlyRent': newMonthlyRent,
+            'appliesAt': 'renewal',
             'currentMonthlyRent': lease.monthlyRent,
-            'reason': reason,
-            'effectiveStartDate': effectiveStartDateRaw,
+            if (hasRent) 'newMonthlyRent': newMonthlyRent,
+            if (recurringFees != null) 'recurringFees': recurringFees.map((f) => f.toMap()).toList(),
+            if (oneTimeFees != null) 'oneTimeFees': oneTimeFees.map((f) => f.toMap()).toList(),
+            'feeUpdateMode': feeUpdateMode,
+            'currentRecurringFees': currentRecurring.map((f) => f.toMap()).toList(),
+            'currentOneTimeFees': currentOneTime.map((f) => f.toMap()).toList(),
+            'reason': reason.trim(),
+            if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+            'changes': changes,
           },
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
@@ -1528,9 +1609,10 @@ class LeaseHandler {
           id: '',
           userId: lease.tenantId,
           type: 'rent_adjustment_proposed',
-          title: 'Rent Adjustment Proposed',
+          title: 'Lease terms update proposed',
           body:
-              'Your landlord proposed changing rent from ₦${lease.monthlyRent} to ₦$newMonthlyRent. Reason: $reason',
+              'Your landlord proposed changes for your next renewal (${changes.join(', ')}). '
+              'Current rent and fees stay the same until renewal.',
           relatedId: created.id,
           relatedCollection: 'lease_requests',
           createdAt: DateTime.now(),
@@ -1538,7 +1620,10 @@ class LeaseHandler {
       );
 
       return Response.ok(
-        jsonEncode({'message': 'Rent adjustment proposed successfully', 'request': created.toMap()}),
+        jsonEncode({
+          'message': 'Adjustment proposed for next renewal. Current lease amounts are unchanged until then.',
+          'request': created.toMap(),
+        }),
       );
     } on ValidationException catch (e) {
       return Response(400, body: jsonEncode({'message': e.message}));
@@ -1571,20 +1656,141 @@ class LeaseHandler {
         return Response(400, body: jsonEncode({'message': 'Only pending requests can be approved'}));
       }
 
+      final isAssignee = leaseRequest.assignedToId == userId;
+
       final isTenantApprovingRent =
           leaseRequest.type == LeaseRequestType.rentAdjustment &&
-          role == 'tenant' &&
-          leaseRequest.tenantId == userId;
+              role == 'tenant' &&
+              leaseRequest.tenantId == userId ||
+          isAssignee;
 
       final isOwnerOrManager =
           ['landowner', 'manager'].contains(role) &&
           (leaseRequest.landownerId == userId || leaseRequest.managerId == userId);
+      // Generic rule: assignee can approve (covers tenant for transfer/termination offers, etc.)
+      final isAssigneeApproving = isAssignee && role != null;
 
-      if (!isTenantApprovingRent && !isOwnerOrManager) {
+      if (!isTenantApprovingRent && !isOwnerOrManager && !isAssigneeApproving) {
         return Response(403, body: jsonEncode({'message': 'Not allowed to approve this request'}));
       }
 
       await leaseRepository.approveLeaseRequest(requestId: requestId, approvedBy: userId, notes: notes);
+
+      // ── RENT ADJUSTMENT (Option C: applies at next renewal only) ──
+      if (leaseRequest.type == LeaseRequestType.rentAdjustment) {
+        if (role != 'tenant' || leaseRequest.assignedToId != userId) {
+          return Response(
+            403,
+            body: jsonEncode({'message': 'Only the assigned tenant can approve a rent adjustment'}),
+          );
+        }
+
+        final lease = await leaseRepository.getLeaseById(leaseRequest.leaseId);
+        final meta = Map<String, dynamic>.from(leaseRequest.metadata);
+
+        final newMonthlyRent = (meta['newMonthlyRent'] as num?)?.toDouble();
+        final feeUpdateMode = (meta['feeUpdateMode'] as String?)?.toLowerCase() ?? 'replace';
+
+        List<UnitFee> feesFrom(dynamic raw) {
+          if (raw is! List) return [];
+          return raw.map((e) => UnitFee.fromMap(Map<String, dynamic>.from(e as Map))).toList();
+        }
+
+        List<UnitFee> mergeFees(List<UnitFee> base, List<UnitFee> incoming) {
+          final result = List<UnitFee>.from(base);
+          for (final fee in incoming) {
+            final idx = result.indexWhere((e) => e.name.toLowerCase() == fee.name.toLowerCase());
+            if (idx >= 0) {
+              result[idx] = fee;
+            } else {
+              result.add(fee);
+            }
+          }
+          return result;
+        }
+
+        final proposedRecurring = meta.containsKey('recurringFees') ? feesFrom(meta['recurringFees']) : null;
+        final proposedOneTime = meta.containsKey('oneTimeFees') ? feesFrom(meta['oneTimeFees']) : null;
+
+        var nextRecurring = feesFrom(meta['currentRecurringFees']);
+        var nextOneTime = feesFrom(meta['currentOneTimeFees']);
+
+        // Fallback to lease fees
+        if (nextRecurring.isEmpty && nextOneTime.isEmpty && lease.fees != null) {
+          nextRecurring = lease.fees!.where((f) => !f.isOneTime).toList();
+          nextOneTime = lease.fees!.where((f) => f.isOneTime).toList();
+        }
+
+        if (proposedRecurring != null) {
+          nextRecurring = feeUpdateMode == 'replace'
+              ? proposedRecurring
+              : mergeFees(nextRecurring, proposedRecurring);
+        }
+        if (proposedOneTime != null) {
+          nextOneTime = feeUpdateMode == 'replace'
+              ? proposedOneTime
+              : mergeFees(nextOneTime, proposedOneTime);
+        }
+
+        nextRecurring = nextRecurring
+            .map(
+              (f) => UnitFee(name: f.name, amount: f.amount, isPercentage: f.isPercentage, isOneTime: false),
+            )
+            .toList();
+        nextOneTime = nextOneTime
+            .map(
+              (f) => UnitFee(name: f.name, amount: f.amount, isPercentage: f.isPercentage, isOneTime: true),
+            )
+            .toList();
+
+        final allFees = [...nextRecurring, ...nextOneTime];
+
+        final pendingRenewalTerms = {
+          'monthlyRent': newMonthlyRent ?? lease.monthlyRent,
+          'fees': allFees.map((f) => f.toMap()).toList(),
+          'recurringFees': nextRecurring.map((f) => f.toMap()).toList(),
+          'oneTimeFees': nextOneTime.map((f) => f.toMap()).toList(),
+          'approvedRequestId': leaseRequest.id,
+          'approvedAt': DateTime.now().toIso8601String(),
+          'appliesAt': 'renewal',
+          if (notes != null && notes.trim().isNotEmpty) 'approvalNotes': notes.trim(),
+        };
+
+        // Do NOT update lease.monthlyRent or live fees
+        await leaseRepository.setPendingRenewalTerms(lease.id, pendingRenewalTerms);
+
+        await leaseRepository.updateLeaseRequest(
+          leaseRequest.copyWith(
+            status: LeaseRequestStatus.completed,
+            resolvedAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+            metadata: {...meta, 'pendingRenewalTerms': pendingRenewalTerms},
+          ),
+        );
+
+        await notificationRepository.create(
+          NotificationModel(
+            id: '',
+            userId: leaseRequest.initiatedById,
+            type: 'rent_adjustment_accepted',
+            title: 'Tenant accepted terms adjustment',
+            body: 'New rent/fees will apply at the next renewal. Current lease amounts are unchanged.',
+            relatedId: requestId,
+            relatedCollection: 'lease_requests',
+            createdAt: DateTime.now(),
+          ),
+        );
+
+        return Response.ok(
+          jsonEncode({
+            'message':
+                'Adjustment accepted. New terms apply at next renewal only; current lease is unchanged.',
+            'requestId': requestId,
+            'type': leaseRequest.type.value,
+            'pendingRenewalTerms': pendingRenewalTerms,
+          }),
+        );
+      }
 
       if (leaseRequest.type == LeaseRequestType.transfer) {
         final newTenantId = leaseRequest.metadata['newTenantId'] as String?;

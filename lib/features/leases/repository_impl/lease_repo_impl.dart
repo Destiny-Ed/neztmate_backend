@@ -198,4 +198,11 @@ class LeaseRepositoryImpl implements LeaseRepository {
   @override
   Future<void> terminateLease(String id, String reason, String terminatedBy) =>
       dataSource.terminateLease(id, reason, terminatedBy);
+
+  @override
+  Future<void> setPendingRenewalTerms(String leaseId, Map<String, dynamic> terms) =>
+      dataSource.setPendingRenewalTerms(leaseId, terms);
+
+  @override
+  Future<void> clearPendingRenewalTerms(String leaseId) => dataSource.clearPendingRenewalTerms(leaseId);
 }

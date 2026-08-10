@@ -99,4 +99,8 @@ abstract class LeaseRepository {
   // SYSTEM / CRON
   Future<int> updateExpiredLeasesToInactive();
   Future<void> terminateLease(String id, String reason, String terminatedBy);
+
+  Future<void> setPendingRenewalTerms(String leaseId, Map<String, dynamic> terms);
+
+  Future<void> clearPendingRenewalTerms(String leaseId);
 }

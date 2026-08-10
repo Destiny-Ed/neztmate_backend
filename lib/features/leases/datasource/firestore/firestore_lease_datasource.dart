@@ -705,4 +705,20 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
       'updatedAt': DateTime.now().toIso8601String(),
     });
   }
+
+  @override
+  Future<void> setPendingRenewalTerms(String leaseId, Map<String, dynamic> terms) async {
+    await _leases.doc(leaseId).update({
+      'pendingRenewalTerms': terms,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
+
+  @override
+  Future<void> clearPendingRenewalTerms(String leaseId) async {
+    await _leases.doc(leaseId).update({
+      'pendingRenewalTerms': FieldValue.delete,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+  }
 }

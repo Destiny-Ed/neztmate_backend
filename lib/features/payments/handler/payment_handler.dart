@@ -96,7 +96,7 @@ class PaymentHandler {
 
       // Amount
       final unit = await unitRepository.getUnitById(lease.unitId);
-      final summary = LeasePaymentCalculatorService.calculate(lease: lease, unit: unit);
+      final summary = await LeasePaymentCalculatorService.calculateForLease(lease: lease, unit: unit);
       final paymentAmount = paymentType == 'task'
           ? amount
           : paymentType == 'rent_renewal'
