@@ -1088,6 +1088,17 @@ class LeaseHandler {
         await userRepository.createUser(tenant);
       }
 
+      // Check if tenant already has an active lease
+      final activeLeases = await leaseRepository.getActiveLeasesByTenant(tenant.id);
+
+      if (activeLeases.isNotEmpty) {
+        final lease = activeLeases.first;
+        return badRequest(
+          'This tenant already has an active lease'
+          '${lease.unitId.isNotEmpty ? ' on unit ${lease.unitId}' : ''}. '
+          'Tenant must terminate or transfer that lease before adding them to another unit.',
+        );
+      }
       final lease = LeaseModel(
         id: '',
         applicationId: 'manual_${DateTime.now().millisecondsSinceEpoch}',
