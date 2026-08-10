@@ -1,11 +1,14 @@
 import 'dart:convert';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
+import 'package:neztmate_backend/features/leases/models/lease_request_model.dart';
+import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
 import 'package:neztmate_backend/features/maintenance/repository/maintenance_repo.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
 import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
 import 'package:neztmate_backend/features/properties/models/property_model.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
+import 'package:neztmate_backend/features/units/models/unit_model.dart';
 import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
 import 'package:shelf/shelf.dart';
 import 'package:neztmate_backend/core/error.dart';
@@ -19,6 +22,7 @@ class PropertyHandler {
   final UnitRepository unitRepository;
   final PaymentRepository paymentRepository;
   final NotificationRepository notificationRepository;
+  final LeaseRepository leaseRepository;
 
   PropertyHandler(
     this.propertyRepository,
@@ -27,6 +31,7 @@ class PropertyHandler {
     this.maintenanceRepository,
     this.unitRepository,
     this.paymentRepository,
+    this.leaseRepository,
   );
 
   // GET /properties (my properties)
@@ -502,6 +507,204 @@ class PropertyHandler {
     } catch (e, stack) {
       print('Get artisans for property error: $e\n$stack');
       return Response.internalServerError(body: jsonEncode({'message': 'Failed to fetch artisans'}));
+    }
+  }
+
+  /// POST /properties/<id>/adjust-terms
+  /// Bulk: one rentAdjustment request per active lease on this property.
+  Future<Response> proposePropertyTermsAdjustment(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+      final propertyId = request.params['id'];
+
+      if (userId == null || propertyId == null) {
+        return Response(401, body: jsonEncode({'message': 'Unauthorized'}));
+      }
+      if (!['landowner', 'manager'].contains(role)) {
+        return Response(
+          403,
+          body: jsonEncode({'message': 'Only landowners or managers can propose bulk adjustments'}),
+        );
+      }
+
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final reason = body['reason'] as String?;
+      final notes = body['notes'] as String?;
+      final feeUpdateMode = (body['feeUpdateMode'] as String?)?.toLowerCase() ?? 'replace';
+      final newMonthlyRent = (body['newMonthlyRent'] as num?)?.toDouble();
+      final rentIncreasePercent = (body['rentIncreasePercent'] as num?)?.toDouble();
+
+      if (reason == null || reason.trim().isEmpty) {
+        return Response(400, body: jsonEncode({'message': 'Reason is required'}));
+      }
+      if (!['replace', 'merge'].contains(feeUpdateMode)) {
+        return Response(400, body: jsonEncode({'message': 'feeUpdateMode must be replace or merge'}));
+      }
+      if (newMonthlyRent != null && rentIncreasePercent != null) {
+        return Response(
+          400,
+          body: jsonEncode({'message': 'Use either newMonthlyRent or rentIncreasePercent, not both'}),
+        );
+      }
+
+      List<UnitFee>? parseFees(List<dynamic>? raw, {required bool defaultOneTime}) {
+        if (raw == null) return null;
+        return raw.map((e) {
+          final m = Map<String, dynamic>.from(e as Map);
+          final name = m['name']?.toString().trim() ?? '';
+          final amount = (m['amount'] as num?)?.toDouble();
+          if (name.isEmpty || amount == null || amount < 0) {
+            throw ValidationException('Each fee needs a name and valid amount');
+          }
+          return UnitFee(
+            name: name,
+            amount: amount,
+            isPercentage: m['isPercentage'] as bool? ?? false,
+            isOneTime: m['isOneTime'] as bool? ?? defaultOneTime,
+          );
+        }).toList();
+      }
+
+      List<UnitFee>? recurringFees;
+      List<UnitFee>? oneTimeFees;
+      try {
+        recurringFees = parseFees(body['recurringFees'] as List?, defaultOneTime: false);
+        oneTimeFees = parseFees(body['oneTimeFees'] as List?, defaultOneTime: true);
+      } on ValidationException catch (e) {
+        return Response(400, body: jsonEncode({'message': e.message}));
+      }
+
+      final hasRentFlat = newMonthlyRent != null && newMonthlyRent > 0;
+      final hasRentPercent = rentIncreasePercent != null;
+      final hasFees = recurringFees != null || oneTimeFees != null;
+
+      if (!hasRentFlat && !hasRentPercent && !hasFees) {
+        return Response(
+          400,
+          body: jsonEncode({'message': 'Provide newMonthlyRent, rentIncreasePercent, and/or fees'}),
+        );
+      }
+      if (hasRentPercent && (rentIncreasePercent <= -100)) {
+        return Response(400, body: jsonEncode({'message': 'Invalid rentIncreasePercent'}));
+      }
+
+      final property = await propertyRepository.getPropertyById(propertyId);
+      if (role == 'landowner' && property.landownerId != userId) {
+        return Response(403, body: jsonEncode({'message': 'Not your property'}));
+      }
+      if (role == 'manager' && property.managerId != userId) {
+        return Response(403, body: jsonEncode({'message': 'Not your managed property'}));
+      }
+
+      final activeLeases = await leaseRepository.getActiveLeasesByProperty(propertyId);
+      // Implement if missing: leases where propertyId == id && status Active (or Inactive pending renewal)
+
+      if (activeLeases.isEmpty) {
+        return Response(400, body: jsonEncode({'message': 'No active leases on this property'}));
+      }
+
+      final createdIds = <String>[];
+      final skipped = <Map<String, dynamic>>[];
+
+      for (final lease in activeLeases) {
+        final pending = await leaseRepository.getActiveLeaseRequest(
+          lease.id,
+          type: LeaseRequestType.rentAdjustment,
+        );
+        if (pending != null) {
+          skipped.add({'leaseId': lease.id, 'reason': 'Pending Adjustment Exists'});
+          continue;
+        }
+
+        double? proposedRent;
+        if (hasRentFlat) {
+          proposedRent = newMonthlyRent;
+        } else if (hasRentPercent) {
+          proposedRent = lease.monthlyRent * (1 + rentIncreasePercent / 100);
+          proposedRent = double.parse(proposedRent?.toStringAsFixed(2) ?? '0');
+        }
+
+        final fees = lease.fees ?? <UnitFee>[];
+        final currentRecurring = fees.where((f) => !f.isOneTime).toList();
+        final currentOneTime = fees.where((f) => f.isOneTime).toList();
+
+        final changes = <String>[];
+        if (proposedRent != null) {
+          changes.add('rent ₦${lease.monthlyRent.toStringAsFixed(0)} → ₦${proposedRent.toStringAsFixed(0)}');
+        }
+        if (recurringFees != null) changes.add('recurring fees updated');
+        if (oneTimeFees != null) changes.add('one-time fees updated');
+
+        final created = await leaseRepository.createLeaseRequest(
+          LeaseRequestModel(
+            id: '',
+            leaseId: lease.id,
+            propertyId: lease.propertyId,
+            unitId: lease.unitId,
+            tenantId: lease.tenantId,
+            landownerId: lease.landownerId,
+            managerId: lease.managerId,
+            type: LeaseRequestType.rentAdjustment,
+            status: LeaseRequestStatus.pending,
+            initiatedBy: role == 'manager' ? LeaseRequestActor.manager : LeaseRequestActor.landlord,
+            initiatedById: userId,
+            assignedToId: lease.tenantId,
+            title: 'Terms adjustment for next renewal',
+            reason: reason.trim(),
+            message: notes?.trim(),
+            metadata: {
+              'appliesAt': 'renewal',
+              'bulkPropertyId': propertyId,
+              'currentMonthlyRent': lease.monthlyRent,
+              if (proposedRent != null) 'newMonthlyRent': proposedRent,
+              if (hasRentPercent) 'rentIncreasePercent': rentIncreasePercent,
+              if (recurringFees != null) 'recurringFees': recurringFees.map((f) => f.toMap()).toList(),
+              if (oneTimeFees != null) 'oneTimeFees': oneTimeFees.map((f) => f.toMap()).toList(),
+              'feeUpdateMode': feeUpdateMode,
+              'currentRecurringFees': currentRecurring.map((f) => f.toMap()).toList(),
+              'currentOneTimeFees': currentOneTime.map((f) => f.toMap()).toList(),
+              'reason': reason.trim(),
+              if (notes != null && notes.trim().isNotEmpty) 'notes': notes.trim(),
+              'changes': changes,
+            },
+            createdAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+        );
+
+        createdIds.add(created.id);
+
+        await notificationRepository.create(
+          NotificationModel(
+            id: '',
+            userId: lease.tenantId,
+            type: 'rent_adjustment_proposed',
+            title: 'Lease terms update proposed',
+            body:
+                'Your landlord proposed changes for your next renewal (${changes.join(', ')}). '
+                'Current rent stays the same until renewal.',
+            relatedId: created.id,
+            relatedCollection: 'lease_requests',
+            createdAt: DateTime.now(),
+          ),
+        );
+      }
+
+      return Response.ok(
+        jsonEncode({
+          'message': 'Proposed terms adjustment to ${createdIds.length} tenant(s)',
+          'propertyId': propertyId,
+          'created': createdIds.length,
+          'skipped': skipped,
+          'requestIds': createdIds,
+        }),
+      );
+    } catch (e, stack) {
+      print('Bulk adjust-terms error: $e\n$stack');
+      return Response.internalServerError(
+        body: jsonEncode({'message': 'Failed to propose property-wide adjustment'}),
+      );
     }
   }
 

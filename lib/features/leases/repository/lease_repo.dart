@@ -14,6 +14,7 @@ abstract class LeaseRepository {
 
   // QUERIES
   Future<List<LeaseModel>> getActiveLeasesByTenant(String tenantId);
+  Future<List<LeaseModel>> getActiveLeasesByProperty(String propertyId);
   Future<List<LeaseModel>> getLeasesByTenant(String tenantId);
   Future<List<LeaseModel>> getLeasesByLandowner(String landownerId);
   Future<List<LeaseModel>> getLeasesByManager(String managerId);

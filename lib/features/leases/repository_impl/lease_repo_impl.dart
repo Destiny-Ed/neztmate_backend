@@ -37,6 +37,10 @@ class LeaseRepositoryImpl implements LeaseRepository {
       dataSource.getActiveLeasesByTenant(tenantId);
 
   @override
+  Future<List<LeaseModel>> getActiveLeasesByProperty(String propertyId) =>
+      dataSource.getActiveLeasesByProperty(propertyId);
+
+  @override
   Future<List<LeaseModel>> getLeasesByTenant(String tenantId) => dataSource.getLeasesByTenant(tenantId);
 
   @override

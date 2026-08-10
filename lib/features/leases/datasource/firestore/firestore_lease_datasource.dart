@@ -72,6 +72,18 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   }
 
   @override
+  Future<List<LeaseModel>> getActiveLeasesByProperty(String propertyId) async {
+    // Firestore example
+    final snap = await _leases.where('propertyId', WhereFilter.equal, propertyId).where(
+      'status',
+      WhereFilter.isIn,
+      ['active', 'inactive'],
+    ).get();
+
+    return snap.docs.map((d) => LeaseModel.fromMap(d.data() as Map<String, dynamic>)).toList();
+  }
+
+  @override
   Future<List<LeaseModel>> getLeasesByTenant(String tenantId) async {
     final snap = await _leases.where('tenantId', WhereFilter.equal, tenantId).get();
     return snap.docs.map((d) => LeaseModel.fromMap(d.data() as Map<String, dynamic>)).toList();

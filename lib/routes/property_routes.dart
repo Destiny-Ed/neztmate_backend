@@ -13,6 +13,8 @@ Router propertyRoutes(PropertyHandler handler) {
 
   router.get('/<id>/artisans', handler.getArtisansForProperty);
 
+  router.post('/<id>/adjust-terms', handler.proposePropertyTermsAdjustment);
+
   // router.get('/<id>/tenants', handler.getTenantsByProperty);
   // router.get('/<id>/current-tenants', handler.getCurrentTenantsByProperty);
   // router.get('/<id>/past-tenants', handler.getPastTenantsByProperty);
