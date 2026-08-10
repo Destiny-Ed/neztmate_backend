@@ -1052,6 +1052,7 @@ class LeaseHandler {
       final tenantEmail = (body['tenantEmail'] as String).toLowerCase().trim();
       final tenantFullName = body['tenantFullName'] as String;
       final tenantPhone = body['tenantPhone'] as String?;
+      final signedAgreementPdfUrl = body['signedAgreementPdfUrl'] as String?;
 
       final unit = await unitRepository.getUnitById(unitId);
       final property = await propertyRepository.getPropertyById(propertyId);
@@ -1097,9 +1098,13 @@ class LeaseHandler {
         managerId: property.managerId,
         startDate: startDate,
         endDate: endDate,
+        signedAgreementPdfUrl: signedAgreementPdfUrl,
+        isCustomLease: true,
         monthlyRent: monthlyRent,
         durationMonths: body['durationMonths'] as int? ?? 12,
-        fees: (body['fees'] as List?)?.map((e) => UnitFee.fromMap(e)).toList(),
+        fees: body['fees'] == null
+            ? unit.fees
+            : (body['fees'] as List?)?.map((e) => UnitFee.fromMap(e)).toList(),
         status: 'active',
         termsNotes: body['notes'] as String? ?? 'Existing tenant onboarded manually',
         createdAt: DateTime.now(),
