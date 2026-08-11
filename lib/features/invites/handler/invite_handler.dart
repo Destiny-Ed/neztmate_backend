@@ -198,7 +198,7 @@ class InviteHandler {
         flatFeeAmount: flatFeeAmount,
         flatFeePeriod: flatFeePeriod,
         message: message ?? "Hello, I would like you to join as $inviteeRole.",
-        status: 'Pending',
+        status: 'pending',
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
         expiresAt: expiresAt,
@@ -212,7 +212,7 @@ class InviteHandler {
       );
     } catch (e, stack) {
       print('Send invite error: $e\n$stack');
-      return Response.internalServerError(body: jsonEncode({'message': 'Failed to send invite'}));
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to send invite $e'}));
     }
   }
 
