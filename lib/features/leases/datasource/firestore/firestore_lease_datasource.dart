@@ -565,6 +565,8 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
       case LeaseRequestType.other:
         // No automatic lease mutation
         break;
+      case LeaseRequestType.manualOnboarding:
+        break;
     }
   }
 

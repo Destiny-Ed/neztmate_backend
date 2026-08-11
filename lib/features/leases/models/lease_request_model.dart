@@ -6,6 +6,7 @@ enum LeaseRequestType {
   rentAdjustment,
   settlement,
   inspection,
+  manualOnboarding,
   other,
 }
 
@@ -19,6 +20,7 @@ extension LeaseRequestTypeX on LeaseRequestType {
     LeaseRequestType.settlement => "settlement",
     LeaseRequestType.inspection => "inspection",
     LeaseRequestType.other => "other",
+    LeaseRequestType.manualOnboarding => 'manual_onboarding',
   };
 
   static LeaseRequestType from(String value) {

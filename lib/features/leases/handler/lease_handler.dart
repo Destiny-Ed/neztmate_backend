@@ -1117,44 +1117,65 @@ class LeaseHandler {
         fees: body['fees'] == null
             ? unit.fees
             : (body['fees'] as List?)?.map((e) => UnitFee.fromMap(e)).toList(),
-        status: 'active',
-        termsNotes: body['notes'] as String? ?? 'Existing tenant onboarded manually',
+        status: 'pending_tenant_acceptance',
+        termsNotes: body['notes'] as String? ?? 'Manual onboarding — awaiting tenant acceptance',
         createdAt: DateTime.now(),
         updatedAt: DateTime.now(),
       );
 
       final createdLease = await leaseRepository.createManualLease(lease);
 
-      await unitRepository.updateUnitStatus(
-        unitId: unitId,
-        status: 'occupied',
-        currentTenantId: tenant.id,
-        isListedForRent: false,
+      final leaseRequest = await leaseRepository.createLeaseRequest(
+        LeaseRequestModel(
+          id: '',
+          leaseId: createdLease.id,
+          propertyId: propertyId,
+          unitId: unitId,
+          tenantId: tenant.id,
+          landownerId: property.landownerId,
+          managerId: property.managerId,
+          type: LeaseRequestType.manualOnboarding,
+          status: LeaseRequestStatus.pending,
+          initiatedBy: role == 'manager' ? LeaseRequestActor.manager : LeaseRequestActor.landlord,
+          initiatedById: userId,
+          assignedToId: tenant.id,
+          title: 'Confirm your lease',
+          reason: body['notes'] as String? ?? 'Landlord added you to a unit on NeztMate',
+          message: body['notes'] as String?,
+          metadata: {
+            'monthlyRent': monthlyRent,
+            'startDate': startDate.toIso8601String(),
+            'endDate': endDate.toIso8601String(),
+            'durationMonths': body['durationMonths'] as int? ?? 12,
+            if (body['signedAgreementPdfUrl'] != null) 'signedAgreementPdfUrl': body['signedAgreementPdfUrl'],
+            if (body['fees'] != null) 'fees': body['fees'],
+            'tenantEmail': tenant.email,
+            'tenantFullName': tenant.fullName,
+          },
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
       );
 
       await notificationRepository.create(
         NotificationModel(
           id: '',
           userId: tenant.id,
-          type: 'manual_lease_created',
-          title: 'Lease Created',
-          body: 'A lease has been created for you on NeztMate. Please log in to view details.',
-          relatedId: createdLease.id,
-          relatedCollection: 'leases',
+          type: 'manual_lease_pending',
+          title: 'Confirm your lease',
+          body: 'A landlord added you to a unit. Review and accept to activate the lease.',
+          relatedId: leaseRequest.id,
+          relatedCollection: 'lease_requests',
           createdAt: DateTime.now(),
         ),
       );
 
       return Response.ok(
         jsonEncode({
-          'message': 'Manual lease created successfully',
-          'lease': createdLease.toMap(),
-          'tenant': {
-            'id': tenant.id,
-            'fullName': tenant.fullName,
-            'email': tenant.email,
-            'phone': tenant.phone,
-          },
+          'message': 'Lease created. Waiting for tenant acceptance before it becomes active.',
+          // 'lease': createdLease.toMap(),
+          // 'request': leaseRequest.toMap(),
+          'status': 'pending_tenant_acceptance',
         }),
       );
     } catch (e, stack) {
@@ -1691,6 +1712,63 @@ class LeaseHandler {
         return Response(403, body: jsonEncode({'message': 'Not allowed to approve this request'}));
       }
 
+      if (leaseRequest.type == LeaseRequestType.manualOnboarding) {
+        if (leaseRequest.assignedToId != userId) {
+          return Response(
+            403,
+            body: jsonEncode({'message': 'Only the assigned tenant can accept this lease'}),
+          );
+        }
+
+        final lease = await leaseRepository.getLeaseById(leaseRequest.leaseId);
+
+        if (lease.status.toLowerCase() != 'pending_tenant_acceptance') {
+          return badRequest('Lease is not awaiting tenant acceptance');
+        }
+
+        final unit = await unitRepository.getUnitById(lease.unitId);
+        if (unit.status.toLowerCase() == 'occupied' &&
+            unit.currentTenantId != null &&
+            unit.currentTenantId != lease.tenantId) {
+          return badRequest('This unit is no longer available');
+        }
+
+        await leaseRepository.updateLease(lease.copyWith(status: 'active', updatedAt: DateTime.now()));
+
+        await unitRepository.updateUnitStatus(
+          unitId: lease.unitId,
+          status: 'occupied',
+          currentTenantId: lease.tenantId,
+          isListedForRent: false,
+        );
+
+        await leaseRepository.approveLeaseRequest(requestId: requestId, approvedBy: userId, notes: notes);
+        // Or: updateLeaseRequest → status completed
+
+        await notificationRepository.create(
+          NotificationModel(
+            id: '',
+            userId: leaseRequest.initiatedById,
+            type: 'manual_lease_accepted',
+            title: 'Tenant accepted lease',
+            body: 'The tenant confirmed the lease. Unit is now occupied.',
+            relatedId: leaseRequest.id,
+            relatedCollection: 'lease_requests',
+            createdAt: DateTime.now(),
+          ),
+        );
+
+        return Response.ok(
+          jsonEncode({
+            'message': 'Lease activated successfully',
+            'requestId': requestId,
+            'leaseId': lease.id,
+            'status': 'Active',
+            'type': leaseRequest.type.value,
+          }),
+        );
+      }
+
       await leaseRepository.approveLeaseRequest(requestId: requestId, approvedBy: userId, notes: notes);
 
       // ── RENT ADJUSTMENT (Option C: applies at next renewal only) ──
@@ -1893,6 +1971,41 @@ class LeaseHandler {
         return Response(403, body: jsonEncode({'message': 'Not allowed to reject this request'}));
       }
 
+      if (leaseRequest.assignedToId != userId) {
+        return Response(403, body: jsonEncode({'message': 'Only the assigned user can decline'}));
+      }
+
+      if (leaseRequest.type == LeaseRequestType.manualOnboarding) {
+        final lease = await leaseRepository.getLeaseById(leaseRequest.leaseId);
+
+        if (lease.status.toLowerCase() == 'pending_tenant_acceptance') {
+          await leaseRepository.updateLease(lease.copyWith(status: 'cancelled', updatedAt: DateTime.now()));
+        }
+
+        await leaseRepository.rejectLeaseRequest(requestId: requestId, rejectedBy: userId, reason: reason);
+
+        await notificationRepository.create(
+          NotificationModel(
+            id: '',
+            userId: leaseRequest.initiatedById,
+            type: 'manual_lease_declined',
+            title: 'Tenant declined lease',
+            body: reason.isNotEmpty ? reason : 'The tenant declined the manual lease invitation.',
+            relatedId: leaseRequest.id,
+            relatedCollection: 'lease_requests',
+            createdAt: DateTime.now(),
+          ),
+        );
+
+        return Response.ok(
+          jsonEncode({
+            'message': 'Lease invitation declined',
+            'requestId': requestId,
+            'leaseStatus': 'Cancelled',
+          }),
+        );
+      }
+
       await leaseRepository.rejectLeaseRequest(requestId: requestId, rejectedBy: userId, reason: reason);
 
       await notificationRepository.create(
@@ -1933,6 +2046,37 @@ class LeaseHandler {
       }
       if (leaseRequest.status != LeaseRequestStatus.pending) {
         return Response(400, body: jsonEncode({'message': 'Only pending requests can be cancelled'}));
+      }
+
+      if (leaseRequest.type == LeaseRequestType.manualOnboarding) {
+        final lease = await leaseRepository.getLeaseById(leaseRequest.leaseId);
+
+        if (lease.status.toLowerCase() == 'pending_tenant_acceptance') {
+          await leaseRepository.updateLease(lease.copyWith(status: 'cancelled', updatedAt: DateTime.now()));
+        }
+
+        await leaseRepository.cancelLeaseRequest(requestId: requestId, cancelledBy: userId);
+
+        await notificationRepository.create(
+          NotificationModel(
+            id: '',
+            userId: leaseRequest.tenantId,
+            type: 'manual_lease_cancelled',
+            title: 'Lease invitation cancelled',
+            body: 'The landlord cancelled the lease invitation.',
+            relatedId: leaseRequest.id,
+            relatedCollection: 'lease_requests',
+            createdAt: DateTime.now(),
+          ),
+        );
+
+        return Response.ok(
+          jsonEncode({
+            'message': 'Lease invitation cancelled',
+            'requestId': requestId,
+            'leaseStatus': 'Cancelled',
+          }),
+        );
       }
 
       await leaseRepository.cancelLeaseRequest(requestId: requestId, cancelledBy: userId);
