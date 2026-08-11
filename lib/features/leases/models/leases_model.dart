@@ -49,6 +49,15 @@ class LeaseModel {
   final DateTime? paymentConfirmedAt;
   final DateTime? renewedAt;
 
+  // settlement
+
+  /// Pending | Proposed | Agreed | Finalized | Paid | Disputed | Rejected
+  final String? settlementStatus;
+  final String? currentSettlementId;
+
+  /// Snapshot of latest settlement breakdown (for quick client display)
+  final Map<String, dynamic>? settlement;
+
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -85,6 +94,12 @@ class LeaseModel {
     this.nextDueDate,
     required this.monthlyRent,
     this.fees,
+    this.terminationReason,
+    this.terminatedAt,
+    this.terminatedBy,
+    this.settlementStatus,
+    this.currentSettlementId,
+    this.settlement,
     this.pendingRenewalTerms,
     this.durationMonths,
     this.status = 'Pending Signature',
@@ -97,15 +112,11 @@ class LeaseModel {
     this.termsNotes,
     required this.createdAt,
     required this.updatedAt,
-    this.terminationReason,
-    this.terminatedAt,
     this.renewalRequestedAt,
     this.terminationRequestedAt,
     this.transferRequestedAt,
     this.paymentConfirmedAt,
     this.renewedAt,
-    this.terminatedBy,
-
     this.transferToTenantId,
     this.transferStatus,
 
@@ -172,6 +183,10 @@ class LeaseModel {
           : null,
       terminatedBy: map['terminatedBy'] as String?,
 
+      settlementStatus: map['settlementStatus'] as String?,
+      currentSettlementId: map['currentSettlementId'] as String?,
+      settlement: map['settlement'] != null ? Map<String, dynamic>.from(map['settlement'] as Map) : null,
+
       transferStatus: map['transferStatus'] as String?,
       transferToTenantId: map["transferToTenantId"] as String?,
 
@@ -237,6 +252,10 @@ class LeaseModel {
     'renewedAt': renewedAt?.toIso8601String(),
     'terminatedBy': terminatedBy,
 
+    'settlementStatus': settlementStatus,
+    'currentSettlementId': currentSettlementId,
+    'settlement': settlement,
+
     'transferToTenantId': transferToTenantId,
     'transferStatus': transferStatus,
 
@@ -285,6 +304,12 @@ class LeaseModel {
     DateTime? terminationRequestedAt,
     DateTime? transferRequestedAt,
 
+    /// Pending | Proposed | Agreed | Finalized | Paid | Disputed | Rejected
+    String? settlementStatus,
+    String? currentSettlementId,
+
+    /// Snapshot of latest settlement breakdown (for quick client display)
+    Map<String, dynamic>? settlement,
     String? terminatedBy,
     String? transferStatus,
     String? transferToTenantId,
@@ -326,6 +351,9 @@ class LeaseModel {
       nextDueDate: nextDueDate ?? this.nextDueDate,
       monthlyRent: monthlyRent ?? this.monthlyRent,
       fees: fees ?? this.fees,
+      settlement: settlement ?? this.settlement,
+      currentSettlementId: currentSettlementId ?? currentSettlementId,
+      settlementStatus: settlementStatus ?? settlementStatus,
       pendingRenewalTerms: pendingRenewalTerms ?? this.pendingRenewalTerms,
       durationMonths: durationMonths ?? this.durationMonths,
       status: status ?? this.status,

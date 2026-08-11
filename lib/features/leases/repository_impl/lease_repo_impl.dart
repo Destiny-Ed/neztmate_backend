@@ -192,8 +192,8 @@ class LeaseRepositoryImpl implements LeaseRepository {
   Future<void> completeLeaseRequest(String requestId) => dataSource.completeLeaseRequest(requestId);
 
   @override
-  Future<Map<String, dynamic>> calculateEarlyTerminationSettlement(String leaseId, UnitRepository unitRepo) =>
-      dataSource.calculateEarlyTerminationSettlement(leaseId, unitRepo);
+  Future<Map<String, dynamic>> calculateEarlyTerminationSettlement(String leaseId) =>
+      dataSource.calculateEarlyTerminationSettlement(leaseId);
 
   // SYSTEM / CRON
   @override
@@ -209,4 +209,28 @@ class LeaseRepositoryImpl implements LeaseRepository {
 
   @override
   Future<void> clearPendingRenewalTerms(String leaseId) => dataSource.clearPendingRenewalTerms(leaseId);
+
+  @override
+  Future<Map<String, dynamic>> finalizeTermination({
+    required String leaseId,
+    required String terminatedBy,
+    required String reason,
+    String? settlementId,
+    Map<String, dynamic>? settlementOverride,
+  }) => dataSource.finalizeTermination(leaseId: leaseId, terminatedBy: terminatedBy, reason: reason);
+
+  @override
+  Future<Map<String, dynamic>> proposeTerminationSettlement({
+    required String leaseId,
+    required String proposedBy,
+    required String initiatedBy,
+    String? paymentMethod,
+    String? notes,
+    String? terminationReason,
+    Map<String, dynamic>? overrides,
+  }) => dataSource.proposeTerminationSettlement(
+    leaseId: leaseId,
+    proposedBy: proposedBy,
+    initiatedBy: initiatedBy,
+  );
 }

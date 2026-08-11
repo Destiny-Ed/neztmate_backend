@@ -45,5 +45,11 @@ Router leaseRoutes(LeaseHandler handler) {
   router.patch('/<id>/settlement/dispute', handler.disputeSettlement);
   router.patch('/<id>/settlement/resolve', handler.resolveSettlementDispute);
 
+  /// Preview calculator only (no write)
+  router.get('/<id>/settlement/preview', handler.previewTerminationSettlement);
+
+  /// Create / propose settlement (saves on lease + lease_settlements)
+  // router.post('/<id>/propose-settlement', handler.proposeTerminationSettlement);
+
   return router;
 }

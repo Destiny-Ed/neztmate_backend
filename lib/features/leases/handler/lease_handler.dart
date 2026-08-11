@@ -1382,7 +1382,7 @@ class LeaseHandler {
         return Response(400, body: jsonEncode({'message': 'Only active leases can be terminated early'}));
       }
 
-      final settlement = await leaseRepository.calculateEarlyTerminationSettlement(leaseId, unitRepository);
+      final settlement = await leaseRepository.calculateEarlyTerminationSettlement(leaseId);
 
       final created = await leaseRepository.createLeaseRequest(
         LeaseRequestModel(
@@ -1453,9 +1453,23 @@ class LeaseHandler {
       }
 
       final lease = await leaseRepository.getLeaseById(leaseId);
-      final settlement = await leaseRepository.calculateEarlyTerminationSettlement(leaseId, unitRepository);
+      final settlement = await leaseRepository.calculateEarlyTerminationSettlement(leaseId);
 
       await leaseRepository.terminateLease(leaseId, reason, userId);
+
+      // Persist termination settlement for both parties
+      await leaseRepository.updateLease(
+        lease.copyWith(
+          status: 'terminated',
+          terminationReason: reason,
+          terminatedBy: userId,
+          terminatedAt: DateTime.now(),
+          settlement: settlement is Map
+              ? Map<String, dynamic>.from(settlement as Map)
+              : (settlement as dynamic).toMap?.call() ?? {'raw': settlement},
+          updatedAt: DateTime.now(),
+        ),
+      );
 
       await unitRepository.updateUnitStatus(
         unitId: lease.unitId,
@@ -1743,7 +1757,6 @@ class LeaseHandler {
         );
 
         await leaseRepository.approveLeaseRequest(requestId: requestId, approvedBy: userId, notes: notes);
-        // Or: updateLeaseRequest → status completed
 
         await notificationRepository.create(
           NotificationModel(
@@ -2162,6 +2175,117 @@ class LeaseHandler {
   }
 
   // SETTLEMENT
+
+  /// GET /leases/<id>/settlement-preview
+  Future<Response> previewTerminationSettlement(Request request) async {
+    final leaseId = request.params['id'];
+    if (leaseId == null) return badRequest('lease id required');
+
+    final settlement = await leaseRepository.calculateEarlyTerminationSettlement(leaseId);
+    return Response.ok(jsonEncode({'settlement': settlement}));
+  }
+
+  /// POST /leases/<id>/propose-settlement
+  Future<Response> proposeTerminationSettlement(Request request) async {
+    final userId = request.context['userId'] as String?;
+    final role = request.context['role'] as String?;
+    final leaseId = request.params['id'];
+    if (userId == null || leaseId == null) return _unauthorized();
+
+    final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+
+    final result = await leaseRepository.proposeTerminationSettlement(
+      leaseId: leaseId,
+      proposedBy: userId,
+      initiatedBy: role ?? 'landowner',
+      paymentMethod: body['paymentMethod'] as String?,
+      notes: body['notes'] as String?,
+      terminationReason: body['reason'] as String?,
+      overrides: body['overrides'] as Map<String, dynamic>?,
+    );
+
+    // notify other party...
+
+    return Response.ok(
+      jsonEncode({'message': 'Settlement proposed. Review and accept or finalize termination.', ...result}),
+    );
+  }
+
+  /// POST /leases/<id>/finalize-termination
+  Future<Response> finalizeTermination(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+      final leaseId = request.params['id'];
+
+      if (userId == null || leaseId == null) return _unauthorized();
+      if (!['landowner', 'manager'].contains(role)) {
+        return Response(
+          403,
+          body: jsonEncode({'message': 'Only landlords/managers can finalize termination'}),
+        );
+      }
+
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final reason = body['reason'] as String?;
+      if (reason == null || reason.trim().isEmpty) {
+        return badRequest('Termination reason is required');
+      }
+
+      final lease = await leaseRepository.getLeaseById(leaseId);
+
+      final result = await leaseRepository.finalizeTermination(
+        leaseId: leaseId,
+        terminatedBy: userId,
+        reason: reason.trim(),
+        settlementId: body['settlementId'] as String?,
+        settlementOverride: body['settlement'] as Map<String, dynamic>?,
+      );
+
+      await unitRepository.updateUnitStatus(
+        unitId: lease.unitId,
+        status: 'vacant',
+        currentTenantId: null,
+        isListedForRent: true,
+      );
+
+      try {
+        await userReputationService.updateUserReputation(lease.tenantId);
+      } catch (_) {}
+
+      final settlement = result['settlement'] as Map<String, dynamic>;
+      final due = settlement['netBalanceDueFromTenant'];
+      final refund = settlement['netRefundToTenant'];
+
+      await notificationRepository.create(
+        NotificationModel(
+          id: '',
+          userId: lease.tenantId,
+          type: 'lease_terminated',
+          title: 'Lease Terminated',
+          body:
+              'Your lease was terminated. Reason: $reason. '
+              'Settlement: tenant balance ₦${due ?? 0}, refund ₦${refund ?? 0}. '
+              'Open the lease for full details.',
+          relatedId: leaseId,
+          relatedCollection: 'leases',
+          createdAt: DateTime.now(),
+        ),
+      );
+
+      return Response.ok(
+        jsonEncode({
+          'message': 'Lease terminated and settlement finalized',
+          'leaseId': leaseId,
+          'status': 'terminated',
+          'settlement': settlement,
+        }),
+      );
+    } catch (e, stack) {
+      print('finalizeTermination error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to finalize termination'}));
+    }
+  }
 
   /// PATCH /leases/<id>/settlement/accept
   Future<Response> acceptSettlement(Request request) async {

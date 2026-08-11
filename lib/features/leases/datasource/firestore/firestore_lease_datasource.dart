@@ -243,48 +243,50 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
     );
   }
 
+  /// Preview only — does not change lease status
   @override
-  Future<Map<String, dynamic>> calculateEarlyTerminationSettlement(
-    String leaseId,
-    UnitRepository unitRepo,
-  ) async {
+  Future<Map<String, dynamic>> calculateEarlyTerminationSettlement(String leaseId) async {
     final lease = await getLeaseById(leaseId);
-    final unit = await unitRepo.getUnitById(lease.unitId);
 
     final now = DateTime.now();
     final totalLeaseDays = lease.endDate.difference(lease.startDate).inDays;
-    final remainingDays = lease.endDate.difference(now).inDays.clamp(0, totalLeaseDays);
+    final remainingDays = lease.endDate
+        .difference(now)
+        .inDays
+        .clamp(0, totalLeaseDays < 0 ? 0 : totalLeaseDays);
 
     final monthlyRent = lease.monthlyRent;
-    final dailyRent = monthlyRent / 30; // more accurate for monthly rent
-
+    final dailyRent = monthlyRent / 30;
     final proratedRentDue = (dailyRent * remainingDays).roundToDouble();
 
     double additionalFeesDue = 0.0;
-    if (unit.fees != null) {
-      for (var fee in unit.fees!) {
-        if (fee.isOneTime == false) {
-          additionalFeesDue += fee.amount;
+    if (lease.fees != null) {
+      for (final fee in lease.fees!) {
+        if (!fee.isOneTime) {
+          additionalFeesDue += fee.isPercentage ? monthlyRent * fee.amount / 100 : fee.amount;
         }
       }
     }
 
-    double penalty = (proratedRentDue * 0.10).roundToDouble();
     final hasReplacement = lease.transferToTenantId != null;
-    if (hasReplacement) penalty = 0.0;
+    double penalty = hasReplacement ? 0.0 : (proratedRentDue * 0.10).roundToDouble();
+
+    final netFromTenant = proratedRentDue + additionalFeesDue + penalty;
 
     return {
+      'leaseId': leaseId,
       'remainingDays': remainingDays,
       'proratedRentDue': proratedRentDue,
       'additionalFeesDue': additionalFeesDue,
       'penalty': penalty,
       'hasReplacement': hasReplacement,
-      'netBalanceDueFromTenant': proratedRentDue + additionalFeesDue + penalty,
+      'netBalanceDueFromTenant': netFromTenant,
       'netRefundToTenant': 0.0,
       'notes': hasReplacement
           ? 'Penalty waived due to replacement tenant'
           : 'Early termination penalty applied (10% of remaining rent)',
-      'recommendation': 'Landlord and tenant should settle directly or through the app.',
+      'recommendation': 'Review settlement, then call finalizeTermination when both sides agree.',
+      'calculatedAt': DateTime.now().toIso8601String(),
     };
   }
 
@@ -324,6 +326,151 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
       'settlementStatus': 'agreed',
       'updatedAt': DateTime.now().toIso8601String(),
     });
+  }
+
+  /// Saves calculated settlement on the lease + optional lease_settlements doc
+  @override
+  Future<Map<String, dynamic>> proposeTerminationSettlement({
+    required String leaseId,
+    required String proposedBy,
+    required String initiatedBy, // 'landowner' | 'manager' | 'tenant'
+    String? paymentMethod,
+    String? notes,
+    String? terminationReason,
+    Map<String, dynamic>? overrides,
+  }) async {
+    final lease = await getLeaseById(leaseId);
+    final status = lease.status.toLowerCase();
+
+    if (status == 'terminated') {
+      throw ValidationException('Lease is already terminated');
+    }
+
+    final calc = await calculateEarlyTerminationSettlement(leaseId);
+    final breakdown = {...calc, if (overrides != null) ...overrides};
+
+    final amountDue = (breakdown['netBalanceDueFromTenant'] as num?)?.toDouble() ?? 0;
+    final refund = (breakdown['netRefundToTenant'] as num?)?.toDouble() ?? 0;
+
+    final docRef = firestore.collection('lease_settlements').doc();
+
+    final settlement = LeaseSettlementAgreement(
+      id: docRef.id,
+      leaseId: leaseId,
+      initiatedBy: initiatedBy,
+      initiatedById: proposedBy,
+      amountDueFromTenant: amountDue,
+      refundToTenant: refund,
+      agreedAmount: amountDue,
+      paymentMethod: paymentMethod,
+      status: 'proposed',
+      notes: notes ?? breakdown['notes'] as String?,
+      breakdown: breakdown,
+      remainingDays: breakdown['remainingDays'] as int?,
+      proratedRentDue: (breakdown['proratedRentDue'] as num?)?.toDouble(),
+      additionalFeesDue: (breakdown['additionalFeesDue'] as num?)?.toDouble(),
+      penalty: (breakdown['penalty'] as num?)?.toDouble(),
+      hasReplacement: breakdown['hasReplacement'] as bool? ?? false,
+      createdAt: DateTime.now(),
+      terminationReason: terminationReason,
+    );
+
+    await docRef.set(settlement.toMap());
+
+    await _leases.doc(leaseId).update({
+      'currentSettlementId': settlement.id,
+      'settlementStatus': 'Proposed',
+      'settlement': {
+        ...breakdown,
+        'settlementId': settlement.id,
+        'amountDueFromTenant': amountDue,
+        'refundToTenant': refund,
+        'status': 'proposed',
+      },
+      // Optional intermediate status while parties review
+      'status': status == 'active' ? 'pending_termination' : lease.status,
+      if (terminationReason != null) 'terminationReason': terminationReason,
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+
+    return {
+      'settlementId': settlement.id,
+      'settlement': settlement.toMap(),
+      'leaseId': leaseId,
+      'leaseStatus': status == 'active' ? 'pending_termination' : lease.status,
+    };
+  }
+
+  /// Final step: terminate lease + lock settlement + free unit (unit update in handler)
+  @override
+  Future<Map<String, dynamic>> finalizeTermination({
+    required String leaseId,
+    required String terminatedBy,
+    required String reason,
+    String? settlementId,
+    Map<String, dynamic>? settlementOverride,
+  }) async {
+    final lease = await getLeaseById(leaseId);
+    final status = lease.status.toLowerCase();
+
+    if (status == 'terminated') {
+      throw ValidationException('Lease is already terminated');
+    }
+
+    Map<String, dynamic> settlementMap;
+
+    if (settlementOverride != null) {
+      settlementMap = Map<String, dynamic>.from(settlementOverride);
+    } else if (lease.settlement != null && lease.settlement!.isNotEmpty) {
+      settlementMap = Map<String, dynamic>.from(lease.settlement!);
+    } else {
+      settlementMap = await calculateEarlyTerminationSettlement(leaseId);
+    }
+
+    settlementMap = {
+      ...settlementMap,
+      'finalizedAt': DateTime.now().toIso8601String(),
+      'finalizedBy': terminatedBy,
+      'terminationReason': reason,
+    };
+
+    // Update settlement doc if present
+    final sid = settlementId ?? lease.currentSettlementId;
+    if (sid != null && sid.isNotEmpty) {
+      await firestore.collection('lease_settlements').doc(sid).update({
+        'status': 'finalized',
+        'finalizedAt': DateTime.now().toIso8601String(),
+        'finalizedBy': terminatedBy,
+        'breakdown': settlementMap,
+      });
+    } else {
+      final docRef = firestore.collection('lease_settlements').doc();
+      await docRef.set({
+        'id': docRef.id,
+        'leaseId': leaseId,
+        'status': 'finalized',
+        'breakdown': settlementMap,
+        'amountDueFromTenant': settlementMap['netBalanceDueFromTenant'],
+        'refundToTenant': settlementMap['netRefundToTenant'],
+        'finalizedBy': terminatedBy,
+        'createdAt': DateTime.now().toIso8601String(),
+        'finalizedAt': DateTime.now().toIso8601String(),
+      });
+      settlementMap['settlementId'] = docRef.id;
+    }
+
+    await _leases.doc(leaseId).update({
+      'status': 'terminated',
+      'terminationReason': reason,
+      'terminatedAt': DateTime.now().toIso8601String(),
+      'terminatedBy': terminatedBy,
+      'settlement': settlementMap,
+      'settlementStatus': 'finalized',
+      if (settlementMap['settlementId'] != null) 'currentSettlementId': settlementMap['settlementId'],
+      'updatedAt': DateTime.now().toIso8601String(),
+    });
+
+    return {'leaseId': leaseId, 'status': 'terminated', 'settlement': settlementMap};
   }
 
   @override
@@ -537,7 +684,11 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
         break;
 
       case LeaseRequestType.termination:
-        await terminateLease(request.leaseId, request.reason ?? 'Early termination approved', approvedBy);
+        await finalizeTermination(
+          leaseId: request.leaseId,
+          terminatedBy: approvedBy,
+          reason: request.reason ?? 'Termination approved',
+        );
         break;
 
       case LeaseRequestType.rentAdjustment:
@@ -566,6 +717,13 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
         // No automatic lease mutation
         break;
       case LeaseRequestType.manualOnboarding:
+        updateLeaseRequest(
+          request.copyWith(
+            status: LeaseRequestStatus.completed,
+            resolvedAt: DateTime.now(),
+            updatedAt: DateTime.now(),
+          ),
+        );
         break;
     }
   }

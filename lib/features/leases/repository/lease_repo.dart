@@ -95,7 +95,7 @@ abstract class LeaseRepository {
   Future<void> completeLeaseRequest(String requestId);
 
   /// Helper used when approving early termination
-  Future<Map<String, dynamic>> calculateEarlyTerminationSettlement(String leaseId, UnitRepository unitRepo);
+  Future<Map<String, dynamic>> calculateEarlyTerminationSettlement(String leaseId);
 
   // SYSTEM / CRON
   Future<int> updateExpiredLeasesToInactive();
@@ -104,4 +104,22 @@ abstract class LeaseRepository {
   Future<void> setPendingRenewalTerms(String leaseId, Map<String, dynamic> terms);
 
   Future<void> clearPendingRenewalTerms(String leaseId);
+
+  Future<Map<String, dynamic>> proposeTerminationSettlement({
+    required String leaseId,
+    required String proposedBy,
+    required String initiatedBy,
+    String? paymentMethod,
+    String? notes,
+    String? terminationReason,
+    Map<String, dynamic>? overrides,
+  });
+
+  Future<Map<String, dynamic>> finalizeTermination({
+    required String leaseId,
+    required String terminatedBy,
+    required String reason,
+    String? settlementId,
+    Map<String, dynamic>? settlementOverride,
+  });
 }
