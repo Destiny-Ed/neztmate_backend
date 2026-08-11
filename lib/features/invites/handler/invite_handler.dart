@@ -291,6 +291,19 @@ class InviteHandler {
         return badRequest('Missing invite ID');
       }
 
+      final user = await userRepository.getUserById(userId);
+
+      if (user.verifiedIdentity != true) {
+        return Response(
+          403,
+          body: jsonEncode({
+            'message': 'Identity verification required',
+            'code': 'IDENTITY_NOT_VERIFIED',
+            'action': 'verify_identity',
+          }),
+        );
+      }
+
       final invite = await repository.getInviteById(inviteId);
 
       if (invite.isExpired) {

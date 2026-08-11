@@ -107,13 +107,26 @@ class UnitHandler {
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
 
-      // === Validation ===
+      //  Validation
       final validationErrors = _validateUnitBody(body);
       if (validationErrors.isNotEmpty) {
         return Response(400, body: jsonEncode({'message': 'Validation failed', 'errors': validationErrors}));
       }
 
-      // ========== SUBSCRIPTION RESTRICTION ==========
+      final user = await userRepository.getUserById(userId);
+
+      if (user.verifiedIdentity != true) {
+        return Response(
+          403,
+          body: jsonEncode({
+            'message': 'Identity verification required',
+            'code': 'IDENTITY_NOT_VERIFIED',
+            'action': 'verify_identity',
+          }),
+        );
+      }
+
+      //  SUBSCRIPTION RESTRICTION
 
       final currentUnitCount = await unitRepository.countByOwner(userId);
       final maxUnits = _getMaxUnits(subscriptionPlan);

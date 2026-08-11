@@ -423,6 +423,19 @@ class MaintenanceHandler {
 
       if (artisanId == null || taskId == null) return badRequest('Missing task ID');
 
+      final user = await userRepository.getUserById(artisanId);
+
+      if (user.verifiedIdentity != true) {
+        return Response(
+          403,
+          body: jsonEncode({
+            'message': 'Identity verification required',
+            'code': 'IDENTITY_NOT_VERIFIED',
+            'action': 'verify_identity',
+          }),
+        );
+      }
+
       final payoutAccounts = await paymentRepository.getDefaultPayoutAccount(artisanId);
       if (payoutAccounts == null) {
         return Response(

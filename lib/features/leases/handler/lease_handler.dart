@@ -256,6 +256,19 @@ class LeaseHandler {
         return Response(400, body: jsonEncode({'message': 'paymentReceiptUrl is required'}));
       }
 
+      final user = await userRepository.getUserById(userId);
+
+      if (user.verifiedIdentity != true) {
+        return Response(
+          403,
+          body: jsonEncode({
+            'message': 'Identity verification required',
+            'code': 'IDENTITY_NOT_VERIFIED',
+            'action': 'verify_identity',
+          }),
+        );
+      }
+
       final lease = await leaseRepository.getLeaseById(leaseId);
       if (lease.tenantId != userId) {
         return Response(403, body: jsonEncode({'message': 'This is not your lease'}));
@@ -1284,6 +1297,17 @@ class LeaseHandler {
         return Response(400, body: jsonEncode({'message': 'This user is not registered as a tenant'}));
       }
 
+      if (user.verifiedIdentity != true) {
+        return Response(
+          403,
+          body: jsonEncode({
+            'message': 'Identity verification required',
+            'code': 'IDENTITY_NOT_VERIFIED',
+            'action': 'verify_identity',
+          }),
+        );
+      }
+
       // Check if tenant/user already has an active lease
       final activeLeases = await leaseRepository.getActiveLeasesByTenant(user.id);
 
@@ -1392,6 +1416,19 @@ class LeaseHandler {
         return badRequest('Reason for early termination is required');
       }
 
+      final user = await userRepository.getUserById(tenantId);
+
+      if (user.verifiedIdentity != true) {
+        return Response(
+          403,
+          body: jsonEncode({
+            'message': 'Identity verification required',
+            'code': 'IDENTITY_NOT_VERIFIED',
+            'action': 'verify_identity',
+          }),
+        );
+      }
+
       final lease = await leaseRepository.getLeaseById(leaseId);
       if (lease.tenantId != tenantId) {
         return Response(403, body: jsonEncode({'message': 'You can only terminate your own lease'}));
@@ -1468,6 +1505,19 @@ class LeaseHandler {
       final reason = body['reason'] as String?;
       if (reason == null || reason.trim().isEmpty) {
         return badRequest('Termination reason is required');
+      }
+
+      final user = await userRepository.getUserById(userId);
+
+      if (user.verifiedIdentity != true) {
+        return Response(
+          403,
+          body: jsonEncode({
+            'message': 'Identity verification required',
+            'code': 'IDENTITY_NOT_VERIFIED',
+            'action': 'verify_identity',
+          }),
+        );
       }
 
       final lease = await leaseRepository.getLeaseById(leaseId);

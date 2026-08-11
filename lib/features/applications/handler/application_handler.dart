@@ -73,6 +73,19 @@ class ApplicationHandler {
       final propertyId = body['propertyId'] as String;
       final landownerId = body['landownerId'] as String;
 
+      final user = await userRepository.getUserById(userId);
+
+      if (user.verifiedIdentity != true) {
+        return Response(
+          403,
+          body: jsonEncode({
+            'message': 'Identity verification required',
+            'code': 'IDENTITY_NOT_VERIFIED',
+            'action': 'verify_identity',
+          }),
+        );
+      }
+
       // Check if tenant already has a pending application for this unit
       final existingApplications = await applicationRepository.getApplicationsByTenant(userId);
 
@@ -604,6 +617,19 @@ class ApplicationHandler {
 
       if (durationMonths == null || ![12, 24, 36].contains(durationMonths)) {
         return badRequest('durationMonths must be 12, 24, or 36');
+      }
+
+      final user = await userRepository.getUserById(approverId);
+
+      if (user.verifiedIdentity != true) {
+        return Response(
+          403,
+          body: jsonEncode({
+            'message': 'Identity verification required',
+            'code': 'IDENTITY_NOT_VERIFIED',
+            'action': 'verify_identity',
+          }),
+        );
       }
 
       // 1. Approve the application
