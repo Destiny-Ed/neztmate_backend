@@ -40,7 +40,8 @@ class VerificationHandler {
           'provider': verificationService.providerName,
         }),
       );
-    } catch (e) {
+    } catch (e, stack) {
+      print("Error initializing verification $e/n$stack");
       return Response.internalServerError();
     }
   }
@@ -52,8 +53,8 @@ class VerificationHandler {
       await verificationService.handleWebhook(body);
 
       return Response.ok('Webhook processed');
-    } catch (e) {
-      print('Webhook error: $e');
+    } catch (e, stack) {
+      print('Webhook error: $e/n$stack');
       return Response.ok('Webhook received');
     }
   }
