@@ -1278,6 +1278,24 @@ class LeaseHandler {
         return badRequest('newTenantId (replacement tenant) is required');
       }
 
+      final user = await userRepository.getUserById(newTenantId);
+
+      if (!user.roles.contains('tenant')) {
+        return Response(400, body: jsonEncode({'message': 'This user is not registered as a tenant'}));
+      }
+
+      // Check if tenant/user already has an active lease
+      final activeLeases = await leaseRepository.getActiveLeasesByTenant(user.id);
+
+      if (activeLeases.isNotEmpty) {
+        final lease = activeLeases.first;
+        return badRequest(
+          'This tenant already has an active lease'
+          '${lease.unitId.isNotEmpty ? ' on unit ${lease.unitId}' : ''}. '
+          'Tenant must terminate or transfer that lease before adding them to another unit.',
+        );
+      }
+
       final lease = await leaseRepository.getLeaseById(leaseId);
       if (lease.tenantId != tenantId) {
         return Response(403, body: jsonEncode({'message': 'You can only transfer your own lease'}));
