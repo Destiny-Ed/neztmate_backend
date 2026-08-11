@@ -415,6 +415,17 @@ class InviteHandler {
         }
       }
 
+      final enrichedProperties = await Future.wait(
+        properties.map((property) async {
+          final currentTenants = await propertyRepository.getCurrentTenantsByProperty(property.id);
+          return {
+            ...property.copyWith().toMap(),
+            'currentTenants': currentTenants.map((t) => t.toMap()).toList(),
+            'totalCurrentTenants': currentTenants.length,
+          };
+        }),
+      );
+
       enriched.add({
         ...invite.toMap(),
         'inviter': {
@@ -425,7 +436,7 @@ class InviteHandler {
           'phone': inviter.phone,
           'email': inviter.email,
         },
-        'properties': properties.map((e) => e.toMap()).toList(),
+        'properties': enrichedProperties,
         'isExpired': invite.isExpired,
       });
     }

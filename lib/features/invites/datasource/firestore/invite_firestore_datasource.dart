@@ -73,9 +73,9 @@ class FirestoreInviteDataSource implements InviteRemoteDataSource {
         final invite = InviteModel.fromMap(data);
 
         // Auto-update status to Expired if needed
-        if (invite.status == 'Pending' && invite.isExpired) {
-          _invites.doc(doc.id).update({'status': 'Expired', 'updatedAt': DateTime.now().toIso8601String()});
-          return invite.copyWith(status: 'Expired');
+        if (invite.status.toLowerCase() == 'pending' && invite.isExpired) {
+          _invites.doc(doc.id).update({'status': 'expired', 'updatedAt': DateTime.now().toIso8601String()});
+          return invite.copyWith(status: 'expired');
         }
 
         return invite;
