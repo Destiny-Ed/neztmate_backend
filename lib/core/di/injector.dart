@@ -7,6 +7,8 @@ import 'package:get_it/get_it.dart';
 import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
 import 'package:neztmate_backend/core/services/auth/password_service.dart';
 import 'package:neztmate_backend/core/services/database/firebase/firebase.dart';
+import 'package:neztmate_backend/core/services/push_notification/fcm_auth.dart';
+import 'package:neztmate_backend/core/services/push_notification/push_notification_service.dart';
 import 'package:neztmate_backend/core/services/reputation/reputation_service.dart';
 import 'package:neztmate_backend/core/services/verification/providers/veriff_service.dart';
 import 'package:neztmate_backend/core/services/verification/providers/you_verify_service.dart';
@@ -309,12 +311,24 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
     () => MessageHandler(injector<MessageRepository>(), injector<JwtService>(), injector<UserRepository>()),
   );
 
+  //push notifications
+  injector.registerLazySingleton(
+    () => PushNotificationService(
+      userRepository: injector(),
+      projectId: 'next-mate',
+      getAccessToken: FcmAuth.fcmAccessTokenFromServiceAccount,
+    ),
+  );
+
   //notifications
   injector.registerLazySingleton<NotificationRemoteDataSource>(
     () => FirestoreNotificationDataSource(injector<Firestore>()),
   );
   injector.registerLazySingleton<NotificationRepository>(
-    () => NotificationRepositoryImpl(injector<NotificationRemoteDataSource>()),
+    () => NotificationRepositoryImpl(
+      injector<NotificationRemoteDataSource>(),
+      injector<PushNotificationService>(),
+    ),
   );
   injector.registerLazySingleton<NotificationHandler>(
     () => NotificationHandler(injector<NotificationRepository>()),

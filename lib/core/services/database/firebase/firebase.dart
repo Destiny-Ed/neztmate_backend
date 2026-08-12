@@ -4,6 +4,7 @@ import 'package:dart_firebase_admin/auth.dart';
 import 'package:dart_firebase_admin/dart_firebase_admin.dart';
 import 'package:dart_firebase_admin/firestore.dart';
 import 'package:dotenv/dotenv.dart';
+import 'package:googleapis_auth/auth_io.dart';
 
 class FirebaseService {
   late FirebaseAdminApp app;

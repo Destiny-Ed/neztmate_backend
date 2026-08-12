@@ -318,6 +318,34 @@ class UserHandler {
     }
   }
 
+  /// PATCH /users/update-fcm-token
+  Future<Response> updateFcmToken(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final userRole = request.context['role'] as String?;
+
+      if (userId == null) return unauthorized("unauthorized");
+
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final fcmToken = body['fcmToken'] as String?;
+
+      if (fcmToken == null || !['tenant', 'landowner', 'manager', 'artisan'].contains(userRole)) {
+        return badRequest('Valid fcmToken is required (Tenant, Landowner, Manager, Artisan)');
+      }
+
+      final user = await userRepository.getUserById(userId);
+
+      final updatedUser = user.copyWith(fcmToken: fcmToken);
+
+      await userRepository.updateUser(updatedUser);
+
+      return Response.ok(jsonEncode({'message': 'FcmToken updated successfully'}));
+    } catch (e, stack) {
+      print('Update Fcm Token error: $e\n$stack');
+      return Response.internalServerError();
+    }
+  }
+
   // Helpers
   Map<String, dynamic> _safeUserMap(User user) => {
     'id': user.id,

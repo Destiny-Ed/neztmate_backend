@@ -13,6 +13,7 @@ Router userRoutes(UserHandler handler) {
   router.get('/<email>', handler.getUserByEmail);
   router.get('/<email>/search', handler.searchUserByEmail);
   router.patch('/me/switch-role', handler.switchRole);
+  router.patch('/update-fcm-token', handler.updateFcmToken);
 
   return router;
 }
