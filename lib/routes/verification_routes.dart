@@ -11,5 +11,6 @@ Router verificationRoutes(VerificationHandler handler) {
 Router verificationPublicRoutes(VerificationHandler handler) {
   final router = Router();
   router.post('/webhook/veriff', handler.veriffWebhook);
+  router.post('/webhook/youverify', handler.youVerifyWebhook);
   return router;
 }

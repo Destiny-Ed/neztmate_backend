@@ -26,13 +26,15 @@ class VeriffService implements VerificationService {
 
   /// Returns the Veriff session URL for the client to open.
   @override
-  Future<Map<String, String>> initiateVerification({
+  Future<String> initiateVerification({
     required String userId,
     required String idNumber,
+    required String idType,
     required String firstName,
     required String lastName,
     String? phone,
     String? email,
+    String? dateOfBirth,
   }) async {
     final payload = {
       'verification': {
@@ -84,7 +86,7 @@ class VeriffService implements VerificationService {
       ),
     );
 
-    return {'sessionId': sessionId, 'sessionUrl': sessionUrl};
+    return sessionUrl;
   }
 
   bool verifyWebhookSignature(String rawBody, String? signature) {

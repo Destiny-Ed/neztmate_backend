@@ -1,3 +1,5 @@
+import 'dart:io';
+
 import 'package:dart_firebase_admin/auth.dart';
 import 'package:dart_firebase_admin/firestore.dart';
 import 'package:dotenv/dotenv.dart';
@@ -6,7 +8,8 @@ import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
 import 'package:neztmate_backend/core/services/auth/password_service.dart';
 import 'package:neztmate_backend/core/services/database/firebase/firebase.dart';
 import 'package:neztmate_backend/core/services/reputation/reputation_service.dart';
-import 'package:neztmate_backend/core/services/verification/veriff_service.dart';
+import 'package:neztmate_backend/core/services/verification/providers/veriff_service.dart';
+import 'package:neztmate_backend/core/services/verification/providers/you_verify_service.dart';
 import 'package:neztmate_backend/core/services/verification/verification_service.dart';
 import 'package:neztmate_backend/features/affiliates/datasource/firestore_affiliate_datasource.dart';
 import 'package:neztmate_backend/features/affiliates/handler/affliate_handler.dart';
@@ -351,15 +354,39 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
   );
 
   //verification
-  injector.registerLazySingleton<VerificationService>(
-    () => VeriffService(
-      userRepository: injector(),
-      apiKey: env['VERIFF_API_KEY']!,
-      sharedSecret: env['VERIFF_SHARED_SECRET']!,
-      baseUrl: env['VERIFF_BASE_URL'] ?? 'https://stationapi.veriff.com',
-      callbackUrl: env['VERIFF_CALLBACK_URL'],
-    ),
-  );
+
+  final provider =
+      Platform.environment['VERIFICATION_PROVIDER'] ??
+      env['VERIFICATION_PROVIDER'] ??
+      'youverify'; // veriff | youverify
+
+  if (provider == 'youverify') {
+    injector.registerLazySingleton<VerificationService>(
+      () => YouVerifyService(
+        userRepository: injector<UserRepository>(),
+        apiToken: Platform.environment['YOUVERIFY_API_TOKEN'] ?? env['YOUVERIFY_API_TOKEN']!,
+        baseUrl:
+            Platform.environment['YOUVERIFY_BASE_URL'] ??
+            env['YOUVERIFY_BASE_URL'] ??
+            'https://api.youverify.co',
+        defaultIdType:
+            Platform.environment['YOUVERIFY_DEFAULT_ID_TYPE'] ?? env['YOUVERIFY_DEFAULT_ID_TYPE'] ?? 'nin',
+      ),
+    );
+  } else {
+    injector.registerLazySingleton<VerificationService>(
+      () => VeriffService(
+        userRepository: injector<UserRepository>(),
+        apiKey: Platform.environment['VERIFF_API_KEY'] ?? env['VERIFF_API_KEY']!,
+        sharedSecret: Platform.environment['VERIFF_SHARED_SECRET'] ?? env['VERIFF_SHARED_SECRET']!,
+        baseUrl:
+            Platform.environment['VERIFF_BASE_URL'] ??
+            env['VERIFF_BASE_URL'] ??
+            'https://stationapi.veriff.com',
+        callbackUrl: Platform.environment['VERIFF_CALLBACK_URL'] ?? env['VERIFF_CALLBACK_URL'],
+      ),
+    );
+  }
   injector.registerLazySingleton(
     () => VerificationHandler(injector<VerificationService>(), injector<UserRepository>()),
   );

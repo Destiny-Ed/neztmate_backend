@@ -1,11 +1,13 @@
 abstract class VerificationService {
-  Future<Map<String, String>> initiateVerification({
+  Future<String> initiateVerification({
     required String userId,
     required String idNumber,
+    required String idType,
     required String firstName,
     required String lastName,
     String? phone,
     String? email,
+    String? dateOfBirth,
   });
 
   Future<void> handleWebhook(Map<String, dynamic> payload);
