@@ -210,8 +210,8 @@ void main() async {
   /// Webhook from Paystack (NO auth middleware - must be public)
   router.post('/webhook/paystack', injector<PaymentHandler>().paystackWebhook);
 
-  /// Webhook from verification (NO auth middleware - must be public)
-  router.post('/webhook/verification', injector<VerificationHandler>().handleWebhook);
+  /// Webhook from verification providers (NO auth middleware - must be public)
+  router.mount('/verification/', verificationPublicRoutes(injector<VerificationHandler>()).call);
 
   // Affiliate routes
   router.mount(

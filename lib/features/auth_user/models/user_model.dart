@@ -6,12 +6,15 @@ class User {
   final String fcmToken;
   final String? phone;
   final String? profilePhotoUrl;
+  final String? bio;
+  final String? address;
   final bool verifiedIdentity;
   final bool verifiedEmployment;
   final String occupation;
   final String? verificationId; // Generic ID from any provider
   final String? verificationProvider; // "SmileIdentity", "Veriff", "Onfido", etc.
   final String? verificationStatus; // 'pending', 'approved', 'rejected', 'failed'
+  final String? verificationReason;
   final DateTime? identityVerifiedAt;
   final int? yearsExperience;
   final String? primarySkill;
@@ -58,6 +61,8 @@ class User {
     required this.role,
     this.phone,
     this.profilePhotoUrl,
+    this.bio,
+    this.address,
     this.occupation = '',
     this.verifiedIdentity = false,
     this.verifiedEmployment = false,
@@ -76,6 +81,7 @@ class User {
     this.verificationId,
     this.verificationProvider,
     this.verificationStatus = 'pending',
+    this.verificationReason,
     this.identityVerifiedAt,
     required this.createdAt,
     required this.lastLogin,
@@ -103,6 +109,8 @@ class User {
       phone: map['phone'] as String?,
       occupation: map['occupation'] ?? '',
       profilePhotoUrl: map['profilePhotoUrl'] as String?,
+      bio: map['bio'] as String?,
+      address: map['address'] as String?,
       verifiedIdentity: map['verifiedIdentity'] as bool? ?? false,
       verifiedEmployment: map['verifiedEmployment'] as bool? ?? false,
       yearsExperience: map['yearsExperience'] as int?,
@@ -111,6 +119,7 @@ class User {
 
       verificationId: map['verificationId'] as String?,
       verificationProvider: map['verificationProvider'] as String?,
+      verificationReason: map['verificationReason'] as String?,
       verificationStatus: map['verificationStatus'] as String? ?? 'pending',
       identityVerifiedAt: map['identityVerifiedAt'] != null
           ? DateTime.parse(map['identityVerifiedAt'])
@@ -152,6 +161,8 @@ class User {
     'role': role,
     'phone': phone,
     'profilePhotoUrl': profilePhotoUrl,
+    'bio': bio,
+    'address': address,
     'verifiedIdentity': verifiedIdentity,
     'occupation': occupation,
     'verifiedEmployment': verifiedEmployment,
@@ -161,6 +172,7 @@ class User {
     'verificationId': verificationId,
     'verificationProvider': verificationProvider,
     'verificationStatus': verificationStatus,
+    'verificationReason': verificationReason,
     'identityVerifiedAt': identityVerifiedAt?.toIso8601String(),
 
     // New reputation fields
@@ -197,11 +209,14 @@ class User {
     String? role,
     String? phone,
     String? profilePhotoUrl,
+    String? bio,
+    String? address,
     bool? verifiedIdentity,
     bool? verifiedEmployment,
     String? verificationId,
     String? verificationProvider,
     String? verificationStatus,
+    String? verificationReason,
     DateTime? identityVerifiedAt,
     String? occupation,
     int? yearsExperience,
@@ -238,10 +253,13 @@ class User {
       role: role ?? this.role,
       phone: phone ?? this.phone,
       profilePhotoUrl: profilePhotoUrl ?? this.profilePhotoUrl,
+      bio: bio ?? this.bio,
+      address: address ?? this.address,
       verifiedIdentity: verifiedIdentity ?? this.verifiedIdentity,
       verificationId: verificationId ?? this.verificationId,
       verificationProvider: verificationProvider ?? this.verificationProvider,
       verificationStatus: verificationStatus ?? this.verificationStatus,
+      verificationReason: verificationReason ?? this.verificationReason,
       identityVerifiedAt: identityVerifiedAt ?? this.identityVerifiedAt,
       verifiedEmployment: verifiedEmployment ?? this.verifiedEmployment,
       yearsExperience: yearsExperience ?? this.yearsExperience,

@@ -1,13 +1,15 @@
-
-
 import 'package:neztmate_backend/features/verification/handler/verification_handler.dart';
 import 'package:shelf_router/shelf_router.dart';
 
 Router verificationRoutes(VerificationHandler handler) {
   final router = Router();
+  router.post('/initiate', handler.initiate);
+  return router;
+}
 
-  router.post('/initiate', handler.initiateVerification);
-  // router.post('/webhooks', handler.handleWebhook);
-
+// Public webhook — mount WITHOUT auth middleware
+Router verificationPublicRoutes(VerificationHandler handler) {
+  final router = Router();
+  router.post('/webhook/veriff', handler.veriffWebhook);
   return router;
 }

@@ -1,5 +1,6 @@
 import 'package:dart_firebase_admin/auth.dart';
 import 'package:dart_firebase_admin/firestore.dart';
+import 'package:dotenv/dotenv.dart';
 import 'package:get_it/get_it.dart';
 import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
 import 'package:neztmate_backend/core/services/auth/password_service.dart';
@@ -89,6 +90,8 @@ import 'package:neztmate_backend/features/verification/handler/verification_hand
 final injector = GetIt.instance;
 
 Future<void> setupDependencies({bool usePostgres = false, required String jwtSecret}) async {
+  final env = DotEnv()..load();
+
   // 1. Database / Firebase setup
   if (usePostgres) {
     // final db = PostgresService();
@@ -348,8 +351,16 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
   );
 
   //verification
-  injector.registerLazySingleton<VerificationService>(() => VeriffService());
-  injector.registerLazySingleton<VerificationHandler>(
+  injector.registerLazySingleton<VerificationService>(
+    () => VeriffService(
+      userRepository: injector(),
+      apiKey: env['VERIFF_API_KEY']!,
+      sharedSecret: env['VERIFF_SHARED_SECRET']!,
+      baseUrl: env['VERIFF_BASE_URL'] ?? 'https://stationapi.veriff.com',
+      callbackUrl: env['VERIFF_CALLBACK_URL'],
+    ),
+  );
+  injector.registerLazySingleton(
     () => VerificationHandler(injector<VerificationService>(), injector<UserRepository>()),
   );
 

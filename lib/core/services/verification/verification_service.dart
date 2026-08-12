@@ -1,5 +1,5 @@
 abstract class VerificationService {
-  Future<String> initiateVerification({
+  Future<Map<String, String>> initiateVerification({
     required String userId,
     required String idNumber,
     required String firstName,

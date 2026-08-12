@@ -10,7 +10,7 @@ class SmileIdentityService implements VerificationService {
   String get providerName => 'SmileIdentity';
 
   @override
-  Future<String> initiateVerification({
+  Future<Map<String, String>> initiateVerification({
     required String userId,
     required String idNumber,
     required String firstName,
@@ -27,7 +27,7 @@ class SmileIdentityService implements VerificationService {
       status: 'pending',
     );
 
-    return jobId;
+    return {'sessionId': jobId, 'sessionUrl': ""};
   }
 
   @override
