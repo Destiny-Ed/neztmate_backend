@@ -16,9 +16,11 @@ class UserReviewHandler {
   Future<Response> createReview(Request request) async {
     try {
       final reviewerId = request.context['userId'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
+
       final reviewerRole = request.context['role'] as String?;
 
-      if (reviewerId == null) return unauthorized("You're not authorized");
+      if (reviewerId == null || partnerId == null) return unauthorized("You're not authorized");
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
 
@@ -70,6 +72,7 @@ class UserReviewHandler {
         reviewedEntityId: reviewedEntityId,
         reviewedEntityType: reviewedEntityType,
         reviewType: reviewType,
+        partnerId: partnerId,
         rating: rating,
         comment: comment,
         tags: List<String>.from(body['tags'] ?? []),

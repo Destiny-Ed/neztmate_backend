@@ -7,6 +7,7 @@ class MessageModel {
   final List<String>? attachmentUrls; // photos, PDFs, etc.
   final DateTime createdAt;
   final DateTime? readAt;
+  final String partnerId;
 
   MessageModel({
     required this.id,
@@ -17,6 +18,7 @@ class MessageModel {
     this.attachmentUrls,
     required this.createdAt,
     this.readAt,
+    this.partnerId = '',
   });
 
   factory MessageModel.fromMap(Map<String, dynamic> map) {
@@ -29,11 +31,12 @@ class MessageModel {
       attachmentUrls: (map['attachmentUrls'] as List<dynamic>?)?.cast<String>(),
       createdAt: DateTime.parse(map['createdAt'] as String),
       readAt: map['readAt'] != null ? DateTime.parse(map['readAt'] as String) : null,
+      partnerId: map['partnerId'] as String? ?? '',
     );
   }
 
   Map<String, dynamic> toMap() => {
-    'id' : id,
+    'id': id,
     'senderId': senderId,
     'receiverId': receiverId,
     'propertyId': propertyId,
@@ -41,6 +44,7 @@ class MessageModel {
     'attachmentUrls': attachmentUrls,
     'createdAt': createdAt.toIso8601String(),
     'readAt': readAt?.toIso8601String(),
+    'partnerId': partnerId,
   };
 
   MessageModel copyWith({
@@ -52,6 +56,7 @@ class MessageModel {
     List<String>? attachmentUrls,
     DateTime? createdAt,
     DateTime? readAt,
+    String? partnerId,
   }) {
     return MessageModel(
       id: id ?? this.id,
@@ -62,6 +67,7 @@ class MessageModel {
       attachmentUrls: attachmentUrls ?? this.attachmentUrls,
       createdAt: createdAt ?? this.createdAt,
       readAt: readAt ?? this.readAt,
+      partnerId: partnerId ?? this.partnerId,
     );
   }
 }

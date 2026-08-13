@@ -9,6 +9,7 @@ class NotificationModel {
   final String? relatedId; // ID of related entity (application, message, lease, task, etc.)
   final String? relatedCollection; // "applications", "messages", "leases", "tasks"
   final Map<String, dynamic>? data; // extra payload for deep linking
+  final String partnerId;
 
   NotificationModel({
     required this.id,
@@ -21,6 +22,7 @@ class NotificationModel {
     this.relatedId,
     this.relatedCollection,
     this.data,
+    this.partnerId = '',
   });
 
   factory NotificationModel.fromMap(Map<String, dynamic> map, String id) {
@@ -35,6 +37,7 @@ class NotificationModel {
       relatedId: map['relatedId'] as String?,
       relatedCollection: map['relatedCollection'] as String?,
       data: map['data'] as Map<String, dynamic>?,
+      partnerId: map['partnerId'] as String? ?? '',
     );
   }
 
@@ -49,6 +52,7 @@ class NotificationModel {
     'relatedId': relatedId,
     'relatedCollection': relatedCollection,
     'data': data,
+    'partnerId': partnerId,
   };
 
   NotificationModel copyWith({
@@ -62,6 +66,7 @@ class NotificationModel {
     String? relatedId,
     String? relatedCollection,
     Map<String, dynamic>? data,
+    String? partnerId,
   }) {
     return NotificationModel(
       id: id ?? this.id,
@@ -74,6 +79,7 @@ class NotificationModel {
       relatedId: relatedId ?? this.relatedId,
       relatedCollection: relatedCollection ?? this.relatedCollection,
       data: data ?? this.data,
+      partnerId: partnerId ?? this.partnerId,
     );
   }
 }

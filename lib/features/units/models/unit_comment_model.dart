@@ -7,6 +7,7 @@ class UnitCommentModel {
   final String comment;
   final DateTime createdAt;
   final DateTime? updatedAt;
+  final String partnerId;
 
   UnitCommentModel({
     required this.id,
@@ -17,6 +18,7 @@ class UnitCommentModel {
     required this.comment,
     required this.createdAt,
     this.updatedAt,
+    this.partnerId = '',
   });
 
   factory UnitCommentModel.fromMap(Map<String, dynamic> map) {
@@ -29,6 +31,7 @@ class UnitCommentModel {
       comment: map['comment'] as String,
       createdAt: DateTime.parse(map['createdAt'] as String),
       updatedAt: map['updatedAt'] != null ? DateTime.parse(map['updatedAt'] as String) : null,
+      partnerId: map['partnerId'] as String? ?? '',
     );
   }
 
@@ -41,6 +44,7 @@ class UnitCommentModel {
     'comment': comment,
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt?.toIso8601String(),
+    'partnerId': partnerId,
   };
 
   UnitCommentModel copyWith({
@@ -52,6 +56,7 @@ class UnitCommentModel {
     String? comment,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? partnerId,
   }) {
     return UnitCommentModel(
       id: id ?? this.id,
@@ -62,6 +67,7 @@ class UnitCommentModel {
       comment: comment ?? this.comment,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      partnerId: partnerId ?? this.partnerId,
     );
   }
 }

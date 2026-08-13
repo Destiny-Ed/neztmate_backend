@@ -26,6 +26,8 @@ class UnitModel {
   final DateTime createdAt;
   final DateTime updatedAt;
 
+  final String partnerId;
+
   UnitModel({
     required this.id,
     required this.propertyId,
@@ -50,6 +52,7 @@ class UnitModel {
     this.status = 'vacant',
     required this.createdAt,
     required this.updatedAt,
+    this.partnerId = '',
   });
 
   factory UnitModel.fromMap(Map<String, dynamic> map, {String? id}) {
@@ -82,6 +85,7 @@ class UnitModel {
       status: map['status'] as String? ?? 'vacant',
       createdAt: DateTime.parse(map['createdAt'] as String),
       updatedAt: DateTime.parse(map['updatedAt'] as String),
+      partnerId: map['partnerId'] as String? ?? '',
     );
   }
 
@@ -94,6 +98,7 @@ class UnitModel {
     'bedrooms': bedrooms,
     'bathrooms': bathrooms,
     'durationMonths': durationMonths,
+    'partnerId': partnerId,
 
     'likes': likes,
     'commentsCount': commentsCount,
@@ -140,6 +145,7 @@ class UnitModel {
     String? status,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? partnerId,
   }) {
     return UnitModel(
       id: id ?? this.id,
@@ -165,6 +171,8 @@ class UnitModel {
       currentTenantId: currentTenantId ?? this.currentTenantId,
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
+      partnerId: partnerId ?? this.partnerId,
+
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }

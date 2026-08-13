@@ -22,7 +22,11 @@ class MessageHandler {
   Future<Response> sendMessage(Request request) async {
     try {
       final senderId = request.context['userId'] as String?;
-      if (senderId == null) return Response(401, body: jsonEncode({'message': 'Unauthorized'}));
+      final partnerId = request.context['partnerId'] as String?;
+
+      if (senderId == null || partnerId == null) {
+        return Response(401, body: jsonEncode({'message': 'Unauthorized'}));
+      }
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
 
@@ -33,6 +37,7 @@ class MessageHandler {
       final message = MessageModel(
         id: "",
         senderId: senderId,
+        partnerId: partnerId,
         receiverId: body['receiverId'],
         content: body['content'],
         createdAt: DateTime.now(),

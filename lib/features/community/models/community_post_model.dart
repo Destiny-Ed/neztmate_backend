@@ -11,6 +11,7 @@ class CommunityPostModel {
   final DateTime? eventTime;
   final DateTime createdAt;
   final DateTime? updatedAt;
+  final String partnerId;
 
   CommunityPostModel({
     this.id = "",
@@ -25,6 +26,7 @@ class CommunityPostModel {
     this.eventTime,
     required this.createdAt,
     this.updatedAt,
+    this.partnerId = '',
   });
 
   factory CommunityPostModel.fromMap(Map<String, dynamic> map) {
@@ -41,6 +43,7 @@ class CommunityPostModel {
       eventTime: map['eventTime'] != null ? DateTime.parse(map['eventTime'] as String) : null,
       createdAt: DateTime.parse(map['createdAt'] as String),
       updatedAt: map['updatedAt'] != null ? DateTime.parse(map['updatedAt'] as String) : null,
+      partnerId: map['partnerId'] as String? ?? '',
     );
   }
 
@@ -57,6 +60,7 @@ class CommunityPostModel {
     'eventTime': eventTime?.toIso8601String(),
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt?.toIso8601String(),
+    'partnerId': partnerId,
   };
 
   CommunityPostModel copyWith({
@@ -72,6 +76,7 @@ class CommunityPostModel {
     DateTime? eventTime,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? partnerId,
   }) {
     return CommunityPostModel(
       id: id ?? this.id,
@@ -86,6 +91,7 @@ class CommunityPostModel {
       eventTime: eventTime ?? this.eventTime,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      partnerId: partnerId ?? this.partnerId,
     );
   }
 }

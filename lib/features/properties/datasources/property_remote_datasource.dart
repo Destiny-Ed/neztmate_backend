@@ -1,5 +1,3 @@
-import 'package:neztmate_backend/features/auth_user/models/user_model.dart';
-import 'package:neztmate_backend/features/properties/models/artisan_with_stats.dart';
 import 'package:neztmate_backend/features/properties/models/property_model.dart';
 import 'package:neztmate_backend/features/tenants/models/tenant_summary.dart';
 

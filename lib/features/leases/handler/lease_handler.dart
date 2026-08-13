@@ -369,9 +369,10 @@ class LeaseHandler {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
       final leaseId = request.params['id'];
 
-      if (userId == null || leaseId == null) return _unauthorized();
+      if (userId == null || leaseId == null || partnerId == null) return _unauthorized();
       if (!['landowner', 'manager'].contains(role)) {
         return Response(403, body: jsonEncode({'message': 'Only landlords/managers can confirm payment'}));
       }
@@ -395,6 +396,7 @@ class LeaseHandler {
       await _recordLeasePaymentInternal(
         lease: lease,
         amount: totalAmount,
+        partnerId: partnerId,
         paymentMethod: 'bank transfer',
         transactionRef: 'nm_${DateTime.now().millisecondsSinceEpoch}',
         receiptUrl: lease.paymentReceiptUrl,
@@ -462,8 +464,9 @@ class LeaseHandler {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
       final leaseId = request.params['id'];
+      final partnerId = request.context['partnerId'] as String?;
 
-      if (userId == null || leaseId == null) return _unauthorized();
+      if (userId == null || leaseId == null || partnerId == null) return _unauthorized();
       if (role != 'tenant') {
         return Response(403, body: jsonEncode({'message': 'Only tenants can request renewal'}));
       }
@@ -516,6 +519,7 @@ class LeaseHandler {
           tenantId: lease.tenantId,
           landownerId: lease.landownerId,
           managerId: lease.managerId,
+          partnerId: partnerId,
           type: LeaseRequestType.renewal,
           status: LeaseRequestStatus.pending,
           initiatedBy: LeaseRequestActor.tenant,
@@ -586,8 +590,9 @@ class LeaseHandler {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
       final leaseId = request.params['id'];
+      final partnerId = request.context['partnerId'] as String?;
 
-      if (userId == null || leaseId == null) return _unauthorized();
+      if (userId == null || leaseId == null || partnerId == null) return _unauthorized();
       if (!['landowner', 'manager'].contains(role)) {
         return Response(403, body: jsonEncode({'message': 'Only landowners/managers can offer renewal'}));
       }
@@ -645,6 +650,7 @@ class LeaseHandler {
           unitId: lease.unitId,
           tenantId: lease.tenantId,
           landownerId: lease.landownerId,
+          partnerId: partnerId,
           managerId: lease.managerId,
           type: LeaseRequestType.renewal,
           status: LeaseRequestStatus.pending,
@@ -899,9 +905,10 @@ class LeaseHandler {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
       final leaseId = request.params['id'];
 
-      if (userId == null || leaseId == null) return _unauthorized();
+      if (userId == null || leaseId == null || partnerId == null) return _unauthorized();
       if (!['landowner', 'manager'].contains(role)) {
         return Response(
           403,
@@ -971,6 +978,7 @@ class LeaseHandler {
       await _recordLeasePaymentInternal(
         lease: newLease,
         amount: amountPaid,
+        partnerId: partnerId,
         paymentMethod: 'bank transfer',
         transactionRef:
             'nm_rent_renewal_${newLease.id.substring(0, 5)}${DateTime.now().millisecondsSinceEpoch}',
@@ -1021,12 +1029,17 @@ class LeaseHandler {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
 
       if (userId == null || !['landowner', 'manager'].contains(role)) {
         return Response(
           403,
           body: jsonEncode({'message': 'Only landowners or managers can create manual leases'}),
         );
+      }
+
+      if (partnerId == null) {
+        return badRequest("unauthorized");
       }
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
@@ -1091,6 +1104,7 @@ class LeaseHandler {
           fullName: tenantFullName,
           role: 'tenant',
           roles: ["tenant"],
+          partnerId: partnerId ?? "",
           phone: tenantPhone,
           createdAt: DateTime.now(),
           lastLogin: DateTime.now(),
@@ -1123,6 +1137,7 @@ class LeaseHandler {
         managerId: property.managerId,
         startDate: startDate,
         endDate: endDate,
+        partnerId: partnerId,
         signedAgreementPdfUrl: signedAgreementPdfUrl,
         isCustomLease: true,
         monthlyRent: monthlyRent,
@@ -1147,6 +1162,7 @@ class LeaseHandler {
           tenantId: tenant.id,
           landownerId: property.landownerId,
           managerId: property.managerId,
+          partnerId: partnerId,
           type: LeaseRequestType.manualOnboarding,
           status: LeaseRequestStatus.pending,
           initiatedBy: role == 'manager' ? LeaseRequestActor.manager : LeaseRequestActor.landlord,
@@ -1280,8 +1296,9 @@ class LeaseHandler {
     try {
       final tenantId = request.context['userId'] as String?;
       final leaseId = request.params['id'];
+      final partnerId = request.context['partnerId'] as String?;
 
-      if (tenantId == null || leaseId == null) return _unauthorized();
+      if (tenantId == null || leaseId == null || partnerId == null) return _unauthorized();
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final newTenantId = body['newTenantId'] as String?;
@@ -1336,6 +1353,7 @@ class LeaseHandler {
           unitId: lease.unitId,
           tenantId: lease.tenantId,
           landownerId: lease.landownerId,
+          partnerId: partnerId,
           managerId: lease.managerId,
           type: LeaseRequestType.transfer,
           status: LeaseRequestStatus.pending,
@@ -1407,8 +1425,9 @@ class LeaseHandler {
     try {
       final tenantId = request.context['userId'] as String?;
       final leaseId = request.params['id'];
+      final partnerId = request.context['partnerId'] as String?;
 
-      if (tenantId == null || leaseId == null) return _unauthorized();
+      if (tenantId == null || leaseId == null || partnerId == null) return _unauthorized();
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final reason = body['reason'] as String?;
@@ -1445,6 +1464,7 @@ class LeaseHandler {
           leaseId: lease.id,
           propertyId: lease.propertyId,
           unitId: lease.unitId,
+          partnerId: partnerId,
           tenantId: lease.tenantId,
           landownerId: lease.landownerId,
           managerId: lease.managerId,
@@ -1592,10 +1612,11 @@ class LeaseHandler {
   Future<Response> proposeRentAdjustment(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
       final role = request.context['role'] as String?;
       final leaseId = request.params['id'];
 
-      if (userId == null || leaseId == null) return _unauthorized();
+      if (userId == null || leaseId == null || partnerId == null) return _unauthorized();
       if (!['landowner', 'manager'].contains(role)) {
         return Response(
           403,
@@ -1698,6 +1719,7 @@ class LeaseHandler {
           tenantId: lease.tenantId,
           landownerId: lease.landownerId,
           managerId: lease.managerId,
+          partnerId: partnerId,
           type: LeaseRequestType.rentAdjustment,
           status: LeaseRequestStatus.pending,
           initiatedBy: role == 'manager' ? LeaseRequestActor.manager : LeaseRequestActor.landlord,
@@ -1760,9 +1782,11 @@ class LeaseHandler {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
+
       final requestId = request.params['requestId'];
 
-      if (userId == null || requestId == null) return _unauthorized();
+      if (userId == null || requestId == null || partnerId == null) return _unauthorized();
 
       Map<String, dynamic> body = {};
       try {
@@ -1830,6 +1854,7 @@ class LeaseHandler {
           NotificationModel(
             id: '',
             userId: leaseRequest.initiatedById,
+            partnerId: partnerId,
             type: 'manual_lease_accepted',
             title: 'Tenant accepted lease',
             body: 'The tenant confirmed the lease. Unit is now occupied.',
@@ -1947,6 +1972,7 @@ class LeaseHandler {
         await notificationRepository.create(
           NotificationModel(
             id: '',
+            partnerId: partnerId,
             userId: leaseRequest.initiatedById,
             type: 'rent_adjustment_accepted',
             title: 'Tenant accepted terms adjustment',
@@ -1992,6 +2018,7 @@ class LeaseHandler {
         NotificationModel(
           userId: leaseRequest.initiatedById,
           type: 'lease_request_approved',
+          partnerId: partnerId,
           title: 'Request Approved',
           body: 'Your ${leaseRequest.type.value} request was approved.',
           relatedId: requestId,
@@ -2023,9 +2050,11 @@ class LeaseHandler {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
+
       final requestId = request.params['requestId'];
 
-      if (userId == null || requestId == null) return _unauthorized();
+      if (userId == null || requestId == null || partnerId == null) return _unauthorized();
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final reason = body['reason'] as String?;
@@ -2069,6 +2098,7 @@ class LeaseHandler {
           NotificationModel(
             id: '',
             userId: leaseRequest.initiatedById,
+            partnerId: partnerId,
             type: 'manual_lease_declined',
             title: 'Tenant declined lease',
             body: reason.isNotEmpty ? reason : 'The tenant declined the manual lease invitation.',
@@ -2092,6 +2122,7 @@ class LeaseHandler {
       await notificationRepository.create(
         NotificationModel(
           userId: leaseRequest.initiatedById,
+          partnerId: partnerId,
           type: 'lease_request_rejected',
           title: 'Request Rejected',
           body: 'Your ${leaseRequest.type.value} request was rejected. Reason: $reason',
@@ -2118,8 +2149,9 @@ class LeaseHandler {
     try {
       final userId = request.context['userId'] as String?;
       final requestId = request.params['requestId'];
+      final partnerId = request.context['partnerId'] as String?;
 
-      if (userId == null || requestId == null) return _unauthorized();
+      if (userId == null || requestId == null || partnerId == null) return _unauthorized();
 
       final leaseRequest = await leaseRepository.getLeaseRequestById(requestId);
       if (leaseRequest.initiatedById != userId) {
@@ -2141,6 +2173,7 @@ class LeaseHandler {
         await notificationRepository.create(
           NotificationModel(
             id: '',
+            partnerId: partnerId,
             userId: leaseRequest.tenantId,
             type: 'manual_lease_cancelled',
             title: 'Lease invitation cancelled',
@@ -2284,9 +2317,11 @@ class LeaseHandler {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
+
       final leaseId = request.params['id'];
 
-      if (userId == null || leaseId == null) return _unauthorized();
+      if (userId == null || leaseId == null || partnerId == null) return _unauthorized();
       if (!['landowner', 'manager'].contains(role)) {
         return Response(
           403,
@@ -2330,6 +2365,7 @@ class LeaseHandler {
           id: '',
           userId: lease.tenantId,
           type: 'lease_terminated',
+          partnerId: partnerId,
           title: 'Lease Terminated',
           body:
               'Your lease was terminated. Reason: $reason. '
@@ -2387,7 +2423,9 @@ class LeaseHandler {
     try {
       final userId = request.context['userId'] as String?;
       final leaseId = request.params['id'];
-      if (userId == null || leaseId == null) return _unauthorized();
+      final partnerId = request.context['partnerId'] as String?;
+
+      if (userId == null || leaseId == null || partnerId == null) return _unauthorized();
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final disputeReason = body['reason'] as String?;
@@ -2402,6 +2440,7 @@ class LeaseHandler {
       await notificationRepository.create(
         NotificationModel(
           userId: otherPartyId,
+          partnerId: partnerId,
           type: 'settlement_disputed',
           title: 'Settlement Disputed',
           body: 'The other party has disputed the settlement proposal.',
@@ -2424,9 +2463,11 @@ class LeaseHandler {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
+
       final leaseId = request.params['id'];
 
-      if (userId == null || leaseId == null) return _unauthorized();
+      if (userId == null || leaseId == null || partnerId == null) return _unauthorized();
       if (!['landowner', 'manager'].contains(role)) {
         return Response(403, body: jsonEncode({'message': 'Only landlords/managers can resolve disputes'}));
       }
@@ -2452,6 +2493,7 @@ class LeaseHandler {
       await notificationRepository.create(
         NotificationModel(
           userId: lease.tenantId,
+          partnerId: partnerId,
           type: 'settlement_resolved',
           title: 'Settlement Dispute Resolved',
           body: 'The dispute has been resolved by the landlord.',
@@ -2479,6 +2521,7 @@ class LeaseHandler {
 
   Future<PaymentModel> _recordLeasePaymentInternal({
     required LeaseModel lease,
+    required String partnerId,
     required double amount,
     required String paymentMethod,
     String? transactionRef,
@@ -2495,6 +2538,7 @@ class LeaseHandler {
       unitId: lease.unitId,
       amount: amount,
       status: 'paid',
+      partnerId: partnerId,
       method: paymentMethod,
       transactionRef: transactionRef,
       receiptUrl: receiptUrl,
@@ -2508,6 +2552,7 @@ class LeaseHandler {
       HistoryEntryModel(
         userId: lease.tenantId,
         type: 'rent_paid',
+
         title: 'Rent Payment Recorded',
         description: '₦${amount.toStringAsFixed(0)} confirmed for lease.',
         relatedId: createdPayment.id,

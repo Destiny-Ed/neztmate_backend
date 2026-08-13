@@ -7,6 +7,7 @@ class CommentModel {
   final DateTime? updatedAt;
   final String? parentId; // for replies
   final int likes;
+  final String partnerId;
 
   CommentModel({
     required this.id,
@@ -17,6 +18,7 @@ class CommentModel {
     this.updatedAt,
     this.parentId,
     this.likes = 0,
+    this.partnerId = '',
   });
 
   factory CommentModel.fromMap(Map<String, dynamic> map) {
@@ -29,6 +31,7 @@ class CommentModel {
       updatedAt: map['updatedAt'] != null ? DateTime.parse(map['updatedAt'] as String) : null,
       parentId: map['parentId'] as String?,
       likes: map['likes'] as int? ?? 0,
+      partnerId: map['partnerId'] as String? ?? '',
     );
   }
 
@@ -41,6 +44,7 @@ class CommentModel {
     'updatedAt': updatedAt?.toIso8601String(),
     'parentId': parentId,
     'likes': likes,
+    'partnerId': partnerId,
   };
 
   CommentModel copyWith({
@@ -52,6 +56,7 @@ class CommentModel {
     DateTime? updatedAt,
     String? parentId,
     int? likes,
+    String? partnerId,
   }) {
     return CommentModel(
       id: id ?? this.id,
@@ -62,6 +67,7 @@ class CommentModel {
       updatedAt: updatedAt ?? this.updatedAt,
       parentId: parentId ?? this.parentId,
       likes: likes ?? this.likes,
+      partnerId: partnerId ?? this.partnerId,
     );
   }
 }

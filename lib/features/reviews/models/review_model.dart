@@ -27,6 +27,7 @@ class UserReviewModel {
 
   final DateTime createdAt;
   final DateTime updatedAt;
+  final String partnerId;
 
   UserReviewModel({
     required this.id,
@@ -47,11 +48,12 @@ class UserReviewModel {
     this.relatedTaskId,
     required this.createdAt,
     required this.updatedAt,
+    this.partnerId = '',
   });
 
   factory UserReviewModel.fromMap(Map<String, dynamic> map) {
     return UserReviewModel(
-      id:  map['id'] ?? '',
+      id: map['id'] ?? '',
       reviewerId: map['reviewerId'] ?? '',
       reviewerName: map['reviewerName'] ?? '',
       reviewerPhotoUrl: map['reviewerPhotoUrl'],
@@ -69,6 +71,7 @@ class UserReviewModel {
       relatedTaskId: map['relatedTaskId'],
       createdAt: DateTime.parse(map['createdAt']),
       updatedAt: map['updatedAt'] != null ? DateTime.parse(map['updatedAt']) : DateTime.now(),
+      partnerId: map['partnerId'] as String? ?? '',
     );
   }
 
@@ -90,6 +93,7 @@ class UserReviewModel {
     'relatedTaskId': relatedTaskId,
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt.toIso8601String(),
+    'partnerId': partnerId,
   };
 
   UserReviewModel copyWith({
@@ -111,6 +115,7 @@ class UserReviewModel {
     String? relatedTaskId,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? partnerId,
   }) {
     return UserReviewModel(
       id: id ?? this.id,
@@ -131,6 +136,7 @@ class UserReviewModel {
       relatedTaskId: relatedTaskId ?? this.relatedTaskId,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      partnerId: partnerId ?? this.partnerId,
     );
   }
 }

@@ -40,7 +40,9 @@ class MaintenanceHandler {
   Future<Response> createRequest(Request request) async {
     try {
       final tenantId = request.context['userId'] as String?;
-      if (tenantId == null) return unauthorized();
+      final partnerId = request.context['partnerId'] as String?;
+
+      if (tenantId == null || partnerId == null) return unauthorized();
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
 
@@ -61,6 +63,7 @@ class MaintenanceHandler {
         propertyId: propertyId,
         unitId: unitId,
         title: title,
+        partnerId: partnerId,
         description: description,
         category: category,
         priority: priority,
@@ -78,6 +81,7 @@ class MaintenanceHandler {
           title: 'New Maintenance Request',
           body: '$title - $category',
           relatedId: created.id,
+          partnerId: partnerId,
           relatedCollection: 'maintenance_requests',
           createdAt: DateTime.now(),
           id: '',
@@ -276,6 +280,8 @@ class MaintenanceHandler {
     try {
       final managerId = request.context['userId'] as String?;
       final userRole = request.context['role'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
+
       final requestId = request.params['requestId'];
 
       if (managerId == null || requestId == null) {
@@ -284,6 +290,10 @@ class MaintenanceHandler {
 
       if (!['manager', 'landowner'].contains(userRole)) {
         return Response(403, body: jsonEncode({'message': 'Only managers or landowners can assign tasks'}));
+      }
+
+      if (partnerId == null) {
+        return badRequest("unauthorized");
       }
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
@@ -321,6 +331,7 @@ class MaintenanceHandler {
         category: maintenanceRequest.category,
         priority: maintenanceRequest.priority,
         status: 'pending',
+        partnerId: partnerId,
         createdAt: DateTime.now(),
         assignedAt: DateTime.now(),
         assignedBy: managerId,
@@ -334,6 +345,7 @@ class MaintenanceHandler {
         NotificationModel(
           userId: artisanId,
           type: 'task_assigned',
+          partnerId: partnerId,
           title: 'New Maintenance Task Assigned',
           body: '${maintenanceRequest.title} - ${propertyRequest.name}',
           relatedId: createdTask.id,
@@ -362,9 +374,14 @@ class MaintenanceHandler {
       final managerId = request.context['userId'] as String?;
       final userRole = request.context['role'] as String?;
       final taskId = request.params['taskId'];
+      final partnerId = request.context['partnerId'] as String?;
 
       if (managerId == null || taskId == null) {
         return badRequest('Task ID is required');
+      }
+
+      if (partnerId == null) {
+        return badRequest("unauthorized");
       }
 
       if (!['manager', 'landowner'].contains(userRole)) {
@@ -394,6 +411,7 @@ class MaintenanceHandler {
         NotificationModel(
           userId: task.artisanId,
           type: 'task_removed',
+          partnerId: partnerId,
           title: 'Task Assignment Removed',
           body: 'Your assigned task has been removed by the manager.',
           relatedId: task.maintenanceRequestId,
@@ -605,6 +623,8 @@ class MaintenanceHandler {
     try {
       final approverId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
+
       final taskId = request.params['id'];
 
       if (approverId == null || taskId == null) {
@@ -613,6 +633,10 @@ class MaintenanceHandler {
 
       if (!['landowner', 'manager'].contains(role)) {
         return Response(403, body: jsonEncode({'message': 'Only managers/landowners can approve payments'}));
+      }
+
+      if (partnerId == null) {
+        return badRequest("unauthorized");
       }
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
@@ -707,6 +731,7 @@ class MaintenanceHandler {
           id: '',
           taskId: taskId,
           payerId: approverId,
+          partnerId: partnerId,
           propertyId: maintenanceRequest.propertyId,
           unitId: maintenanceRequest.unitId,
           amount: amount,

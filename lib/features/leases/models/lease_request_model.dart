@@ -113,6 +113,7 @@ class LeaseRequestModel {
   final DateTime updatedAt;
 
   final DateTime? resolvedAt;
+  final String partnerId;
 
   const LeaseRequestModel({
     required this.id,
@@ -134,6 +135,7 @@ class LeaseRequestModel {
     required this.createdAt,
     required this.updatedAt,
     this.resolvedAt,
+    this.partnerId = '',
   });
 
   LeaseRequestModel copyWith({
@@ -156,6 +158,7 @@ class LeaseRequestModel {
     DateTime? createdAt,
     DateTime? updatedAt,
     DateTime? resolvedAt,
+    String? partnerId,
   }) {
     return LeaseRequestModel(
       id: id ?? this.id,
@@ -177,6 +180,7 @@ class LeaseRequestModel {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       resolvedAt: resolvedAt ?? this.resolvedAt,
+      partnerId: partnerId ?? this.partnerId,
     );
   }
 
@@ -201,6 +205,7 @@ class LeaseRequestModel {
       createdAt: DateTime.parse(map["createdAt"]),
       updatedAt: DateTime.parse(map["updatedAt"]),
       resolvedAt: map["resolvedAt"] != null ? DateTime.parse(map["resolvedAt"]) : null,
+      partnerId: map['partnerId'] as String? ?? '',
     );
   }
 
@@ -225,6 +230,7 @@ class LeaseRequestModel {
       "createdAt": createdAt.toIso8601String(),
       "updatedAt": updatedAt.toIso8601String(),
       "resolvedAt": resolvedAt?.toIso8601String(),
+      'partnerId': partnerId,
     };
   }
 }

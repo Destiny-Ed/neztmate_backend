@@ -3,9 +3,9 @@ class PropertyModel {
   final String name;
   final String type; // 'Apartment', 'House', 'Commercial'
   final String address;
+  final String partnerId;
   final String landownerId;
   final String? managerId;
-
   final List<String>? photoUrls;
   final List<String>? amenities; // ['WiFi', 'Parking', 'Pool', ...]
   final int totalUnits;
@@ -38,6 +38,7 @@ class PropertyModel {
 
     this.artisanIds,
     required this.documents,
+    this.partnerId = '',
 
     this.managerCommissionType,
     this.managerCommissionRate,
@@ -67,6 +68,7 @@ class PropertyModel {
       managerCommissionRate: (map['managerCommissionRate'] as num?)?.toDouble(),
       managerFlatFeeAmount: (map['managerFlatFeeAmount'] as num?)?.toDouble(),
       managerFlatFeePeriod: map['managerFlatFeePeriod'] as String?,
+      partnerId: map['partnerId'] as String? ?? '',
     );
   }
 
@@ -86,6 +88,7 @@ class PropertyModel {
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt.toIso8601String(),
     'documents': documents,
+    'partnerId': partnerId,
 
     'managerCommissionType': managerCommissionType,
     'managerCommissionRate': managerCommissionRate,
@@ -115,6 +118,7 @@ class PropertyModel {
     double? managerCommissionRate,
     double? managerFlatFeeAmount,
     String? managerFlatFeePeriod,
+    String? partnerId,
   }) {
     return PropertyModel(
       id: id ?? this.id,
@@ -137,6 +141,7 @@ class PropertyModel {
       managerCommissionRate: managerCommissionRate ?? this.managerCommissionRate,
       managerFlatFeeAmount: managerFlatFeeAmount ?? this.managerFlatFeeAmount,
       managerFlatFeePeriod: managerFlatFeePeriod ?? this.managerFlatFeePeriod,
+      partnerId: partnerId ?? this.partnerId,
     );
   }
 }

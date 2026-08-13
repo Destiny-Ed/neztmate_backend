@@ -16,6 +16,7 @@ class InviteModel {
   final double? commissionRate; // e.g., 0.05 for 5%
   final double? flatFeeAmount; // e.g., 50000
   final String? flatFeePeriod; // "yearly", "monthly"
+  final String partnerId;
 
   InviteModel({
     required this.id,
@@ -34,6 +35,7 @@ class InviteModel {
     this.commissionRate,
     this.flatFeeAmount,
     this.flatFeePeriod,
+    this.partnerId = '',
   });
 
   factory InviteModel.fromMap(Map<String, dynamic> map) {
@@ -54,6 +56,7 @@ class InviteModel {
       commissionRate: (map['commissionRate'] as num?)?.toDouble(),
       flatFeeAmount: (map['flatFeeAmount'] as num?)?.toDouble(),
       flatFeePeriod: map['flatFeePeriod'] as String?,
+      partnerId: map['partnerId'] as String? ?? '',
     );
   }
 
@@ -76,6 +79,7 @@ class InviteModel {
     'commissionRate': commissionRate,
     'flatFeeAmount': flatFeeAmount,
     'flatFeePeriod': flatFeePeriod,
+    'partnerId': partnerId,
   };
 
   InviteModel copyWith({
@@ -96,6 +100,7 @@ class InviteModel {
     double? commissionRate,
     double? flatFeeAmount,
     String? flatFeePeriod,
+    String? partnerId,
   }) {
     return InviteModel(
       id: id ?? this.id,
@@ -114,6 +119,7 @@ class InviteModel {
       commissionRate: commissionRate ?? this.commissionRate,
       flatFeeAmount: flatFeeAmount ?? this.flatFeeAmount,
       flatFeePeriod: flatFeePeriod ?? this.flatFeePeriod,
+      partnerId: partnerId ?? this.partnerId,
     );
   }
 }

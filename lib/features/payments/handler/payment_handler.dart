@@ -60,7 +60,9 @@ class PaymentHandler {
   Future<Response> initializePayment(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
-      if (userId == null) return unauthorized("User not found");
+      final partnerId = request.context['partnerId'] as String?;
+
+      if (userId == null || partnerId == null) return unauthorized("User not found");
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final leaseId = body['leaseId'] as String?;
@@ -128,6 +130,7 @@ class PaymentHandler {
         receiverId: lease.landownerId,
         propertyId: lease.propertyId,
         unitId: lease.unitId,
+        partnerId: partnerId ?? "",
         amount: paymentAmount,
         status: 'pending',
         method: 'Paystack',
@@ -585,8 +588,9 @@ class PaymentHandler {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
 
-      if (!['admin'].contains(role) && userId == null) {
+      if (!['admin'].contains(role) && userId == null || partnerId == null) {
         return Response(403, body: jsonEncode({'message': 'Insufficient permission. Admin access required'}));
       }
 
@@ -694,8 +698,9 @@ class PaymentHandler {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
 
-      if (userId == null || !['landowner', 'manager'].contains(role)) {
+      if (userId == null || partnerId == null || !['landowner', 'manager'].contains(role)) {
         return Response(
           403,
           body: jsonEncode({'message': 'Only landowners and managers can request withdrawals'}),
@@ -751,6 +756,7 @@ class PaymentHandler {
         id: '',
         userId: userId,
         propertyId: propertyId,
+        partnerId: partnerId ?? "",
         amount: amount,
         currency: 'NGN',
         status: 'Pending',
@@ -1034,8 +1040,9 @@ class PaymentHandler {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
 
-      if (userId == null || !['landowner', 'manager'].contains(role)) {
+      if (userId == null || partnerId == null || !['landowner', 'manager'].contains(role)) {
         return Response(
           403,
           body: jsonEncode({'message': 'Only landowners/managers can save payout accounts'}),
@@ -1082,6 +1089,7 @@ class PaymentHandler {
         id: '',
         userId: userId,
         propertyId: propertyId,
+        partnerId: partnerId ?? "",
         accountName: verifiedName ?? accountName,
         accountNumber: accountNumber,
         paystackSubaccountId: subaccountId,

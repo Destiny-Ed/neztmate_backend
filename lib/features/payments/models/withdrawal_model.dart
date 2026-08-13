@@ -11,6 +11,7 @@ class WithdrawalModel {
   final DateTime? processedAt;
   final String? processedBy;
   final String? notes;
+  final String partnerId;
 
   WithdrawalModel({
     required this.id,
@@ -25,6 +26,7 @@ class WithdrawalModel {
     this.processedAt,
     this.processedBy,
     this.notes,
+    this.partnerId = '',
   });
 
   factory WithdrawalModel.fromMap(Map<String, dynamic> map) {
@@ -41,6 +43,7 @@ class WithdrawalModel {
       processedAt: map['processedAt'] != null ? DateTime.parse(map['processedAt'] as String) : null,
       processedBy: map['processedBy'] as String?,
       notes: map['notes'] as String?,
+      partnerId: map['partnerId'] as String? ?? '',
     );
   }
 
@@ -57,6 +60,7 @@ class WithdrawalModel {
     'processedAt': processedAt?.toIso8601String(),
     'processedBy': processedBy,
     'notes': notes,
+    'partnerId': partnerId,
   };
 
   WithdrawalModel copyWith({
@@ -72,6 +76,7 @@ class WithdrawalModel {
     DateTime? processedAt,
     String? processedBy,
     String? notes,
+    String? partnerId,
   }) {
     return WithdrawalModel(
       id: id ?? this.id,
@@ -86,6 +91,7 @@ class WithdrawalModel {
       processedAt: processedAt ?? this.processedAt,
       processedBy: processedBy ?? this.processedBy,
       notes: notes ?? this.notes,
+      partnerId: partnerId ?? this.partnerId,
     );
   }
 }

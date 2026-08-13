@@ -21,9 +21,14 @@ class CommunityHandler {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
 
       if (userId == null || !['manager', 'landowner'].contains(role)) {
         return Response.forbidden(jsonEncode({'message': 'Only managers or landowners can create posts'}));
+      }
+
+      if (partnerId == null) {
+        return unauthorized("Unauthorized");
       }
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
@@ -47,6 +52,7 @@ class CommunityHandler {
         propertyId: body['propertyId'],
         authorId: userId,
         title: body['title'],
+        partnerId: partnerId,
         content: body['content'],
         type: body['type'],
         createdAt: DateTime.now(),

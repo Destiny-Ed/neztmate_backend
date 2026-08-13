@@ -10,6 +10,7 @@ class PayoutAccountModel {
   final bool isDefault;
   final DateTime createdAt;
   final DateTime? updatedAt;
+  final String partnerId;
 
   PayoutAccountModel({
     required this.id,
@@ -23,6 +24,7 @@ class PayoutAccountModel {
     this.isDefault = false,
     required this.createdAt,
     this.updatedAt,
+    this.partnerId = '',
   });
 
   factory PayoutAccountModel.fromMap(Map<String, dynamic> map) {
@@ -38,6 +40,7 @@ class PayoutAccountModel {
       isDefault: map['isDefault'] as bool? ?? false,
       createdAt: DateTime.parse(map['createdAt'] as String),
       updatedAt: map['updatedAt'] != null ? DateTime.parse(map['updatedAt'] as String) : null,
+      partnerId: map['partnerId'] as String? ?? '',
     );
   }
 
@@ -53,6 +56,7 @@ class PayoutAccountModel {
     'isDefault': isDefault,
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt?.toIso8601String(),
+    'partnerId': partnerId,
   };
 
   PayoutAccountModel copyWith({
@@ -67,6 +71,7 @@ class PayoutAccountModel {
     bool? isDefault,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? partnerId,
   }) {
     return PayoutAccountModel(
       id: id ?? this.id,
@@ -80,6 +85,7 @@ class PayoutAccountModel {
       isDefault: isDefault ?? this.isDefault,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      partnerId: partnerId ?? this.partnerId,
     );
   }
 }

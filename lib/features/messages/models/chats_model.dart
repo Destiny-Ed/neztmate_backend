@@ -10,6 +10,7 @@ class ChatSummaryModel {
   final bool isUnread;
   final int unreadCount;
   final String? propertyId; // Optional context
+  final String partnerId;
 
   ChatSummaryModel({
     required this.chatId,
@@ -23,6 +24,7 @@ class ChatSummaryModel {
     this.isUnread = false,
     this.unreadCount = 0,
     this.propertyId,
+    this.partnerId = '',
   });
 
   Map<String, dynamic> toMap() => {
@@ -37,6 +39,7 @@ class ChatSummaryModel {
     'isUnread': isUnread,
     'unreadCount': unreadCount,
     'propertyId': propertyId,
+    'partnerId': partnerId,
   };
 
   ChatSummaryModel copyWith({
@@ -51,6 +54,7 @@ class ChatSummaryModel {
     bool? isUnread,
     int? unreadCount,
     String? propertyId,
+    String? partnerId,
   }) {
     return ChatSummaryModel(
       chatId: chatId ?? this.chatId,
@@ -64,6 +68,7 @@ class ChatSummaryModel {
       isUnread: isUnread ?? this.isUnread,
       unreadCount: unreadCount ?? this.unreadCount,
       propertyId: propertyId ?? this.propertyId,
+      partnerId: partnerId ?? this.partnerId,
     );
   }
 }

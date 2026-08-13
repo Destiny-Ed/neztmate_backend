@@ -22,6 +22,7 @@ class ApplicationModel {
   final String? reviewedBy; // Manager or Landowner ID
 
   final ScreeningData? screeningData;
+  final String partnerId;
 
   ApplicationModel({
     required this.id,
@@ -43,6 +44,7 @@ class ApplicationModel {
     this.reviewedAt,
     this.reviewedBy,
     this.screeningData,
+    this.partnerId = '',
   });
 
   factory ApplicationModel.fromMap(Map<String, dynamic> map) {
@@ -72,6 +74,7 @@ class ApplicationModel {
           ? ScreeningData.fromMap(map['screeningData'] as Map<String, dynamic>)
           : null,
       landownerId: map['landownerId'] as String? ?? '',
+      partnerId: map['partnerId'] as String? ?? '',
     );
   }
 
@@ -95,6 +98,7 @@ class ApplicationModel {
     'reviewedBy': reviewedBy,
     'screeningData': screeningData?.toMap(),
     'landownerId': landownerId,
+    'partnerId': partnerId,
   };
 
   ApplicationModel copyWith({
@@ -117,6 +121,7 @@ class ApplicationModel {
     String? reviewedBy,
     ScreeningData? screeningData,
     String? landownerId,
+    String? partnerId,
   }) {
     return ApplicationModel(
       id: id ?? this.id,
@@ -138,6 +143,7 @@ class ApplicationModel {
       reviewedBy: reviewedBy ?? this.reviewedBy,
       screeningData: screeningData ?? this.screeningData,
       landownerId: landownerId ?? this.landownerId,
+      partnerId: partnerId ?? this.partnerId,
     );
   }
 }

@@ -224,13 +224,14 @@ class PropertyHandler {
     try {
       final role = request.context['role'] as String?;
       final subscriptionPlan = request.context['subscriptionPlan'] as String;
+      final partnerId = request.context['partnerId'] as String?;
       if (role != 'landowner') {
         return Response(403, body: jsonEncode({'message': 'Only landowners can create properties'}));
       }
 
       final landownerId = request.context['userId'] as String?;
-      if (landownerId == null) {
-        return Response(400, body: jsonEncode({'message': 'Landowner ID is required'}));
+      if (landownerId == null || partnerId == null) {
+        return Response(400, body: jsonEncode({'message': 'Landowner ID and parnerId are required'}));
       }
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
@@ -302,7 +303,7 @@ class PropertyHandler {
         );
       }
 
-      final created = await propertyRepository.createProperty(property);
+      final created = await propertyRepository.createProperty(property.copyWith(partnerId: partnerId));
       return Response.ok(jsonEncode({'message': 'Property created', 'property': created.toMap()}));
     } catch (e, s) {
       print("Error creating property : $e  $s");

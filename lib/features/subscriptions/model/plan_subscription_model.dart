@@ -11,6 +11,7 @@ class SubscriptionPlanModel {
   final bool isActive;
   final DateTime? createdAt;
   final DateTime? updatedAt;
+  final String partnerId;
 
   SubscriptionPlanModel({
     required this.id,
@@ -25,6 +26,7 @@ class SubscriptionPlanModel {
     this.isActive = true,
     this.createdAt,
     this.updatedAt,
+    this.partnerId = '',
   });
 
   factory SubscriptionPlanModel.fromMap(Map<String, dynamic> map) {
@@ -41,6 +43,7 @@ class SubscriptionPlanModel {
       isActive: map['isActive'] ?? true,
       createdAt: map['createdAt'] != null ? DateTime.parse(map['createdAt']) : null,
       updatedAt: map['updatedAt'] != null ? DateTime.parse(map['updatedAt']) : null,
+      partnerId: map['partnerId'] as String? ?? '',
     );
   }
 
@@ -57,6 +60,7 @@ class SubscriptionPlanModel {
     'isActive': isActive,
     'createdAt': createdAt?.toIso8601String(),
     'updatedAt': updatedAt?.toIso8601String(),
+    'partnerId': partnerId,
   };
 
   SubscriptionPlanModel copyWith({
@@ -72,6 +76,7 @@ class SubscriptionPlanModel {
     bool? isActive,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? partnerId,
   }) {
     return SubscriptionPlanModel(
       id: id ?? this.id,
@@ -86,6 +91,7 @@ class SubscriptionPlanModel {
       isActive: isActive ?? this.isActive,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      partnerId: partnerId ?? this.partnerId,
     );
   }
 }

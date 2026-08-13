@@ -10,6 +10,7 @@ class MaintenanceRequestModel {
   final String status;
   final DateTime createdAt;
   final DateTime? updatedAt;
+  final String partnerId;
 
   MaintenanceRequestModel({
     required this.id,
@@ -23,6 +24,7 @@ class MaintenanceRequestModel {
     this.status = 'Pending',
     required this.createdAt,
     this.updatedAt,
+    this.partnerId = '',
   });
 
   factory MaintenanceRequestModel.fromMap(Map<String, dynamic> map) {
@@ -38,6 +40,7 @@ class MaintenanceRequestModel {
       status: map['status'] ?? 'Pending',
       createdAt: DateTime.parse(map['createdAt']),
       updatedAt: map['updatedAt'] != null ? DateTime.parse(map['updatedAt']) : null,
+      partnerId: map['partnerId'] as String? ?? '',
     );
   }
 
@@ -53,6 +56,7 @@ class MaintenanceRequestModel {
     'status': status,
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt?.toIso8601String(),
+    'partnerId': partnerId,
   };
 
   MaintenanceRequestModel copyWith({
@@ -67,6 +71,7 @@ class MaintenanceRequestModel {
     String? status,
     DateTime? createdAt,
     DateTime? updatedAt,
+    String? partnerId,
   }) {
     return MaintenanceRequestModel(
       id: id ?? this.id,
@@ -80,6 +85,7 @@ class MaintenanceRequestModel {
       status: status ?? this.status,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
+      partnerId: partnerId ?? this.partnerId,
     );
   }
 }

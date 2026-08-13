@@ -77,6 +77,7 @@ class LeaseModel {
   final String? rentAdjustmentRejectedBy;
   final String? rentAdjustmentRejectionReason;
   final DateTime? lastRentAdjustmentDate;
+  final String partnerId;
 
   LeaseModel({
     required this.id,
@@ -135,6 +136,7 @@ class LeaseModel {
     this.rentAdjustmentRejectedBy,
     this.rentAdjustmentRejectionReason,
     this.lastRentAdjustmentDate,
+    this.partnerId = '',
   });
 
   factory LeaseModel.fromMap(Map<String, dynamic> map) {
@@ -211,6 +213,7 @@ class LeaseModel {
       lastRentAdjustmentDate: map['lastRentAdjustmentDate'] != null
           ? DateTime.parse(map['lastRentAdjustmentDate'])
           : null,
+      partnerId: map['partnerId'] as String? ?? '',
     );
   }
 
@@ -274,6 +277,7 @@ class LeaseModel {
     'rentAdjustmentRejectedBy': rentAdjustmentRejectedBy,
     'rentAdjustmentRejectionReason': rentAdjustmentRejectionReason,
     'lastRentAdjustmentDate': lastRentAdjustmentDate?.toIso8601String(),
+    'partnerId': partnerId,
   };
 
   LeaseModel copyWith({
@@ -334,6 +338,7 @@ class LeaseModel {
     String? rentAdjustmentStatus,
     String? rentAdjustmentReason,
     DateTime? lastRentAdjustmentDate,
+    String? partnerId,
   }) {
     return LeaseModel(
       id: id ?? this.id,
@@ -387,6 +392,7 @@ class LeaseModel {
       rentAdjustmentStatus: rentAdjustmentStatus ?? this.rentAdjustmentStatus,
       rentAdjustmentReason: rentAdjustmentReason ?? this.rentAdjustmentReason,
       lastRentAdjustmentDate: lastRentAdjustmentDate ?? this.lastRentAdjustmentDate,
+      partnerId: partnerId ?? this.partnerId,
     );
   }
 }

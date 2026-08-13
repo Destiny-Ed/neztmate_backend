@@ -27,15 +27,20 @@ class InviteHandler {
   );
 
   /// POST /invites - Send new invite (expires in 5 days) Send new invite with duplicate check
-  /// POST /invites - Send new invite with smart validation
   Future<Response> sendInvite(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
+
       final subscriptionPlan = request.context['subscriptionPlan'] as String;
 
       if (userId == null || !['landowner', 'manager'].contains(role)) {
         return Response(403, body: jsonEncode({'message': 'Only landowners or managers can send invites'}));
+      }
+
+      if (partnerId == null) {
+        return unauthorized();
       }
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
@@ -192,6 +197,7 @@ class InviteHandler {
         inviterId: userId,
         inviteeEmail: normalizedEmail,
         role: inviteeRole,
+        partnerId: partnerId,
         propertyIds: newPropertyIds,
         commissionType: commissionType ?? 'none',
         commissionRate: commission,

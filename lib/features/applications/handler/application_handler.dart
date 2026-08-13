@@ -47,9 +47,14 @@ class ApplicationHandler {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
 
       if (userId == null || role != 'tenant') {
         return Response(403, body: jsonEncode({'message': 'Only tenants can submit applications'}));
+      }
+
+      if (partnerId == null) {
+        unauthorized("PartnerId is missing");
       }
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
@@ -119,6 +124,7 @@ class ApplicationHandler {
           feePendingApplication,
           userId,
           unitId,
+          partnerId ?? "",
           applicationFee: applicationFee,
           message: "Application fee is required to activate your application",
         );
@@ -142,6 +148,7 @@ class ApplicationHandler {
         unitId: unitId,
         tenantId: userId,
         propertyId: propertyId,
+        partnerId: partnerId ?? "",
         appliedAt: DateTime.now(),
         screeningData: ScreeningData.fromMap(body['screeningData'] as Map<String, dynamic>),
         status: applicationFee > 0 ? 'fee_pending' : 'pending',
@@ -171,7 +178,7 @@ class ApplicationHandler {
       }
 
       // Initialize payment
-      return await _completePayment(created, userId, unitId, applicationFee: applicationFee);
+      return await _completePayment(created, userId, unitId, partnerId ?? "", applicationFee: applicationFee);
     } on NotFoundException catch (e) {
       return Response(404, body: jsonEncode({'message': e.message}));
     } on ValidationException catch (e) {
@@ -185,6 +192,7 @@ class ApplicationHandler {
   Future<Response> _completePayment(
     ApplicationModel application,
     String userId,
+    String partnerId,
     String unitId, {
     String? message,
     required int applicationFee,
@@ -211,6 +219,7 @@ class ApplicationHandler {
         id: '',
         leaseId: "",
         payerId: userId,
+        partnerId: partnerId,
         propertyId: application.propertyId,
         unitId: unitId,
         amount: applicationFee.toDouble(),
@@ -774,6 +783,7 @@ class ApplicationHandler {
     try {
       final tenantId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
       final applicationId = request.params['id'];
 
       if (tenantId == null || role != 'tenant') {
@@ -782,6 +792,10 @@ class ApplicationHandler {
 
       if (applicationId == null) {
         return badRequest('Application ID is required');
+      }
+
+      if (partnerId == null) {
+        unauthorized("PartnerId is missing");
       }
 
       final application = await applicationRepository.getApplicationById(applicationId);
@@ -804,6 +818,7 @@ class ApplicationHandler {
         application,
         tenantId,
         application.unitId,
+        partnerId ?? "",
         applicationFee: applicationFee,
         message: "Application fee payment initialized",
       );

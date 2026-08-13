@@ -13,10 +13,12 @@ class TenantHandler {
   Future<Response> searchTenants(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
+
       final role = request.context['role'] as String?;
       final query = request.url.queryParameters['q']?.trim();
 
-      if (userId == null || role == null) {
+      if (userId == null || role == null || partnerId == null) {
         return Response(401, body: jsonEncode({'message': 'Unauthorized'}));
       }
 
@@ -51,11 +53,13 @@ class TenantHandler {
   Future<Response> getTenantNeighbors(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
+
       final role = request.context['role'] as String?;
       final propertyId = request.params['propertyId'];
       final tenantId = request.params['tenantId'];
 
-      if (userId == null || role == null) {
+      if (userId == null || role == null || partnerId == null) {
         return Response(401, body: jsonEncode({'message': 'Unauthorized'}));
       }
 

@@ -10,6 +10,7 @@ class ManagerCommissionModel {
   final DateTime createdAt;
   final DateTime? paidAt;
   final String? payoutReference;
+  final String partnerId;
 
   ManagerCommissionModel({
     required this.id,
@@ -23,6 +24,7 @@ class ManagerCommissionModel {
     required this.createdAt,
     this.paidAt,
     this.payoutReference,
+    this.partnerId = '',
   });
 
   factory ManagerCommissionModel.fromMap(Map<String, dynamic> map, String id) {
@@ -38,6 +40,7 @@ class ManagerCommissionModel {
       createdAt: DateTime.parse(map['createdAt'] as String),
       paidAt: map['paidAt'] != null ? DateTime.parse(map['paidAt']) : null,
       payoutReference: map['payoutReference'] as String?,
+      partnerId: map['partnerId'] as String? ?? '',
     );
   }
 
@@ -51,10 +54,16 @@ class ManagerCommissionModel {
     'status': status,
     'createdAt': createdAt.toIso8601String(),
     'paidAt': paidAt?.toIso8601String(),
-    'payoutReference': payoutReference,
+    'partnerId': partnerId,
   };
 
-  ManagerCommissionModel copyWith({String? id, String? status, DateTime? paidAt, String? payoutReference}) {
+  ManagerCommissionModel copyWith({
+    String? id,
+    String? status,
+    DateTime? paidAt,
+    String? payoutReference,
+    String? partnerId,
+  }) {
     return ManagerCommissionModel(
       id: id ?? this.id,
       paymentId: paymentId,
@@ -67,6 +76,7 @@ class ManagerCommissionModel {
       createdAt: createdAt,
       paidAt: paidAt ?? this.paidAt,
       payoutReference: payoutReference ?? this.payoutReference,
+      partnerId: partnerId ?? this.partnerId,
     );
   }
 }

@@ -10,6 +10,7 @@ class UserSubscriptionModel {
   final String? paystackSubscriptionCode;
   // UserSubscriptionModel
   final String? paymentReference;
+  final String partnerId;
 
   UserSubscriptionModel({
     required this.id,
@@ -22,6 +23,7 @@ class UserSubscriptionModel {
     required this.amountPaid,
     this.paystackSubscriptionCode,
     this.paymentReference,
+    this.partnerId = '',
   });
 
   factory UserSubscriptionModel.fromMap(Map<String, dynamic> map) {
@@ -36,6 +38,7 @@ class UserSubscriptionModel {
       amountPaid: (map['amountPaid'] as num).toDouble(),
       paystackSubscriptionCode: map['paystackSubscriptionCode'],
       paymentReference: map["paymentReference"] as String?,
+      partnerId: map['partnerId'] as String? ?? '',
     );
   }
 
@@ -50,6 +53,7 @@ class UserSubscriptionModel {
     'amountPaid': amountPaid,
     'paystackSubscriptionCode': paystackSubscriptionCode,
     'paymentReference': paymentReference,
+    'partnerId': partnerId,
   };
 
   UserSubscriptionModel copyWith({
@@ -63,6 +67,7 @@ class UserSubscriptionModel {
     double? amountPaid,
     String? paystackSubscriptionCode,
     String? paymentReference,
+    String? partnerId,
   }) {
     return UserSubscriptionModel(
       id: id ?? this.id,
@@ -75,6 +80,7 @@ class UserSubscriptionModel {
       amountPaid: amountPaid ?? this.amountPaid,
       paystackSubscriptionCode: paystackSubscriptionCode ?? this.paystackSubscriptionCode,
       paymentReference: paymentReference ?? this.paymentReference,
+      partnerId: partnerId ?? this.partnerId,
     );
   }
 }

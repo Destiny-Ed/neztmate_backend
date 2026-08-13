@@ -96,9 +96,11 @@ class UnitHandler {
     try {
       final role = request.context['role'] as String?;
       final userId = request.context['userId'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
+
       final subscriptionPlan = request.context['subscriptionPlan'] as String;
 
-      if (userId == null || role == null) {
+      if (userId == null || role == null || partnerId == null) {
         return unauthorized('Unauthorized');
       }
       if (!['landowner', 'manager'].contains(role)) {
@@ -154,7 +156,7 @@ class UnitHandler {
 
       final unit = UnitModel.fromMap(body);
 
-      final created = await unitRepository.createUnit(unit);
+      final created = await unitRepository.createUnit(unit.copyWith(partnerId: partnerId));
 
       // Calculate and return cost breakdown
       final costBreakdown = LeasePaymentCalculatorService.calculateForUnit(
@@ -317,10 +319,16 @@ class UnitHandler {
   Future<Response> commentOnUnit(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
+
       final unitId = request.params['unitId'];
 
       if (userId == null || unitId == null) {
         return badRequest('Unit ID is required');
+      }
+
+      if (partnerId == null) {
+        return unauthorized("Unauthorized");
       }
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
@@ -336,6 +344,7 @@ class UnitHandler {
         id: '',
         unitId: unitId,
         userId: userId,
+        partnerId: partnerId,
         userName: user.fullName,
         userPhotoUrl: user.profilePhotoUrl,
         comment: commentText.trim(),

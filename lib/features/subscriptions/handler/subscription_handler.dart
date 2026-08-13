@@ -35,10 +35,11 @@ class SubscriptionHandler {
   Future<Response> createPlan(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
 
       final role = request.context['role'] as String?;
 
-      if (userId == null) return unauthorized('Unauthorized');
+      if (userId == null || partnerId == null) return unauthorized('Unauthorized');
 
       if (role != 'admin') {
         return Response(403, body: jsonEncode({'message': 'Only admins can create plans'}));
@@ -76,6 +77,7 @@ class SubscriptionHandler {
         id: name,
         name: name,
         monthlyPrice: monthlyPrice,
+        partnerId: partnerId,
         yearlyPrice: yearlyPrice,
         maxListings: maxListings,
         hasAgentAssignment: body['hasAgentAssignment'] as bool? ?? false,
@@ -184,7 +186,9 @@ class SubscriptionHandler {
   Future<Response> subscribe(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
-      if (userId == null) return unauthorized('You are not authorized');
+      final partnerId = request.context['partnerId'] as String?;
+
+      if (userId == null || partnerId == null) return unauthorized('You are not authorized');
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final planId = body['planId'] as String?;
@@ -227,6 +231,7 @@ class SubscriptionHandler {
           id: '',
           userId: userId,
           planId: plan.id,
+          partnerId: partnerId,
           status: 'active',
           startDate: DateTime.now(),
           endDate: billingCycle == 'yearly'
@@ -267,6 +272,7 @@ class SubscriptionHandler {
         id: '',
         userId: userId,
         planId: plan.id,
+        partnerId: partnerId,
         status: 'pending_payment',
         startDate: DateTime.now(),
         endDate: billingCycle == 'yearly'
@@ -285,6 +291,7 @@ class SubscriptionHandler {
           id: '',
           leaseId: '',
           payerId: userId,
+          partnerId: partnerId,
           propertyId: null,
           unitId: null,
           amount: amount,
@@ -332,7 +339,9 @@ class SubscriptionHandler {
   Future<Response> cancelSubscription(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
-      if (userId == null) return unauthorized("unauthorized");
+      final partnerId = request.context['partnerId'] as String?;
+
+      if (userId == null || partnerId == null) return unauthorized("unauthorized");
 
       final subscription = await subscriptionRepository.getActiveSubscription(userId);
 
@@ -362,6 +371,7 @@ class SubscriptionHandler {
       await notificationRepository.create(
         NotificationModel(
           userId: userId,
+          partnerId: partnerId,
           type: 'subscription_cancelled',
           title: 'Subscription Cancelled',
           body: 'Your subscription remains active until the end of the current billing period.',
