@@ -8,16 +8,19 @@ import 'package:neztmate_backend/features/auth_user/models/social_request_model.
 import 'package:neztmate_backend/features/auth_user/models/user_model.dart';
 import 'package:neztmate_backend/features/auth_user/repositories/auth_repository.dart';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
+import 'package:neztmate_backend/features/partners/repository/partner_repository.dart';
 import 'package:uuid/v4.dart';
 
 class AuthRepositoryImpl implements AuthRepository {
   final UserRepository userRepository;
+  final PartnerRepository partnerRepository;
   final PasswordService passwordService;
   final Auth firebaseAuth;
   final Firestore firestore;
 
   AuthRepositoryImpl({
     required this.userRepository,
+    required this.partnerRepository,
     required this.firebaseAuth,
     required this.passwordService,
     required this.firestore,
@@ -29,7 +32,7 @@ class AuthRepositoryImpl implements AuthRepository {
       await userRepository.getUserByEmail(req.email);
       throw EmailAlreadyExistsException(req.email);
     } on NotFoundException {
-      // good — user does NOT exist → proceed to create
+      // good — user does NOT exist, proceed to create
     }
 
     final hash = passwordService.hash(req.password);
@@ -41,6 +44,7 @@ class AuthRepositoryImpl implements AuthRepository {
       fullName: req.fullName,
       role: req.role,
       passwordHash: hash,
+      partnerId: req.partnerSlug, //resolved already to partnerId
       verifiedIdentity: false,
       verifiedEmployment: false,
       rating: 0.0,
@@ -106,6 +110,14 @@ class AuthRepositoryImpl implements AuthRepository {
       throw ValidationException('Platform type of device is required ');
     }
 
+    final partnerSlug = req.partnerSlug as String?;
+
+    if (partnerSlug == null && partnerSlug!.isEmpty) {
+      throw ValidationException('partner slug header is required');
+    }
+
+    final partner = await partnerRepository.getPartnerBySlug(partnerSlug);
+
     final id = UuidV4().generate();
 
     final newUser = User(
@@ -115,6 +127,7 @@ class AuthRepositoryImpl implements AuthRepository {
       role: req.role,
       profilePhotoUrl: decodedToken.picture,
       phone: decodedToken.phoneNumber,
+      partnerId: partner.id, //resolved already to partnerId
       verifiedIdentity: false,
       verifiedEmployment: false,
       rating: 0.0,

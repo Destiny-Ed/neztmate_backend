@@ -11,28 +11,23 @@ class User {
   final bool verifiedIdentity;
   final bool verifiedEmployment;
   final String occupation;
-  final String? verificationId; // Generic ID from any provider
-  final String? verificationProvider; // "SmileIdentity", "Veriff", "Onfido", etc.
-  final String? verificationStatus; // 'pending', 'approved', 'rejected', 'failed'
+  final String? verificationId;
+  final String? verificationProvider;
+  final String? verificationStatus;
   final String? verificationReason;
   final DateTime? identityVerifiedAt;
   final int? yearsExperience;
   final String? primarySkill;
 
-  // === Existing Rating ===
-  final double rating; // Legacy overall rating
-
-  // === NEW: Reputation System ===
-  final double averageRating; // Overall rating from reviews (1.0 - 5.0)
+  final double rating;
+  final double averageRating;
   final int totalReviews;
   final int totalRatings;
 
-  // Payment Reliability (mainly for Tenants)
-  final double paymentOnTimeRate; // 0.0 - 1.0 (e.g., 0.95 = 95%)
+  final double paymentOnTimeRate;
   final int totalPaymentsMade;
   final int onTimePayments;
 
-  // Role-specific Reputation
   final double tenantReputation;
   final double landlordReputation;
   final double artisanReputation;
@@ -41,18 +36,21 @@ class User {
   final DateTime lastLogin;
   final DateTime? lastReviewedAt;
 
-  final List<String> badges; // e.g., "Reliable_Payer", "Trusted_Landlord"
+  final List<String> badges;
 
   final String? passwordHash;
   final String? authProvider;
   final String platform;
   final String country;
 
-  final String primaryRole; // Main role for UI
-  final List<String> roles; // All roles user has
+  final String primaryRole;
+  final List<String> roles;
 
   final String? referralCode;
   final String? referredBy;
+
+  /// White-label partner document id (default NeztMate partner)
+  final String partnerId;
 
   User({
     required this.id,
@@ -92,22 +90,21 @@ class User {
     required this.fcmToken,
     required this.platform,
     required this.country,
-
     required this.primaryRole,
     this.roles = const [],
-
     this.referralCode,
     this.referredBy,
+    this.partnerId = '',
   });
 
   factory User.fromMap(Map<String, dynamic> map) {
     return User(
-      id: map["id"] as String,
+      id: map['id'] as String,
       email: map['email'] as String? ?? '',
       fullName: map['fullName'] as String? ?? '',
       role: map['role'] as String? ?? 'Tenant',
       phone: map['phone'] as String?,
-      occupation: map['occupation'] ?? '',
+      occupation: map['occupation'] as String? ?? '',
       profilePhotoUrl: map['profilePhotoUrl'] as String?,
       bio: map['bio'] as String?,
       address: map['address'] as String?,
@@ -116,16 +113,13 @@ class User {
       yearsExperience: map['yearsExperience'] as int?,
       primarySkill: map['primarySkill'] as String?,
       rating: (map['rating'] as num?)?.toDouble() ?? 0.0,
-
       verificationId: map['verificationId'] as String?,
       verificationProvider: map['verificationProvider'] as String?,
       verificationReason: map['verificationReason'] as String?,
       verificationStatus: map['verificationStatus'] as String? ?? 'pending',
       identityVerifiedAt: map['identityVerifiedAt'] != null
-          ? DateTime.parse(map['identityVerifiedAt'])
+          ? DateTime.parse(map['identityVerifiedAt'] as String)
           : null,
-
-      // New reputation fields
       averageRating: (map['averageRating'] as num?)?.toDouble() ?? 0.0,
       totalReviews: map['totalReviews'] as int? ?? 0,
       totalRatings: map['totalRatings'] as int? ?? 0,
@@ -135,22 +129,20 @@ class User {
       tenantReputation: (map['tenantReputation'] as num?)?.toDouble() ?? 0.0,
       landlordReputation: (map['landlordReputation'] as num?)?.toDouble() ?? 0.0,
       artisanReputation: (map['artisanReputation'] as num?)?.toDouble() ?? 0.0,
-      lastReviewedAt: map['lastReviewedAt'] != null ? DateTime.parse(map['lastReviewedAt']) : null,
+      lastReviewedAt: map['lastReviewedAt'] != null ? DateTime.parse(map['lastReviewedAt'] as String) : null,
       badges: (map['badges'] as List<dynamic>?)?.cast<String>() ?? [],
-
       createdAt: DateTime.parse(map['createdAt'] as String),
       lastLogin: DateTime.parse(map['lastLogin'] as String),
-      passwordHash: map["passwordHash"] as String?,
+      passwordHash: map['passwordHash'] as String?,
       authProvider: map['authProvider'] as String? ?? 'email',
-      fcmToken: map["fcmToken"] ?? '',
-      platform: map['platform'] ?? '',
-      country: map['country'] ?? '',
-
-      primaryRole: map['primaryRole'] as String? ?? 'Tenant',
-      roles: (map['roles'] as List<dynamic>?)?.cast<String>() ?? [map['role'] ?? 'tenant'],
-
+      fcmToken: map['fcmToken'] as String? ?? '',
+      platform: map['platform'] as String? ?? '',
+      country: map['country'] as String? ?? '',
+      primaryRole: map['primaryRole'] as String? ?? map['role'] as String? ?? 'Tenant',
+      roles: (map['roles'] as List<dynamic>?)?.cast<String>() ?? [map['role'] as String? ?? 'tenant'],
       referralCode: map['referralCode'] as String?,
       referredBy: map['referredBy'] as String?,
+      partnerId: map['partnerId'] as String? ?? '',
     );
   }
 
@@ -174,8 +166,6 @@ class User {
     'verificationStatus': verificationStatus,
     'verificationReason': verificationReason,
     'identityVerifiedAt': identityVerifiedAt?.toIso8601String(),
-
-    // New reputation fields
     'averageRating': averageRating,
     'totalReviews': totalReviews,
     'totalRatings': totalRatings,
@@ -187,7 +177,6 @@ class User {
     'artisanReputation': artisanReputation,
     'lastReviewedAt': lastReviewedAt?.toIso8601String(),
     'badges': badges,
-
     'createdAt': createdAt.toIso8601String(),
     'lastLogin': lastLogin.toIso8601String(),
     'passwordHash': passwordHash,
@@ -197,9 +186,9 @@ class User {
     'country': country,
     'primaryRole': primaryRole,
     'roles': roles,
-
     'referralCode': referralCode,
     'referredBy': referredBy,
+    'partnerId': partnerId,
   };
 
   User copyWith({
@@ -242,9 +231,9 @@ class User {
     String? fcmToken,
     String? primaryRole,
     List<String>? roles,
-
     String? referralCode,
     String? referredBy,
+    String? partnerId,
   }) {
     return User(
       id: id ?? this.id,
@@ -286,9 +275,9 @@ class User {
       country: country ?? this.country,
       primaryRole: primaryRole ?? this.primaryRole,
       roles: roles ?? this.roles,
-
       referralCode: referralCode ?? this.referralCode,
       referredBy: referredBy ?? this.referredBy,
+      partnerId: partnerId ?? this.partnerId,
     );
   }
 }

@@ -21,6 +21,7 @@ Middleware authMiddleware(JwtService jwtService, SubscriptionRepository subscrip
         final updated = request.change(
           context: {
             "userId": jwt.payload["sub"], "role": jwt.payload["role"],
+            'partnerId': jwt.payload['partnerId'] ?? '',
             'subscriptionPlan': subscription?.planId ?? 'free', // free | basic | premium | enterprise
           },
         );

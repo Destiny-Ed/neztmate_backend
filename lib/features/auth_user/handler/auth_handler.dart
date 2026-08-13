@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:neztmate_backend/core/error.dart';
+import 'package:neztmate_backend/features/partners/repository/partner_repository.dart';
 import 'package:shelf/shelf.dart';
 import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
 import 'package:neztmate_backend/core/services/auth/password_service.dart';
@@ -14,8 +15,15 @@ class AuthHandler {
   final UserRepository userRepository;
   final PasswordService passwordService;
   final JwtService jwtService;
+  final PartnerRepository partnerRepository;
 
-  AuthHandler(this.authRepository, this.passwordService, this.jwtService, this.userRepository);
+  AuthHandler(
+    this.authRepository,
+    this.passwordService,
+    this.jwtService,
+    this.userRepository,
+    this.partnerRepository,
+  );
 
   Future<Response> register(Request req) async {
     try {
@@ -45,9 +53,22 @@ class AuthHandler {
         throw ValidationException('FcmToken is required ');
       }
 
-      final created = await authRepository.registerNewUser(request);
+      final partnerSlug = body['partnerSlug'] as String? ?? req.headers['x-partner-slug'];
 
-      final accessToken = jwtService.generateAccessToken(created.id, created.role);
+      if (partnerSlug == null && partnerSlug!.isEmpty) {
+        throw ValidationException('partner slug header is required');
+      }
+
+      final partner = await partnerRepository.getPartnerBySlug(partnerSlug);
+
+      //resolve slug into partner Id
+      final created = await authRepository.registerNewUser(request.copyWith(partnerSlug: partner.id));
+
+      final accessToken = jwtService.generateAccessToken(
+        created.id,
+        created.role,
+        partnerId: created.partnerId,
+      );
       final refreshToken = jwtService.generateRefreshToken(created.id);
 
       await authRepository.saveRefreshToken(created.id, refreshToken);
@@ -92,7 +113,7 @@ class AuthHandler {
 
       final user = await authRepository.loginUser(request);
 
-      final accessToken = jwtService.generateAccessToken(user.id, user.role);
+      final accessToken = jwtService.generateAccessToken(user.id, user.role, partnerId: user.partnerId);
       final refreshToken = jwtService.generateRefreshToken(user.id);
 
       await authRepository.saveRefreshToken(user.id, refreshToken);
@@ -127,9 +148,11 @@ class AuthHandler {
         throw ValidationException('Fcm Token is required ');
       }
 
-      final user = await authRepository.socialLogin(req: request);
+      final slug = request.partnerSlug as String? ?? req.headers['x-partner-slug'];
 
-      final accessToken = jwtService.generateAccessToken(user.id, user.role);
+      final user = await authRepository.socialLogin(req: request.copyWith(partnerSlug: slug));
+
+      final accessToken = jwtService.generateAccessToken(user.id, user.role, partnerId: user.partnerId);
       final refreshToken = jwtService.generateRefreshToken(user.id);
 
       await authRepository.saveRefreshToken(user.id, refreshToken);

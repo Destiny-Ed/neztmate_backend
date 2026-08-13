@@ -55,6 +55,11 @@ import 'package:neztmate_backend/features/notifications/datasource/remote_dataso
 import 'package:neztmate_backend/features/notifications/handler/handler.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
 import 'package:neztmate_backend/features/notifications/repository_impl/notification_repo_impl.dart';
+import 'package:neztmate_backend/features/partners/datasource/firestore/firestore_partner_datasource.dart';
+import 'package:neztmate_backend/features/partners/datasource/partner_remote_datasource.dart';
+import 'package:neztmate_backend/features/partners/handler/partner_handler.dart';
+import 'package:neztmate_backend/features/partners/repository/partner_repository.dart';
+import 'package:neztmate_backend/features/partners/repository_impl/partner_repository_impl.dart';
 import 'package:neztmate_backend/features/payments/datasource/firestore/firestore_remote_payment_datasource.dart';
 import 'package:neztmate_backend/features/payments/datasource/remote_datasource.dart';
 import 'package:neztmate_backend/features/payments/handler/payment_handler.dart';
@@ -168,10 +173,19 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
   );
   injector.registerLazySingleton<HistoryHandler>(() => HistoryHandler(injector<HistoryRepository>()));
 
+  //partner
+
+  injector.registerLazySingleton<PartnerRemoteDataSource>(
+    () => FirestorePartnerDataSource(injector<FirebaseService>().firestore),
+  );
+  injector.registerLazySingleton<PartnerRepository>(() => PartnerRepositoryImpl(injector()));
+  injector.registerLazySingleton(() => PartnerHandler(injector()));
+
   //auth
   injector.registerLazySingleton<AuthRepository>(
     () => AuthRepositoryImpl(
       userRepository: injector<UserRepository>(),
+      partnerRepository: injector<PartnerRepository>(),
       firebaseAuth: injector<Auth>(),
       passwordService: injector<PasswordService>(),
       firestore: injector<Firestore>(),
@@ -184,6 +198,7 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
       injector<PasswordService>(),
       injector<JwtService>(),
       injector<UserRepository>(),
+      injector<PartnerRepository>(),
     ),
   );
 

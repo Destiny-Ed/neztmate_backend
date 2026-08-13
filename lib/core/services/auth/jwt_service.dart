@@ -5,10 +5,10 @@ class JwtService {
 
   JwtService(this.secret);
 
-  String generateAccessToken(String userId, String role) {
-    final jwt = JWT({"sub": userId, "role": role, "type": "access"});
+  String generateAccessToken(String userId, String role, {String partnerId = ''}) {
+    final jwt = JWT({"sub": userId, "role": role, 'partnerId': partnerId, "type": "access"});
 
-    return jwt.sign(SecretKey(secret), expiresIn: const Duration(hours: 24));
+    return jwt.sign(SecretKey(secret), expiresIn: const Duration(hours: 48));
   }
 
   String generateRefreshToken(String userId) {
