@@ -13,8 +13,9 @@ class TenantRepositoryImpl implements TenantRepository {
     required String query,
     required String userId,
     required String role,
-  }) async {
-    return await dataSource.searchTenants(query: query, userId: userId, role: role);
+    String? partnerId,
+  }) {
+    return dataSource.searchTenants(query: query, userId: userId, role: role, partnerId: partnerId);
   }
 
   @override

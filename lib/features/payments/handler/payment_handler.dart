@@ -119,6 +119,7 @@ class PaymentHandler {
           'unitId': unitId,
           'propertyId': propertyId,
           'type': paymentType,
+          'partnerId': partnerId,
         },
       );
 
@@ -184,6 +185,8 @@ class PaymentHandler {
       final amount = (data['amount'] as num) / 100.0; // Convert from Kobo to Naira
       final receiptUrl = data['receipt_url'] as String?;
 
+      final partnerId = metadata['partnerId'] as String?;
+
       print('✅ Charge Success - Reference: $reference, Amount: ₦$amount');
 
       print("metadata : $metadata");
@@ -221,6 +224,8 @@ class PaymentHandler {
             body:
                 'Your ₦${application.applicationFee} application fee has been received. Your application is now under review.',
             relatedId: appId,
+            partnerId: partnerId ?? application.partnerId,
+
             relatedCollection: 'applications',
             createdAt: DateTime.now(),
             id: '',
@@ -249,11 +254,17 @@ class PaymentHandler {
           await subscriptionRepository.activateSubscription(sub.id, amountPaid: amount);
 
           // Optional: cancel other active subs for same user
-          await subscriptionRepository.deactivateOtherSubscriptions(sub.userId, exceptId: sub.id);
+          await subscriptionRepository.deactivateOtherSubscriptions(
+            sub.userId,
+            exceptId: sub.id,
+            partnerId: partnerId ?? sub.partnerId,
+          );
 
           await historyRepository.createHistoryEntry(
             HistoryEntryModel(
               userId: sub.userId,
+              partnerId: partnerId ?? sub.partnerId,
+
               type: 'subscription_activated',
               title: 'Subscription Activated',
               description:
@@ -269,6 +280,7 @@ class PaymentHandler {
             NotificationModel(
               id: '',
               userId: sub.userId,
+              partnerId: partnerId ?? sub.partnerId,
               type: 'subscription_activated',
               title: 'Subscription Activated',
               body: 'Your subscription is now active. Enjoy premium features!',
@@ -321,6 +333,8 @@ class PaymentHandler {
             title: 'Payment Received',
             body: '₦${amount.toStringAsFixed(0)} has been paid for your task.',
             relatedId: task.id,
+            partnerId: partnerId ?? task.partnerId,
+
             relatedCollection: 'maintenance_tasks',
             createdAt: DateTime.now(),
             id: '',
@@ -329,6 +343,7 @@ class PaymentHandler {
         await historyRepository.createHistoryEntry(
           HistoryEntryModel(
             userId: task.artisanId,
+            partnerId: partnerId ?? "",
             type: 'task_payment_received',
             title: 'Task Payment Received',
             description: '₦${amount.toStringAsFixed(0)} for ${task.title}',
@@ -368,6 +383,8 @@ class PaymentHandler {
               body:
                   'Your lease has been renewed until ${newLease.endDate.toIso8601String().split("T").first}',
               relatedId: newLease.id,
+              partnerId: partnerId ?? newLease.partnerId,
+
               relatedCollection: 'leases',
               createdAt: DateTime.now(),
             ),
@@ -399,7 +416,7 @@ class PaymentHandler {
           }
         }
 
-        await _sendRentSuccessNotifications(payment, lease, amount);
+        await _sendRentSuccessNotifications(payment, lease, amount, partnerId ?? "");
       }
 
       // CREATE DISBURSEMENT (3 Days Holding)
@@ -534,10 +551,15 @@ class PaymentHandler {
     try {
       final withdrawalId = request.params['id'];
       final processedBy = request.context['userId'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
       final role = request.context['role'] as String?;
 
       if (withdrawalId == null || processedBy == null) {
         return badRequest('Withdrawal ID is required');
+      }
+
+      if (partnerId == null) {
+        return badRequest("PartnerId is required");
       }
 
       if (!['admin'].contains(role)) {
@@ -559,6 +581,8 @@ class PaymentHandler {
           userId: withdrawal.userId,
           type: 'withdrawal_completed',
           title: 'Withdrawal Completed',
+          partnerId: partnerId,
+
           description: '₦${withdrawal.amount} has been processed successfully',
           relatedId: withdrawalId,
           relatedCollection: 'withdrawals',
@@ -634,6 +658,7 @@ class PaymentHandler {
     try {
       final withdrawalId = request.params['id'];
       final processedBy = request.context['userId'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final reason = body['reason'] as String?;
 
@@ -641,9 +666,13 @@ class PaymentHandler {
         return badRequest('Withdrawal ID is required');
       }
 
+      if (partnerId == null) {
+        return badRequest("PartnerId is required");
+      }
+
       final withdrawal = await paymentRepository.getWithdrawalById(withdrawalId);
 
-      if (withdrawal.status != 'Pending') {
+      if (withdrawal.status.toLowerCase() != 'pending') {
         return Response(400, body: jsonEncode({'message': 'Only pending withdrawals can be rejected'}));
       }
 
@@ -654,6 +683,7 @@ class PaymentHandler {
         HistoryEntryModel(
           userId: withdrawal.userId,
           type: 'withdrawal_rejected',
+          partnerId: partnerId,
           title: 'Withdrawal Rejected',
           description: reason ?? 'Withdrawal request was rejected',
           relatedId: withdrawalId,
@@ -1332,7 +1362,12 @@ class PaymentHandler {
     }
   }
 
-  Future<void> _sendRentSuccessNotifications(PaymentModel payment, LeaseModel lease, double amount) async {
+  Future<void> _sendRentSuccessNotifications(
+    PaymentModel payment,
+    LeaseModel lease,
+    double amount,
+    String partnerId,
+  ) async {
     // Tenant notification
     await notificationRepository.create(
       NotificationModel(
@@ -1341,6 +1376,8 @@ class PaymentHandler {
         title: 'Rent Payment Successful',
         body: '₦${amount.toStringAsFixed(0)} paid successfully.',
         relatedId: payment.id,
+        partnerId: partnerId,
+
         relatedCollection: 'payments',
         createdAt: DateTime.now(),
         id: '',
@@ -1352,6 +1389,8 @@ class PaymentHandler {
       NotificationModel(
         userId: lease.landownerId,
         type: 'rent_received',
+        partnerId: partnerId,
+
         title: 'Rent Payment Received',
         body: '₦${amount.toStringAsFixed(0)} received from tenant.',
         relatedId: payment.id,
@@ -1366,6 +1405,7 @@ class PaymentHandler {
       HistoryEntryModel(
         userId: payment.payerId,
         type: payment.type ?? "payment-made",
+        partnerId: partnerId,
         title: 'Rent Payment Successful',
         description: '₦${amount.toStringAsFixed(0)} paid for lease ${payment.leaseId}',
         relatedId: payment.id,
@@ -1377,6 +1417,8 @@ class PaymentHandler {
     await historyRepository.createHistoryEntry(
       HistoryEntryModel(
         userId: payment.receiverId!,
+        partnerId: partnerId,
+
         type: payment.type ?? "rent-received",
         title: 'Rent Payment Received',
         description: '₦${amount.toStringAsFixed(0)} received from tenant',

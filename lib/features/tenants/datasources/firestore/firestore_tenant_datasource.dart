@@ -14,39 +14,74 @@ class FirestoreTenantDataSource implements TenantRemoteDataSource {
     required String query,
     required String userId,
     required String role,
+    String? partnerId,
   }) async {
     try {
-      final lowerQuery = query.toLowerCase();
+      final lowerQuery = query.toLowerCase().trim();
+      if (lowerQuery.isEmpty) return [];
 
-      // Get all leases for this landowner/manager
-      final leaseSnap = await firestore.collection('leases').get();
+      final r = role.toLowerCase();
+
+      // Properties this user owns/manages (scoped by partner when provided)
+      Query propQuery = firestore.collection('properties');
+      if (r == 'landowner') {
+        propQuery = propQuery.where('landownerId', WhereFilter.equal, userId);
+      } else if (r == 'manager') {
+        propQuery = propQuery.where('managerId', WhereFilter.equal, userId);
+      } else {
+        return [];
+      }
+
+      if (partnerId != null && partnerId.isNotEmpty) {
+        propQuery = propQuery.where('partnerId', WhereFilter.equal, partnerId);
+      }
+
+      final propSnap = await propQuery.get();
+      if (propSnap.docs.isEmpty) return [];
+
+      final propertyIds = propSnap.docs.map((d) => d.id).toSet();
       final List<TenantSummary> results = [];
+      final seenTenantKeys = <String>{}; // tenantId+leaseId
 
-      for (var doc in leaseSnap.docs) {
-        final leaseData = doc.data() as Map<String, dynamic>;
-        final tenantId = leaseData['tenantId'] as String;
-        final propertyId = leaseData['propertyId'] as String;
+      // Leases for those properties (batch with `in`, max 30)
+      final propIdList = propertyIds.toList();
+      for (var i = 0; i < propIdList.length; i += 30) {
+        final batch = propIdList.skip(i).take(30).toList();
+        final leaseSnap = await firestore
+            .collection('leases')
+            .where('propertyId', WhereFilter.isIn, batch)
+            .get();
 
-        // Security: Only show tenants from properties owned/managed by this user
-        final propertyDoc = await firestore.collection('properties').doc(propertyId).get();
-        if (!propertyDoc.exists) continue;
+        for (final doc in leaseSnap.docs) {
+          final leaseData = doc.data() as Map<String, dynamic>;
+          final tenantId = leaseData['tenantId'] as String?;
+          final unitId = leaseData['unitId'] as String?;
+          if (tenantId == null || tenantId.isEmpty) continue;
 
-        final propertyData = propertyDoc.data() as Map<String, dynamic>;
-        final isOwner = propertyData['landownerId'] == userId;
-        final isManager = propertyData['managerId'] == userId;
+          final tenantDoc = await firestore.collection('users').doc(tenantId).get();
+          if (!tenantDoc.exists) continue;
 
-        if (!isOwner && !isManager) continue;
+          final tenantData = tenantDoc.data() as Map<String, dynamic>;
+          final fullName = (tenantData['fullName'] as String? ?? '').toLowerCase();
+          final email = (tenantData['email'] as String? ?? '').toLowerCase();
 
-        // Fetch tenant details
-        final tenantDoc = await firestore.collection('users').doc(tenantId).get();
-        if (!tenantDoc.exists) continue;
+          if (!fullName.contains(lowerQuery) && !email.contains(lowerQuery)) {
+            continue;
+          }
 
-        final tenantData = tenantDoc.data() as Map<String, dynamic>;
-        final fullName = (tenantData['fullName'] as String? ?? '').toLowerCase();
-        final email = (tenantData['email'] as String? ?? '').toLowerCase();
+          String unitNumber = leaseData['unitNumber'] as String? ?? 'N/A';
+          if (unitId != null && unitId.isNotEmpty) {
+            final unitDoc = await firestore.collection('units').doc(unitId).get();
+            if (unitDoc.exists) {
+              final unitData = unitDoc.data() as Map<String, dynamic>;
+              unitNumber = unitData['unitNumber'] as String? ?? unitNumber;
+            }
+          }
 
-        // Search by name or email
-        if (fullName.contains(lowerQuery) || email.contains(lowerQuery)) {
+          final key = '$tenantId-${doc.id}';
+          if (seenTenantKeys.contains(key)) continue;
+          seenTenantKeys.add(key);
+
           results.add(
             TenantSummary.fromMap({
               'id': tenantId,
@@ -54,47 +89,51 @@ class FirestoreTenantDataSource implements TenantRemoteDataSource {
               'email': tenantData['email'],
               'phone': tenantData['phone'],
               'profilePhotoUrl': tenantData['profilePhotoUrl'],
-              'unitId': leaseData['unitId'],
-              'unitNumber': leaseData['unitNumber'] ?? 'N/A',
+              'unitId': unitId,
+              'unitNumber': unitNumber,
               'monthlyRent': leaseData['monthlyRent'] ?? 0.0,
               'leaseStartDate': leaseData['startDate'],
               'leaseEndDate': leaseData['endDate'],
               'leaseStatus': leaseData['status'],
+              'leaseId': leaseData['id'] ?? doc.id,
             }),
           );
         }
       }
 
       return results;
-    } catch (e) {
-      print('Tenant search error: $e');
+    } catch (e, s) {
+      print('Tenant search error: $e\n$s');
       return [];
     }
   }
 
   @override
   Future<List<NeighborModel>> getTenantNeighbors(String propertyId, String tenantId) async {
+    // Optional: assert property.partnerId matches caller in the handler
     final snapshot = await firestore
         .collection('leases')
         .where('propertyId', WhereFilter.equal, propertyId)
-        .where('status', WhereFilter.equal, 'active')
+        .where('status', WhereFilter.equal, 'active') // match your stored casing
         .get();
+
+    // If status is stored lowercase 'active', use that instead
+    // Prefer querying both if mixed — or normalize on write
 
     final neighbors = <NeighborModel>[];
 
     for (final doc in snapshot.docs) {
-      final lease = LeaseModel.fromMap(doc.data());
+      final data = doc.data() as Map<String, dynamic>;
+      final lease = LeaseModel.fromMap(data);
+      // if fromMap needs id: LeaseModel.fromMap(data, doc.id)
 
       if (lease.tenantId == tenantId) continue;
 
       final tenantDoc = await firestore.collection('users').doc(lease.tenantId).get();
-
       final unitDoc = await firestore.collection('units').doc(lease.unitId).get();
-
       if (!tenantDoc.exists || !unitDoc.exists) continue;
 
       final tenantData = tenantDoc.data() as Map<String, dynamic>;
-
       final unitData = unitDoc.data() as Map<String, dynamic>;
 
       neighbors.add(
@@ -103,8 +142,8 @@ class FirestoreTenantDataSource implements TenantRemoteDataSource {
           fullName: tenantData['fullName'] ?? '',
           profileImage: tenantData['profilePhotoUrl'],
           unitNumber: unitData['unitNumber'] ?? '',
-          phone: tenantData["phone"] ?? '',
-          leaseId: lease.id,
+          phone: tenantData['phone'] ?? '',
+          leaseId: lease.id.isNotEmpty ? lease.id : doc.id,
         ),
       );
     }

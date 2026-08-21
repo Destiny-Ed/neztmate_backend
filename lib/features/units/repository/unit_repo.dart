@@ -8,18 +8,26 @@ abstract class UnitRepository {
   Future<UnitModel> getUnitById(String id);
   Future<List<UnitModel>> getUnitsByProperty(String propertyId);
   Future<List<UnitModel>> getAvailableUnitsByProperty(String propertyId);
-  Future<List<UnitModel>> getAvailableUnits({String? propertyId, int? minBedrooms, double? maxRent});
-  Future<void> updateUnit(UnitModel unit);
-  Future<void> deleteUnit(String id);
-  // Tenant view
-  Future<List<AvailableUnitResponse>> getAvailableUnitsWithProperty({
+
+  Future<List<UnitModel>> getAvailableUnits({
+    required String partnerId,
     String? propertyId,
     int? minBedrooms,
     double? maxRent,
   });
 
-  // Landowner/Manager view
-  Future<List<OwnerUnitResponse>> getMyUnitsWithOccupants(String userId, String role);
+  Future<void> updateUnit(UnitModel unit);
+  Future<void> deleteUnit(String id);
+
+  Future<List<AvailableUnitResponse>> getAvailableUnitsWithProperty({
+    required String partnerId,
+    String? propertyId,
+    int? minBedrooms,
+    double? maxRent,
+  });
+
+  Future<List<OwnerUnitResponse>> getMyUnitsWithOccupants(String userId, String role, {String? partnerId});
+
   Future<void> toggleUnitListing(String unitId, bool isListed);
   Future<void> updateUnitStatus({
     required String unitId,
@@ -32,6 +40,6 @@ abstract class UnitRepository {
   Future<void> addComment(UnitCommentModel comment);
   Future<List<UnitCommentModel>> getCommentsForUnit(String unitId);
 
-  Future<int> countByOwner(String ownerId);
-  Future<int> countListedByOwner(String ownerId);
+  Future<int> countByOwner(String ownerId, {String? partnerId});
+  Future<int> countListedByOwner(String ownerId, {String? partnerId});
 }

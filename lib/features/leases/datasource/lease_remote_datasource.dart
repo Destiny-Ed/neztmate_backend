@@ -13,14 +13,14 @@ abstract class LeaseRemoteDataSource {
   Future<void> updateLeaseStatus(String leaseId, String status);
 
   // QUERIES
-  Future<List<LeaseModel>> getActiveLeasesByTenant(String tenantId);
-  Future<List<LeaseModel>> getLeasesByTenant(String tenantId);
-  Future<List<LeaseModel>> getActiveLeasesByProperty(String propertyId);
-  Future<List<LeaseModel>> getLeasesByLandowner(String landownerId);
-  Future<List<LeaseModel>> getLeasesByManager(String managerId);
+  Future<List<LeaseModel>> getActiveLeasesByTenant(String tenantId, {String? partnerId});
+  Future<List<LeaseModel>> getLeasesByTenant(String tenantId, {String? partnerId});
+  Future<List<LeaseModel>> getActiveLeasesByProperty(String propertyId); // property already scoped
+  Future<List<LeaseModel>> getLeasesByLandowner(String landownerId, {String? partnerId});
+  Future<List<LeaseModel>> getLeasesByManager(String managerId, {String? partnerId});
   Future<List<LeaseModel>> getLeasesByUnit(String unitId);
-  Future<List<LeaseModel>> getAllActiveLeases();
-  Future<List<LeaseModel>> getExpiringLeases({int withinDays = 5});
+  Future<List<LeaseModel>> getAllActiveLeases({String? partnerId}); // null = all (cron)
+  Future<List<LeaseModel>> getExpiringLeases({int withinDays = 5, String? partnerId});
   Future<LeaseRequestModel> updateLeaseRequest(LeaseRequestModel request);
 
   // SIGNING & ACTIVATION
@@ -73,12 +73,13 @@ abstract class LeaseRemoteDataSource {
   Future<LeaseRequestModel> getLeaseRequestById(String requestId);
   Future<LeaseRequestModel?> getActiveLeaseRequest(String leaseId, {LeaseRequestType? type});
   Future<List<LeaseRequestModel>> getLeaseRequestsByLease(String leaseId);
-  Future<List<LeaseRequestModel>> getLeaseRequestsByTenant(String tenantId);
-  Future<List<LeaseRequestModel>> getLeaseRequestsForLandowner(String landownerId);
-  Future<List<LeaseRequestModel>> getLeaseRequestsForManager(String managerId);
+  Future<List<LeaseRequestModel>> getLeaseRequestsByTenant(String tenantId, {String? partnerId});
+  Future<List<LeaseRequestModel>> getLeaseRequestsForLandowner(String landownerId, {String? partnerId});
+  Future<List<LeaseRequestModel>> getLeaseRequestsForManager(String managerId, {String? partnerId});
   Future<List<LeaseRequestModel>> getPendingLeaseRequestsForUser({
     required String userId,
-    required String role, // tenant | landowner | manager
+    required String role,
+    String? partnerId,
   });
 
   /// Approves request + applies final lease side-effects (transfer, terminate, rent change, etc.)

@@ -3,11 +3,13 @@ import 'package:neztmate_backend/core/error.dart';
 import 'package:neztmate_backend/features/maintenance/datasource/maintenance_remote_datasource.dart';
 import 'package:neztmate_backend/features/maintenance/models/maintenance_request.dart';
 import 'package:neztmate_backend/features/maintenance/models/maintenance_task.dart';
+import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
 
 class FirestoreMaintenanceDataSource implements MaintenanceRemoteDataSource {
   final Firestore firestore;
+  final PropertyRepository propertyRepository;
 
-  FirestoreMaintenanceDataSource(this.firestore);
+  FirestoreMaintenanceDataSource(this.firestore, this.propertyRepository);
 
   CollectionReference get _requests => firestore.collection('maintenance_requests');
   CollectionReference get _tasks => firestore.collection('maintenance_tasks');
@@ -29,12 +31,13 @@ class FirestoreMaintenanceDataSource implements MaintenanceRemoteDataSource {
   }
 
   @override
-  Future<List<MaintenanceRequestModel>> getRequestsByTenant(String tenantId) async {
-    final snap = await _requests
-        .where('tenantId', WhereFilter.equal, tenantId)
-        .orderBy('createdAt', descending: true)
-        .get();
-    return snap.docs.map((d) => MaintenanceRequestModel.fromMap(d.data())).toList();
+  Future<List<MaintenanceRequestModel>> getRequestsByTenant(String tenantId, {String? partnerId}) async {
+    var query = _requests.where('tenantId', WhereFilter.equal, tenantId);
+    if (partnerId != null && partnerId.isNotEmpty) {
+      query = query.where('partnerId', WhereFilter.equal, partnerId);
+    }
+    final snap = await query.orderBy('createdAt', descending: true).get();
+    return snap.docs.map((d) => MaintenanceRequestModel.fromMap(d.data() as Map<String, dynamic>)).toList();
   }
 
   @override
@@ -47,10 +50,38 @@ class FirestoreMaintenanceDataSource implements MaintenanceRemoteDataSource {
   }
 
   @override
-  Future<List<MaintenanceRequestModel>> getAllRequestsForManagerOrLandowner(String userId) async {
-    // This is simplified - in production, you should filter by properties owned/managed
-    final snap = await _requests.orderBy('createdAt', descending: true).get();
-    return snap.docs.map((d) => MaintenanceRequestModel.fromMap(d.data())).toList();
+  Future<List<MaintenanceRequestModel>> getAllRequestsForManagerOrLandowner(
+    String userId, {
+    String? partnerId,
+    String? role,
+  }) async {
+    final r = (role ?? '').toLowerCase();
+
+    List properties;
+    if (r == 'manager') {
+      properties = await propertyRepository.getPropertiesByManager(userId, partnerId: partnerId);
+    } else {
+      // landowner default
+      properties = await propertyRepository.getPropertiesByLandowner(userId, partnerId: partnerId);
+    }
+
+    if (properties.isEmpty) return [];
+
+    final propertyIds = properties.map((p) => p.id as String).toList();
+    final results = <MaintenanceRequestModel>[];
+
+    for (var i = 0; i < propertyIds.length; i += 30) {
+      final batch = propertyIds.skip(i).take(30).toList();
+      var query = _requests.where('propertyId', WhereFilter.isIn, batch);
+      if (partnerId != null && partnerId.isNotEmpty) {
+        query = query.where('partnerId', WhereFilter.equal, partnerId);
+      }
+      final snap = await query.orderBy('createdAt', descending: true).get();
+      results.addAll(snap.docs.map((d) => MaintenanceRequestModel.fromMap(d.data() as Map<String, dynamic>)));
+    }
+
+    results.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    return results;
   }
 
   // TASKS
@@ -79,12 +110,13 @@ class FirestoreMaintenanceDataSource implements MaintenanceRemoteDataSource {
   }
 
   @override
-  Future<List<MaintenanceTaskModel>> getTasksByArtisan(String artisanId) async {
-    final snap = await _tasks
-        .where('artisanId', WhereFilter.equal, artisanId)
-        .orderBy('createdAt', descending: true)
-        .get();
-    return snap.docs.map((d) => MaintenanceTaskModel.fromMap(d.data())).toList();
+  Future<List<MaintenanceTaskModel>> getTasksByArtisan(String artisanId, {String? partnerId}) async {
+    var query = _tasks.where('artisanId', WhereFilter.equal, artisanId);
+    if (partnerId != null && partnerId.isNotEmpty) {
+      query = query.where('partnerId', WhereFilter.equal, partnerId);
+    }
+    final snap = await query.orderBy('createdAt', descending: true).get();
+    return snap.docs.map((d) => MaintenanceTaskModel.fromMap(d.data() as Map<String, dynamic>)).toList();
   }
 
   @override

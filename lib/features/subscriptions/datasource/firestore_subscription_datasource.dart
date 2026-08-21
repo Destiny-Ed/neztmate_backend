@@ -3,6 +3,13 @@ import 'package:neztmate_backend/features/subscriptions/model/plan_subscription_
 import 'package:neztmate_backend/features/subscriptions/model/user_subscription_model.dart';
 import 'package:neztmate_backend/features/subscriptions/repository/subscription_repository.dart';
 
+Query _withPartner(Query q, String? partnerId) {
+  if (partnerId != null && partnerId.isNotEmpty) {
+    return q.where('partnerId', WhereFilter.equal, partnerId);
+  }
+  return q;
+}
+
 class FirestoreSubscriptionRepository implements SubscriptionRepository {
   final Firestore firestore;
 
@@ -29,37 +36,39 @@ class FirestoreSubscriptionRepository implements SubscriptionRepository {
   }
 
   @override
-  Future<SubscriptionPlanModel?> getPlanById(String id) async {
-    final snap = await firestore
-        .collection('subscription_plans')
-        .where('id', WhereFilter.equal, id)
-        .limit(1)
-        .get();
-    if (snap.docs.isEmpty) return null;
-    return SubscriptionPlanModel.fromMap(snap.docs.first.data() as Map<String, dynamic>);
+  Future<SubscriptionPlanModel?> getPlanById(String id, {String? partnerId}) async {
+    // Prefer doc id if plans use id == name
+    final doc = await _plans.doc(id).get();
+    if (doc.exists) {
+      final plan = SubscriptionPlanModel.fromMap(doc.data() as Map<String, dynamic>);
+      if (partnerId != null && partnerId.isNotEmpty && plan.partnerId != partnerId) {
+        return null;
+      }
+      return plan;
+    }
+    return null;
   }
 
   @override
-  Future<List<SubscriptionPlanModel>> getAllPlans() async {
-    final snapshot = await _plans.where('isActive', WhereFilter.equal, true).get();
-
+  Future<List<SubscriptionPlanModel>> getAllPlans({String? partnerId}) async {
+    var q = _plans.where('isActive', WhereFilter.equal, true);
+    q = _withPartner(q, partnerId);
+    final snapshot = await q.get();
     return snapshot.docs
         .map((doc) => SubscriptionPlanModel.fromMap(doc.data() as Map<String, dynamic>))
         .toList();
   }
 
   @override
-  Future<UserSubscriptionModel?> getActiveSubscription(String userId) async {
-    final snapshot = await _subscriptions
+  Future<UserSubscriptionModel?> getActiveSubscription(String userId, {String? partnerId}) async {
+    var q = _subscriptions
         .where('userId', WhereFilter.equal, userId)
-        .where('status', WhereFilter.equal, 'active')
-        .limit(1)
-        .get();
-
+        .where('status', WhereFilter.equal, 'active');
+    q = _withPartner(q, partnerId);
+    final snapshot = await q.limit(1).get();
     if (snapshot.docs.isEmpty) return null;
-
     final doc = snapshot.docs.first;
-    return UserSubscriptionModel.fromMap(doc.data() as Map<String, dynamic>);
+    return UserSubscriptionModel.fromMap({...doc.data() as Map<String, dynamic>, 'id': doc.id});
   }
 
   @override
@@ -76,14 +85,12 @@ class FirestoreSubscriptionRepository implements SubscriptionRepository {
   }
 
   @override
-  Future<List<UserSubscriptionModel>> getSubscriptionHistory(String userId) async {
-    final snapshot = await _subscriptions
-        .where('userId', WhereFilter.equal, userId)
-        .orderBy('startDate', descending: true)
-        .get();
-
+  Future<List<UserSubscriptionModel>> getSubscriptionHistory(String userId, {String? partnerId}) async {
+    var q = _subscriptions.where('userId', WhereFilter.equal, userId);
+    q = _withPartner(q, partnerId);
+    final snapshot = await q.orderBy('startDate', descending: true).get();
     return snapshot.docs
-        .map((doc) => UserSubscriptionModel.fromMap(doc.data() as Map<String, dynamic>))
+        .map((doc) => UserSubscriptionModel.fromMap({...doc.data() as Map<String, dynamic>, 'id': doc.id}))
         .toList();
   }
 
@@ -98,15 +105,16 @@ class FirestoreSubscriptionRepository implements SubscriptionRepository {
   }
 
   @override
-  Future<List<UserSubscriptionModel>> getExpiredSubscriptions() async {
+  Future<List<UserSubscriptionModel>> getExpiredSubscriptions({String? partnerId}) async {
     final now = DateTime.now().toIso8601String();
-
-    final snap = await _subscriptions
+    var q = _subscriptions
         .where('status', WhereFilter.equal, 'active')
-        .where('endDate', WhereFilter.lessThan, now)
-        .get();
-
-    return snap.docs.map((doc) => UserSubscriptionModel.fromMap(doc.data() as Map<String, dynamic>)).toList();
+        .where('endDate', WhereFilter.lessThan, now);
+    q = _withPartner(q, partnerId);
+    final snap = await q.get();
+    return snap.docs
+        .map((doc) => UserSubscriptionModel.fromMap({...doc.data() as Map<String, dynamic>, 'id': doc.id}))
+        .toList();
   }
 
   @override
@@ -149,25 +157,24 @@ class FirestoreSubscriptionRepository implements SubscriptionRepository {
   }
 
   @override
-  Future<void> deactivateOtherSubscriptions(String userId, {required String exceptId}) async {
-    final snap = await firestore
-        .collection('user_subscriptions')
-        .where('userId', WhereFilter.equal, userId)
-        .get();
+  Future<void> deactivateOtherSubscriptions(
+    String userId, {
+    required String exceptId,
+    String? partnerId,
+  }) async {
+    var q = _subscriptions.where('userId', WhereFilter.equal, userId);
+    q = _withPartner(q, partnerId);
+    final snap = await q.get();
 
     final updates = <Future>[];
-
     for (final doc in snap.docs) {
       if (doc.id == exceptId) continue;
-
       final data = doc.data() as Map<String, dynamic>;
       final status = (data['status'] as String?)?.toLowerCase() ?? '';
-
-      // Only touch active / pending ones
       if (!['active', 'pending_payment'].contains(status)) continue;
 
       updates.add(
-        firestore.collection('user_subscriptions').doc(doc.id).update({
+        _subscriptions.doc(doc.id).update({
           'status': 'replaced',
           'replacedBy': exceptId,
           'deactivatedAt': DateTime.now().toIso8601String(),
@@ -175,9 +182,6 @@ class FirestoreSubscriptionRepository implements SubscriptionRepository {
         }),
       );
     }
-
-    if (updates.isNotEmpty) {
-      await Future.wait(updates);
-    }
+    if (updates.isNotEmpty) await Future.wait(updates);
   }
 }

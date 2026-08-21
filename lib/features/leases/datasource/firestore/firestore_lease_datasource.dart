@@ -6,6 +6,13 @@ import 'package:neztmate_backend/features/leases/models/lease_settlement_agreeme
 import 'package:neztmate_backend/features/leases/models/leases_model.dart';
 import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
 
+Query _withPartner(Query q, String? partnerId) {
+  if (partnerId != null && partnerId.isNotEmpty) {
+    return q.where('partnerId', WhereFilter.equal, partnerId);
+  }
+  return q;
+}
+
 class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   final Firestore firestore;
 
@@ -63,11 +70,12 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   //  QUERIES
 
   @override
-  Future<List<LeaseModel>> getActiveLeasesByTenant(String tenantId) async {
-    final snap = await _leases
+  Future<List<LeaseModel>> getActiveLeasesByTenant(String tenantId, {String? partnerId}) async {
+    var q = _leases
         .where('tenantId', WhereFilter.equal, tenantId)
-        .where('status', WhereFilter.equal, 'active')
-        .get();
+        .where('status', WhereFilter.equal, 'active');
+    q = _withPartner(q, partnerId);
+    final snap = await q.get();
     return snap.docs.map((d) => LeaseModel.fromMap(d.data() as Map<String, dynamic>)).toList();
   }
 
@@ -84,20 +92,26 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   }
 
   @override
-  Future<List<LeaseModel>> getLeasesByTenant(String tenantId) async {
-    final snap = await _leases.where('tenantId', WhereFilter.equal, tenantId).get();
+  Future<List<LeaseModel>> getLeasesByTenant(String tenantId, {String? partnerId}) async {
+    var q = _leases.where('tenantId', WhereFilter.equal, tenantId);
+    q = _withPartner(q, partnerId);
+    final snap = await q.get();
     return snap.docs.map((d) => LeaseModel.fromMap(d.data() as Map<String, dynamic>)).toList();
   }
 
   @override
-  Future<List<LeaseModel>> getLeasesByLandowner(String landownerId) async {
-    final snap = await _leases.where('landownerId', WhereFilter.equal, landownerId).get();
+  Future<List<LeaseModel>> getLeasesByLandowner(String landownerId, {String? partnerId}) async {
+    var q = _leases.where('landownerId', WhereFilter.equal, landownerId);
+    q = _withPartner(q, partnerId);
+    final snap = await q.get();
     return snap.docs.map((d) => LeaseModel.fromMap(d.data() as Map<String, dynamic>)).toList();
   }
 
   @override
-  Future<List<LeaseModel>> getLeasesByManager(String managerId) async {
-    final snap = await _leases.where('managerId', WhereFilter.equal, managerId).get();
+  Future<List<LeaseModel>> getLeasesByManager(String managerId, {String? partnerId}) async {
+    var q = _leases.where('managerId', WhereFilter.equal, managerId);
+    q = _withPartner(q, partnerId);
+    final snap = await q.get();
     return snap.docs.map((d) => LeaseModel.fromMap(d.data() as Map<String, dynamic>)).toList();
   }
 
@@ -108,13 +122,11 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   }
 
   @override
-  Future<List<LeaseModel>> getAllActiveLeases() async {
+  Future<List<LeaseModel>> getAllActiveLeases({String? partnerId}) async {
     try {
-      final snap = await _leases
-          .where('status', WhereFilter.equal, 'active')
-          .orderBy('endDate', descending: false)
-          .get();
-
+      var q = _leases.where('status', WhereFilter.equal, 'active');
+      q = _withPartner(q, partnerId);
+      final snap = await q.orderBy('endDate', descending: false).get();
       return snap.docs.map((doc) => LeaseModel.fromMap(doc.data() as Map<String, dynamic>)).toList();
     } catch (e) {
       print('Error fetching all active leases: $e');
@@ -123,16 +135,14 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   }
 
   @override
-  Future<List<LeaseModel>> getExpiringLeases({int withinDays = 5}) async {
+  Future<List<LeaseModel>> getExpiringLeases({int withinDays = 5, String? partnerId}) async {
     try {
       final thresholdDate = DateTime.now().add(Duration(days: withinDays));
-
-      final snap = await _leases
+      var q = _leases
           .where('status', WhereFilter.equal, 'active')
-          .where('endDate', WhereFilter.lessThanOrEqual, thresholdDate.toIso8601String())
-          .orderBy('endDate', descending: false)
-          .get();
-
+          .where('endDate', WhereFilter.lessThanOrEqual, thresholdDate.toIso8601String());
+      q = _withPartner(q, partnerId);
+      final snap = await q.orderBy('endDate', descending: false).get();
       return snap.docs.map((doc) => LeaseModel.fromMap(doc.data() as Map<String, dynamic>)).toList();
     } catch (e) {
       print('Error fetching expiring leases: $e');
@@ -590,32 +600,29 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   }
 
   @override
-  Future<List<LeaseRequestModel>> getLeaseRequestsByTenant(String tenantId) async {
-    final snap = await _leaseRequests
-        .where('tenantId', WhereFilter.equal, tenantId)
-        .orderBy('createdAt', descending: true)
-        .get();
-
+  Future<List<LeaseRequestModel>> getLeaseRequestsByTenant(String tenantId, {String? partnerId}) async {
+    var q = _leaseRequests.where('tenantId', WhereFilter.equal, tenantId);
+    q = _withPartner(q, partnerId);
+    final snap = await q.orderBy('createdAt', descending: true).get();
     return snap.docs.map((d) => LeaseRequestModel.fromMap(d.data() as Map<String, dynamic>)).toList();
   }
 
   @override
-  Future<List<LeaseRequestModel>> getLeaseRequestsForLandowner(String landownerId) async {
-    final snap = await _leaseRequests
-        .where('landownerId', WhereFilter.equal, landownerId)
-        .orderBy('createdAt', descending: true)
-        .get();
-
+  Future<List<LeaseRequestModel>> getLeaseRequestsForLandowner(
+    String landownerId, {
+    String? partnerId,
+  }) async {
+    var q = _leaseRequests.where('landownerId', WhereFilter.equal, landownerId);
+    q = _withPartner(q, partnerId);
+    final snap = await q.orderBy('createdAt', descending: true).get();
     return snap.docs.map((d) => LeaseRequestModel.fromMap(d.data() as Map<String, dynamic>)).toList();
   }
 
   @override
-  Future<List<LeaseRequestModel>> getLeaseRequestsForManager(String managerId) async {
-    final snap = await _leaseRequests
-        .where('managerId', WhereFilter.equal, managerId)
-        .orderBy('createdAt', descending: true)
-        .get();
-
+  Future<List<LeaseRequestModel>> getLeaseRequestsForManager(String managerId, {String? partnerId}) async {
+    var q = _leaseRequests.where('managerId', WhereFilter.equal, managerId);
+    q = _withPartner(q, partnerId);
+    final snap = await q.orderBy('createdAt', descending: true).get();
     return snap.docs.map((d) => LeaseRequestModel.fromMap(d.data() as Map<String, dynamic>)).toList();
   }
 
@@ -623,37 +630,28 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   Future<List<LeaseRequestModel>> getPendingLeaseRequestsForUser({
     required String userId,
     required String role,
+    String? partnerId,
   }) async {
-    Query query;
+    final r = role.toLowerCase();
+    late Query query;
 
-    if (role == 'tenant') {
-      query = _leaseRequests.where('tenantId', WhereFilter.equal, userId).where('status', WhereFilter.isIn, [
-        LeaseRequestStatus.pending.value,
-        LeaseRequestStatus.approved.value,
-        LeaseRequestStatus.paymentRequired.value,
-        LeaseRequestStatus.paymentSubmitted.value,
-      ]);
-    } else if (role == 'manager') {
-      query = _leaseRequests.where('managerId', WhereFilter.equal, userId).where('status', WhereFilter.isIn, [
-        LeaseRequestStatus.pending.value,
-        LeaseRequestStatus.approved.value,
-        LeaseRequestStatus.paymentRequired.value,
-        LeaseRequestStatus.paymentSubmitted.value,
-      ]);
+    if (r == 'tenant') {
+      query = _leaseRequests.where('tenantId', WhereFilter.equal, userId);
+    } else if (r == 'manager') {
+      query = _leaseRequests.where('managerId', WhereFilter.equal, userId);
     } else {
-      // landowner
-      query = _leaseRequests
-          .where('landownerId', WhereFilter.equal, userId)
-          .where('status', WhereFilter.isIn, [
-            LeaseRequestStatus.pending.value,
-            LeaseRequestStatus.approved.value,
-            LeaseRequestStatus.paymentRequired.value,
-            LeaseRequestStatus.paymentSubmitted.value,
-          ]);
+      query = _leaseRequests.where('landownerId', WhereFilter.equal, userId);
     }
 
-    final snap = await query.orderBy('createdAt', descending: true).get();
+    query = query.where('status', WhereFilter.isIn, [
+      LeaseRequestStatus.pending.value,
+      LeaseRequestStatus.approved.value,
+      LeaseRequestStatus.paymentRequired.value,
+      LeaseRequestStatus.paymentSubmitted.value,
+    ]);
+    query = _withPartner(query, partnerId);
 
+    final snap = await query.orderBy('createdAt', descending: true).get();
     return snap.docs.map((d) => LeaseRequestModel.fromMap(d.data() as Map<String, dynamic>)).toList();
   }
 

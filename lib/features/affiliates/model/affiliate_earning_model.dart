@@ -1,6 +1,7 @@
 class AffiliateEarningModel {
   final String id;
   final String affiliateId;
+  final String partnerId;
   final String referredUserId;
   final String? applicationId;
   final String? subscriptionId;
@@ -12,6 +13,7 @@ class AffiliateEarningModel {
   AffiliateEarningModel({
     required this.id,
     required this.affiliateId,
+    this.partnerId = 'neztmate',
     required this.referredUserId,
     this.applicationId,
     this.subscriptionId,
@@ -23,21 +25,23 @@ class AffiliateEarningModel {
 
   factory AffiliateEarningModel.fromMap(Map<String, dynamic> map) {
     return AffiliateEarningModel(
-      id: map['id'],
-      affiliateId: map['affiliateId'],
-      referredUserId: map['referredUserId'],
-      applicationId: map['applicationId'],
-      subscriptionId: map['subscriptionId'],
+      id: map['id'] as String? ?? '',
+      affiliateId: map['affiliateId'] as String,
+      partnerId: map['partnerId'] as String? ?? 'neztmate',
+      referredUserId: map['referredUserId'] as String,
+      applicationId: map['applicationId'] as String?,
+      subscriptionId: map['subscriptionId'] as String?,
       amount: (map['amount'] as num).toDouble(),
-      type: map['type'],
-      status: map['status'] ?? 'pending',
-      createdAt: DateTime.parse(map['createdAt']),
+      type: map['type'] as String,
+      status: map['status'] as String? ?? 'pending',
+      createdAt: DateTime.parse(map['createdAt'] as String),
     );
   }
 
   Map<String, dynamic> toMap() => {
     'id': id,
     'affiliateId': affiliateId,
+    'partnerId': partnerId,
     'referredUserId': referredUserId,
     'applicationId': applicationId,
     'subscriptionId': subscriptionId,
@@ -50,6 +54,7 @@ class AffiliateEarningModel {
   AffiliateEarningModel copyWith({
     String? id,
     String? affiliateId,
+    String? partnerId,
     String? referredUserId,
     String? applicationId,
     String? subscriptionId,
@@ -61,6 +66,7 @@ class AffiliateEarningModel {
     return AffiliateEarningModel(
       id: id ?? this.id,
       affiliateId: affiliateId ?? this.affiliateId,
+      partnerId: partnerId ?? this.partnerId,
       referredUserId: referredUserId ?? this.referredUserId,
       applicationId: applicationId ?? this.applicationId,
       subscriptionId: subscriptionId ?? this.subscriptionId,

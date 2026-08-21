@@ -3,7 +3,6 @@ import 'package:neztmate_backend/features/auth_user/models/user_model.dart';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
 import 'package:neztmate_backend/features/history/model/user_history_model.dart';
 import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
-import 'package:neztmate_backend/features/leases/models/leases_model.dart';
 import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
 import 'package:neztmate_backend/features/properties/datasources/property_remote_datasource.dart';
 import 'package:neztmate_backend/features/properties/models/property_model.dart';
@@ -19,7 +18,7 @@ class UnitRepositoryImpl implements UnitRepository {
   final PropertyRemoteDataSource propertyDataSource;
   final LeaseRepository leaseRepository;
   final HistoryRepository historyRepository;
-  final UserRepository userRepository; // to fetch tenant info
+  final UserRepository userRepository;
 
   UnitRepositoryImpl(
     this.unitDataSource,
@@ -28,8 +27,16 @@ class UnitRepositoryImpl implements UnitRepository {
     this.userRepository,
     this.leaseRepository,
   );
+
   @override
-  Future<UnitModel> createUnit(UnitModel unit) => unitDataSource.createUnit(unit);
+  Future<UnitModel> createUnit(UnitModel unit) async {
+    // Ensure partnerId from parent property if missing
+    if (unit.partnerId.isEmpty || unit.partnerId == 'neztmate') {
+      final property = await propertyDataSource.getPropertyById(unit.propertyId);
+      return unitDataSource.createUnit(unit.copyWith(partnerId: property.partnerId));
+    }
+    return unitDataSource.createUnit(unit);
+  }
 
   @override
   Future<UnitModel> getUnitById(String id) => unitDataSource.getUnitById(id);
@@ -43,8 +50,17 @@ class UnitRepositoryImpl implements UnitRepository {
       unitDataSource.getAvailableUnitsByProperty(propertyId);
 
   @override
-  Future<List<UnitModel>> getAvailableUnits({String? propertyId, int? minBedrooms, double? maxRent}) =>
-      unitDataSource.getAvailableUnits(propertyId: propertyId, minBedrooms: minBedrooms, maxRent: maxRent);
+  Future<List<UnitModel>> getAvailableUnits({
+    required String partnerId,
+    String? propertyId,
+    int? minBedrooms,
+    double? maxRent,
+  }) => unitDataSource.getAvailableUnits(
+    partnerId: partnerId,
+    propertyId: propertyId,
+    minBedrooms: minBedrooms,
+    maxRent: maxRent,
+  );
 
   @override
   Future<void> updateUnit(UnitModel unit) => unitDataSource.updateUnit(unit);
@@ -54,92 +70,74 @@ class UnitRepositoryImpl implements UnitRepository {
 
   @override
   Future<List<AvailableUnitResponse>> getAvailableUnitsWithProperty({
+    required String partnerId,
     String? propertyId,
     int? minBedrooms,
     double? maxRent,
   }) async {
     final units = await unitDataSource.getAvailableUnits(
+      partnerId: partnerId,
       propertyId: propertyId,
       minBedrooms: minBedrooms,
       maxRent: maxRent,
     );
 
     final responses = <AvailableUnitResponse>[];
-    for (var unit in units) {
+    for (final unit in units) {
       final property = await propertyDataSource.getPropertyById(unit.propertyId);
+      // Extra safety if old units lack partnerId
+      if (property.partnerId != partnerId) continue;
       responses.add(AvailableUnitResponse(unit, property));
     }
     return responses;
   }
 
   @override
-  Future<List<OwnerUnitResponse>> getMyUnitsWithOccupants(String userId, String role) async {
-    if (!['Landowner', 'Manager'].contains(role)) {
+  Future<List<OwnerUnitResponse>> getMyUnitsWithOccupants(
+    String userId,
+    String role, {
+    String? partnerId,
+  }) async {
+    final r = role.toLowerCase();
+    if (!['landowner', 'manager'].contains(r)) {
       throw ForbiddenException('Only Landowner or Manager can access occupant details');
     }
 
-    // Step 1: Get all properties owned/managed by this user
-    List<PropertyModel> properties;
-    if (role == 'Landowner') {
-      properties = await propertyDataSource.getPropertiesByLandowner(userId);
-    } else {
-      properties = await propertyDataSource.getPropertiesByManager(userId);
-    }
+    final List<PropertyModel> properties = r == 'landowner'
+        ? await propertyDataSource.getPropertiesByLandowner(userId, partnerId: partnerId)
+        : await propertyDataSource.getPropertiesByManager(userId, partnerId: partnerId);
 
     if (properties.isEmpty) return [];
 
-    // Step 2: Collect all unit IDs from these properties
-    final propertyIds = properties.map((p) => p.id).toList();
-
-    // Step 3: Fetch all units under these properties
-    final allUnits = <UnitModel>[];
-    for (var propId in propertyIds) {
-      final units = await unitDataSource.getUnitsByProperty(propId);
-      allUnits.addAll(units);
-    }
-
-    // Step 4: Build enriched response for each unit
     final responses = <OwnerUnitResponse>[];
 
-    for (var unit in allUnits) {
-      User? currentTenant;
-      List<HistoryEntryModel> occupantHistory = [];
+    for (final property in properties) {
+      final units = await unitDataSource.getUnitsByProperty(property.id);
 
-      // Find active lease (current occupant)
-      final activeLeases = await leaseRepository.getLeasesByUnit(unit.id);
-      final activeLease = activeLeases.firstWhere(
-        (l) => l.status == 'active' && l.endDate.isAfter(DateTime.now()),
-        orElse: () => LeaseModel(
-          id: "",
-          unitId: "",
-          tenantId: "",
-          landownerId: "",
-          propertyId: "",
-          startDate: DateTime.now(),
-          endDate: DateTime.now(),
-          monthlyRent: 0,
-          createdAt: DateTime.now(),
-          applicationId: '',
-          updatedAt: DateTime.now(),
-        ),
-      );
+      for (final unit in units) {
+        User? currentTenant;
+        List<HistoryEntryModel> occupantHistory = [];
 
-      if (activeLease.tenantId.isNotEmpty) {
-        currentTenant = await userRepository.getUserById(activeLease.tenantId);
+        final activeLeases = await leaseRepository.getLeasesByUnit(unit.id);
+        final active = activeLeases.where((l) {
+          final status = l.status.toLowerCase();
+          return status == 'active' || status == 'pending payment';
+        }).toList();
+
+        if (active.isNotEmpty) {
+          final lease = active.first;
+          if (lease.tenantId.isNotEmpty) {
+            currentTenant = await userRepository.getUserById(lease.tenantId);
+          }
+        }
+
+        final history = await historyRepository.getHistoryByRelatedId(unit.id, 'units');
+        occupantHistory = history
+            .where((h) => h.type.contains('lease') || h.relatedCollection == 'leases')
+            .toList();
+
+        responses.add(OwnerUnitResponse(unit, currentTenant, occupantHistory));
       }
-
-      // Get occupant-related history (filter by lease/unit)
-      final history = await historyRepository.getHistoryByRelatedId(
-        unit.id,
-        'units', // or 'leases' — depending on how you log
-      );
-
-      // Optional: filter history to lease-related only
-      occupantHistory = history
-          .where((h) => h.type.contains('lease') || h.relatedCollection == 'leases')
-          .toList();
-
-      responses.add(OwnerUnitResponse(unit, currentTenant, occupantHistory));
     }
 
     return responses;
@@ -173,8 +171,10 @@ class UnitRepositoryImpl implements UnitRepository {
   Future<void> toggleLike(String unitId, String userId) => unitDataSource.toggleLike(unitId, userId);
 
   @override
-  Future<int> countByOwner(String ownerId) => unitDataSource.countByOwner(ownerId);
+  Future<int> countByOwner(String ownerId, {String? partnerId}) =>
+      unitDataSource.countByOwner(ownerId, partnerId: partnerId);
 
   @override
-  Future<int> countListedByOwner(String ownerId) => unitDataSource.countListedByOwner(ownerId);
+  Future<int> countListedByOwner(String ownerId, {String? partnerId}) =>
+      unitDataSource.countListedByOwner(ownerId, partnerId: partnerId);
 }

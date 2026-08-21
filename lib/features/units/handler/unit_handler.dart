@@ -2,7 +2,6 @@ import 'dart:convert';
 import 'package:neztmate_backend/core/utils.dart';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
 import 'package:neztmate_backend/features/leases/service/lease_payment_calculator_service.dart';
-import 'package:neztmate_backend/features/subscriptions/repository/subscription_repository.dart';
 import 'package:neztmate_backend/features/units/models/unit_comment_model.dart';
 import 'package:neztmate_backend/features/units/models/unit_model.dart';
 import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
@@ -48,12 +47,18 @@ class UnitHandler {
   Future<Response> getAvailableUnits(Request request) async {
     try {
       final role = request.context['role'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
+      final userId = request.context['userId'] as String?;
+
+      if (partnerId == null || userId == null) {
+        return badRequest("PartnerId or userId is required");
+      }
 
       if (role == 'tenant' || role == null) {
         final int applicationFee = await getCurrentApplicationFee();
 
         // Tenant sees unit + property
-        final unitsWithProperty = await unitRepository.getAvailableUnitsWithProperty();
+        final unitsWithProperty = await unitRepository.getAvailableUnitsWithProperty(partnerId: partnerId);
         print(" Fetched ${unitsWithProperty.length} available units with property info");
         return Response.ok(
           jsonEncode({
@@ -64,8 +69,7 @@ class UnitHandler {
         );
       } else {
         // Landowner/Manager sees unit + occupants + history
-        final userId = request.context['userId'] as String;
-        final ownerUnits = await unitRepository.getMyUnitsWithOccupants(userId, role);
+        final ownerUnits = await unitRepository.getMyUnitsWithOccupants(userId, role, partnerId: partnerId);
         return Response.ok(jsonEncode({'units': ownerUnits.map((u) => u.toMap()).toList()}));
       }
     } catch (e, s) {
@@ -130,7 +134,7 @@ class UnitHandler {
 
       //  SUBSCRIPTION RESTRICTION
 
-      final currentUnitCount = await unitRepository.countByOwner(userId);
+      final currentUnitCount = await unitRepository.countByOwner(userId, partnerId: partnerId);
       final maxUnits = _getMaxUnits(subscriptionPlan);
 
       if (currentUnitCount >= maxUnits) {

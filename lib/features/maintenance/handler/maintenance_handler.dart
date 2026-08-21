@@ -80,6 +80,7 @@ class MaintenanceHandler {
           type: 'new_maintenance_request',
           title: 'New Maintenance Request',
           body: '$title - $category',
+
           relatedId: created.id,
           partnerId: partnerId,
           relatedCollection: 'maintenance_requests',
@@ -102,13 +103,17 @@ class MaintenanceHandler {
   Future<Response> getAllRequests(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
       final role = request.context['role'] as String?;
 
-      if (userId == null || !['landowner', 'manager'].contains(role)) {
+      if (userId == null || partnerId == null || !['landowner', 'manager'].contains(role)) {
         return Response(403, body: jsonEncode({'message': 'Access denied'}));
       }
 
-      final requests = await maintenanceRepository.getAllRequestsForManagerOrLandowner(userId);
+      final requests = await maintenanceRepository.getAllRequestsForManagerOrLandowner(
+        userId,
+        partnerId: partnerId,
+      );
 
       final enrichedRequest = await Future.wait(
         requests.map((request) async {
@@ -141,9 +146,10 @@ class MaintenanceHandler {
   Future<Response> getMyRequests(Request request) async {
     try {
       final tenantId = request.context['userId'] as String?;
-      if (tenantId == null) return unauthorized();
+      final partnerId = request.context['partnerId'] as String?;
+      if (tenantId == null || partnerId == null) return unauthorized();
 
-      final requests = await maintenanceRepository.getRequestsByTenant(tenantId);
+      final requests = await maintenanceRepository.getRequestsByTenant(tenantId, partnerId: partnerId);
 
       final enrichedRequest = await Future.wait(
         requests.map((request) async {
@@ -770,7 +776,7 @@ class MaintenanceHandler {
       await maintenanceRepository.updateTask(updatedTask);
 
       // Send notifications
-      await _sendPaymentApprovalNotifications(updatedTask, approverId);
+      await _sendPaymentApprovalNotifications(updatedTask, approverId, partnerId);
 
       return Response.ok(
         jsonEncode({
@@ -787,7 +793,11 @@ class MaintenanceHandler {
   }
 
   // Helper method
-  Future<void> _sendPaymentApprovalNotifications(MaintenanceTaskModel task, String approverId) async {
+  Future<void> _sendPaymentApprovalNotifications(
+    MaintenanceTaskModel task,
+    String approverId,
+    String partnerId,
+  ) async {
     // Notify Artisan
     await notificationRepository.create(
       NotificationModel(
@@ -796,6 +806,8 @@ class MaintenanceHandler {
         title: 'Payment Approved',
         body: 'Your payment for "${task.title}" has been approved.',
         relatedId: task.id,
+        partnerId: partnerId,
+
         relatedCollection: 'maintenance_tasks',
         createdAt: DateTime.now(),
         id: '',
@@ -811,6 +823,7 @@ class MaintenanceHandler {
         title: 'Task Payment Processed',
         body: 'Payment for maintenance task has been approved.',
         relatedId: task.id,
+        partnerId: partnerId,
         relatedCollection: 'maintenance_tasks',
         createdAt: DateTime.now(),
         id: '',
@@ -822,9 +835,10 @@ class MaintenanceHandler {
   Future<Response> getMyTasks(Request request) async {
     try {
       final artisanId = request.context['userId'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
       final userRole = request.context['role'] as String?;
 
-      if (artisanId == null) {
+      if (artisanId == null || partnerId == null) {
         return unauthorized();
       }
 
@@ -833,7 +847,7 @@ class MaintenanceHandler {
       }
 
       // Get all active + pending tasks for this artisan across all properties
-      final tasks = await maintenanceRepository.getTasksByArtisan(artisanId);
+      final tasks = await maintenanceRepository.getTasksByArtisan(artisanId, partnerId: partnerId);
 
       // Enrich tasks with property and request details
       final enrichedTasks = await Future.wait(

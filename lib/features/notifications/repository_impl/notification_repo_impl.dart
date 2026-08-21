@@ -13,7 +13,7 @@ class NotificationRepositoryImpl implements NotificationRepository {
 
   @override
   Future<NotificationModel> create(NotificationModel notification) async {
-    final result = dataSource.create(notification);
+    final result = await dataSource.create(notification);
 
     unawaited(
       pushNotificationService.sendToUser(
@@ -22,23 +22,30 @@ class NotificationRepositoryImpl implements NotificationRepository {
         body: notification.body,
         data: {
           'type': notification.type,
-          'relatedId': ?notification.relatedId,
-          'relatedCollection': ?notification.relatedCollection,
+          'partnerId': notification.partnerId,
+          if (notification.relatedId != null) 'relatedId': notification.relatedId!,
+          if (notification.relatedCollection != null) 'relatedCollection': notification.relatedCollection!,
         },
       ),
     );
+
     return result;
   }
 
   @override
-  Future<List<NotificationModel>> getByUser(String userId, {int limit = 30, bool unreadOnly = false}) =>
-      dataSource.getByUser(userId, limit: limit, unreadOnly: unreadOnly);
+  Future<List<NotificationModel>> getByUser(
+    String userId, {
+    String? partnerId,
+    int limit = 30,
+    bool unreadOnly = false,
+  }) => dataSource.getByUser(userId, partnerId: partnerId, limit: limit, unreadOnly: unreadOnly);
 
   @override
   Future<void> markAsRead(String notificationId) => dataSource.markAsRead(notificationId);
 
   @override
-  Future<void> markAllAsRead(String userId) => dataSource.markAllAsRead(userId);
+  Future<void> markAllAsRead(String userId, {String? partnerId}) =>
+      dataSource.markAllAsRead(userId, partnerId: partnerId);
 
   @override
   Future<void> delete(String id) => dataSource.delete(id);

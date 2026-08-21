@@ -8,52 +8,42 @@ class ApplicationRepositoryImpl implements ApplicationRepository {
   ApplicationRepositoryImpl(this.dataSource);
 
   @override
-  Future<ApplicationModel> createApplication(ApplicationModel application) async {
-    return await dataSource.createApplication(application);
-  }
+  Future<ApplicationModel> createApplication(ApplicationModel application) =>
+      dataSource.createApplication(application);
 
   @override
-  Future<ApplicationModel> getApplicationById(String id) async {
-    return await dataSource.getApplicationById(id);
-  }
+  Future<ApplicationModel> getApplicationById(String id) => dataSource.getApplicationById(id);
 
   @override
-  Future<List<ApplicationModel>> getApplicationsByTenant(String tenantId) async {
-    return await dataSource.getApplicationsByTenant(tenantId);
-  }
+  Future<List<ApplicationModel>> getApplicationsByTenant(String tenantId, {String? partnerId}) =>
+      dataSource.getApplicationsByTenant(tenantId, partnerId: partnerId);
 
   @override
-  Future<List<ApplicationModel>> getApplicationsByUnit(String unitId) async {
-    return await dataSource.getApplicationsByUnit(unitId);
-  }
+  Future<List<ApplicationModel>> getApplicationsByUnit(String unitId) =>
+      dataSource.getApplicationsByUnit(unitId);
 
   @override
-  Future<void> updateApplication(ApplicationModel application) async {
-    await dataSource.updateApplication(application);
-  }
+  Future<void> updateApplication(ApplicationModel application) => dataSource.updateApplication(application);
 
   @override
-  Future<void> deleteApplication(String id) async {
-    await dataSource.deleteApplication(id);
-  }
+  Future<void> deleteApplication(String id) => dataSource.deleteApplication(id);
 
   @override
-  Future<ApplicationModel> approveApplication(String id, String reviewedBy) async {
-    return await dataSource.approveApplication(id, reviewedBy);
-  }
+  Future<ApplicationModel> approveApplication(String id, String reviewedBy) =>
+      dataSource.approveApplication(id, reviewedBy);
 
   @override
-  Future<void> rejectApplication(String id, String reviewedBy, String? reason) async {
-    await dataSource.rejectApplication(id, reviewedBy, reason);
-  }
+  Future<void> rejectApplication(String id, String reviewedBy, String? reason) =>
+      dataSource.rejectApplication(id, reviewedBy, reason);
 
   @override
-  Future<void> withdrawApplication(String id, String tenantId, String? reason) async {
-    await dataSource.withdrawApplication(id, tenantId, reason);
-  }
+  Future<void> withdrawApplication(String id, String tenantId, String? reason) =>
+      dataSource.withdrawApplication(id, tenantId, reason);
 
   @override
-  Future<List<ApplicationModel>> getApplicationsForManagerOrOwner(String userId, String role) async {
-    return await dataSource.getApplicationsForManagerOrOwner(userId, role);
-  }
+  Future<List<ApplicationModel>> getApplicationsForManagerOrOwner(
+    String userId,
+    String role, {
+    String? partnerId,
+  }) => dataSource.getApplicationsForManagerOrOwner(userId, role, partnerId: partnerId);
 }

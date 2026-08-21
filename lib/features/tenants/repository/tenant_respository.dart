@@ -6,6 +6,9 @@ abstract class TenantRepository {
     required String query,
     required String userId,
     required String role,
+    String? partnerId,
   });
+
+  /// Scoped by propertyId (property already belongs to a partner)
   Future<List<NeighborModel>> getTenantNeighbors(String propertyId, String tenantId);
 }

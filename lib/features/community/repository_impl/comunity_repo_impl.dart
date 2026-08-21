@@ -32,9 +32,6 @@ class CommunityRepositoryImpl implements CommunityRepository {
 
   @override
   Future<int> getCommentCount(String postId) => dataSource.getCommentCount(postId);
-  @override
-  Future<List<CommunityPostModel>> getFeed({required List<String> propertyIds, int limit = 20}) =>
-      dataSource.getFeed(propertyIds: propertyIds);
 
   @override
   Future<int> getPostLikeCount(String postId) => dataSource.getPostLikeCount(postId);
@@ -98,4 +95,11 @@ class CommunityRepositoryImpl implements CommunityRepository {
     // TODO: implement votePoll
     throw UnimplementedError();
   }
+
+  @override
+  Future<List<CommunityPostModel>> getFeed({
+    required List<String> propertyIds,
+    String? partnerId,
+    int limit = 20,
+  }) => dataSource.getFeed(propertyIds: propertyIds, partnerId: partnerId);
 }

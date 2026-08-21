@@ -59,13 +59,14 @@ class MessageHandler {
   Future<Response> getConversation(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
       final receiverId = request.params['receiverId'];
 
-      if (userId == null || receiverId == null) {
+      if (userId == null || receiverId == null || partnerId == null) {
         return Response(400, body: jsonEncode({'message': 'Missing user IDs'}));
       }
 
-      final messages = await repository.getConversation(userId, receiverId);
+      final messages = await repository.getConversation(userId, receiverId, partnerId: partnerId);
 
       return Response.ok(
         jsonEncode({'messages': messages.map((m) => m.toMap()).toList()}),
@@ -99,13 +100,19 @@ class MessageHandler {
   Future<Response> getUserChats(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
+
       final limit = request.params['limit'];
 
-      if (userId == null) {
+      if (userId == null || partnerId == null) {
         return Response(401, body: jsonEncode({'message': 'Unauthorized'}));
       }
 
-      final chats = await repository.getUserChats(userId, limit: int.parse(limit ?? "20"));
+      final chats = await repository.getUserChats(
+        userId,
+        limit: int.parse(limit ?? "20"),
+        partnerId: partnerId,
+      );
 
       final enrichedChat = await Future.wait(
         chats.map((chat) async {

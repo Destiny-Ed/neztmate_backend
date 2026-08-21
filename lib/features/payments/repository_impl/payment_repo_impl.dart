@@ -22,7 +22,8 @@ class PaymentRepositoryImpl implements PaymentRepository {
   Future<List<PaymentModel>> getPaymentsByLease(String leaseId) => dataSource.getPaymentsByLease(leaseId);
 
   @override
-  Future<List<PaymentModel>> getPaymentsByUser(String userId) => dataSource.getPaymentsByUser(userId);
+  Future<List<PaymentModel>> getPaymentsByUser(String userId, {String? partnerId}) =>
+      dataSource.getPaymentsByUser(userId, partnerId: partnerId);
 
   @override
   Future<List<PaymentModel>> getPaymentsByTask(String taskId) => dataSource.getPaymentsByTask(taskId);
@@ -46,8 +47,8 @@ class PaymentRepositoryImpl implements PaymentRepository {
   Future<WithdrawalModel> getWithdrawalById(String id) => dataSource.getWithdrawalById(id);
 
   @override
-  Future<List<WithdrawalModel>> getWithdrawalsByUser(String userId) =>
-      dataSource.getWithdrawalsByUser(userId);
+  Future<List<WithdrawalModel>> getWithdrawalsByUser(String userId, {String? partnerId}) =>
+      dataSource.getWithdrawalsByUser(userId, partnerId: partnerId);
 
   @override
   Future<void> updateWithdrawalStatus(String id, String status, String? processedBy) =>
@@ -89,12 +90,18 @@ class PaymentRepositoryImpl implements PaymentRepository {
       dataSource.getWithdrawalsByProperty(propertyId);
 
   @override
-  Future<PayoutAccountModel?> getDefaultPayoutAccount(String userId, {String? propertyId}) =>
-      dataSource.getDefaultPayoutAccount(userId);
+  Future<PayoutAccountModel?> getDefaultPayoutAccount(
+    String userId, {
+    String? propertyId,
+    String? partnerId,
+  }) => dataSource.getDefaultPayoutAccount(userId, propertyId: propertyId, partnerId: partnerId);
 
   @override
-  Future<List<PayoutAccountModel>> getPayoutAccounts(String userId, {String? propertyId}) =>
-      dataSource.getPayoutAccounts(userId);
+  Future<List<PayoutAccountModel>> getPayoutAccounts(
+    String userId, {
+    String? propertyId,
+    String? partnerId,
+  }) => dataSource.getPayoutAccounts(userId, propertyId: propertyId, partnerId: partnerId);
   @override
   Future<void> removePayoutAccount(String accountId) => dataSource.removePayoutAccount(accountId);
 
@@ -132,7 +139,8 @@ class PaymentRepositoryImpl implements PaymentRepository {
       dataSource.createWithdrawalAsFallback(disbursement);
 
   @override
-  Future<List<PaymentDisbursementModel>> getPendingDisbursements() => dataSource.getPendingDisbursements();
+  Future<List<PaymentDisbursementModel>> getPendingDisbursements({String? partnerId}) =>
+      dataSource.getPendingDisbursements(partnerId: partnerId);
 
   @override
   Future<void> markDisbursementAsCompleted(String disbursementId, String transferReference) =>
@@ -143,8 +151,8 @@ class PaymentRepositoryImpl implements PaymentRepository {
       dataSource.markDisbursementAsFailed(disbursementId, reason);
 
   @override
-  Future<void> recordPlatformFee(String paymentId, double amount, String paymentType) =>
-      dataSource.recordPlatformFee(paymentId, amount, paymentType);
+  Future<void> recordPlatformFee(String paymentId, double amount, String paymentType, {String? partnerId}) =>
+      dataSource.recordPlatformFee(paymentId, amount, paymentType, partnerId: partnerId);
 
   @override
   Future<PayoutAccountModel?> getPayoutAccountById(String id) => dataSource.getPayoutAccountById(id);
@@ -153,31 +161,34 @@ class PaymentRepositoryImpl implements PaymentRepository {
   Future<void> updatePayoutAccount(PayoutAccountModel account) => dataSource.updatePayoutAccount(account);
 
   @override
-  Future<List<PlatformFeeRecord>> getPlatformFeeHistory() => dataSource.getPlatformFeeHistory();
+  Future<List<PlatformFeeRecord>> getPlatformFeeHistory({String? partnerId}) =>
+      dataSource.getPlatformFeeHistory(partnerId: partnerId);
 
   @override
-  Future<double> getTotalUnwithdrawnPlatformFees() => dataSource.getTotalUnwithdrawnPlatformFees();
+  Future<double> getTotalUnwithdrawnPlatformFees({String? partnerId}) =>
+      dataSource.getTotalUnwithdrawnPlatformFees(partnerId: partnerId);
 
   @override
-  Future<void> markPlatformFeesAsWithdrawn(String withdrawalReference) =>
-      dataSource.markPlatformFeesAsWithdrawn(withdrawalReference);
+  Future<void> markPlatformFeesAsWithdrawn(String withdrawalReference, {String? partnerId}) =>
+      dataSource.markPlatformFeesAsWithdrawn(withdrawalReference, partnerId: partnerId);
 
   @override
   Future<void> recordManagerCommission(ManagerCommissionModel commission) =>
       dataSource.recordManagerCommission(commission);
 
   @override
-  Future<List<ManagerCommissionModel>> getManagerCommissions(String managerId) =>
-      dataSource.getManagerCommissions(managerId);
+  Future<List<ManagerCommissionModel>> getManagerCommissions(String managerId, {String? partnerId}) =>
+      dataSource.getManagerCommissions(managerId, partnerId: partnerId);
 
   @override
-  Future<double> getTotalPendingCommission(String managerId) =>
-      dataSource.getTotalPendingCommission(managerId);
+  Future<double> getTotalPendingCommission(String managerId, {String? partnerId}) =>
+      dataSource.getTotalPendingCommission(managerId, partnerId: partnerId);
 
   @override
   Future<void> markCommissionAsPaid(String commissionId, String payoutReference) =>
       dataSource.markCommissionAsPaid(commissionId, payoutReference);
 
   @override
-  Future<List<ManagerCommissionModel>> getManagersCommissions() => dataSource.getManagersCommissions();
+  Future<List<ManagerCommissionModel>> getManagersCommissions({String? partnerId}) =>
+      dataSource.getManagersCommissions(partnerId: partnerId);
 }

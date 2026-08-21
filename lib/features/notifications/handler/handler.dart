@@ -8,17 +8,25 @@ class NotificationHandler {
 
   NotificationHandler(this.repository);
 
-  /// GET /notifications - Get user's notifications
+  /// GET /notifications
   Future<Response> getNotifications(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
-      if (userId == null) {
+      final partnerId = request.context['partnerId'] as String?;
+
+      if (userId == null || partnerId == null) {
         return Response(401, body: jsonEncode({'message': 'Unauthorized'}));
       }
 
       final unreadOnly = request.url.queryParameters['unread'] == 'true';
+      final limit = int.tryParse(request.url.queryParameters['limit'] ?? '30') ?? 30;
 
-      final notifications = await repository.getByUser(userId, unreadOnly: unreadOnly);
+      final notifications = await repository.getByUser(
+        userId,
+        partnerId: partnerId,
+        limit: limit.clamp(1, 100),
+        unreadOnly: unreadOnly,
+      );
 
       return Response.ok(
         jsonEncode({
@@ -33,16 +41,18 @@ class NotificationHandler {
     }
   }
 
-  /// PATCH /notifications/<id>/read - Mark single notification as read
+  /// PATCH /notifications/<id>/read
   Future<Response> markAsRead(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
       final notificationId = request.params['id'];
 
-      if (userId == null || notificationId == null) {
+      if (userId == null || notificationId == null || partnerId == null) {
         return Response(400, body: jsonEncode({'message': 'Missing ID'}));
       }
 
+      // Optional: load + verify partnerId ownership before mark
       await repository.markAsRead(notificationId);
 
       return Response.ok(jsonEncode({'message': 'Notification marked as read'}));
@@ -51,17 +61,37 @@ class NotificationHandler {
     }
   }
 
-  /// PATCH /notifications/read-all - Mark all notifications as read
+  /// PATCH /notifications/read-all
   Future<Response> markAllAsRead(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
-      if (userId == null) {
+      final partnerId = request.context['partnerId'] as String?;
+
+      if (userId == null || partnerId == null) {
         return Response(401, body: jsonEncode({'message': 'Unauthorized'}));
       }
 
-      await repository.markAllAsRead(userId);
+      await repository.markAllAsRead(userId, partnerId: partnerId);
 
       return Response.ok(jsonEncode({'message': 'All notifications marked as read'}));
+    } catch (e) {
+      return Response.internalServerError();
+    }
+  }
+
+  /// DELETE /notifications/<id>
+  Future<Response> deleteNotification(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final notificationId = request.params['id'];
+
+      if (userId == null || notificationId == null) {
+        return Response(400, body: jsonEncode({'message': 'Missing ID'}));
+      }
+
+      await repository.delete(notificationId);
+
+      return Response.ok(jsonEncode({'message': 'Notification deleted'}));
     } catch (e) {
       return Response.internalServerError();
     }

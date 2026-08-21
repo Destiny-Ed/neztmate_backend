@@ -293,17 +293,22 @@ class ApplicationHandler {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
 
-      if (userId == null || role == null) {
+      if (userId == null || role == null || partnerId == null) {
         return Response(401, body: jsonEncode({'message': 'Unauthorized'}));
       }
 
       List<ApplicationModel> applications = [];
 
       if (role == 'tenant') {
-        applications = await applicationRepository.getApplicationsByTenant(userId);
+        applications = await applicationRepository.getApplicationsByTenant(userId, partnerId: partnerId);
       } else if (['manager', 'landowner'].contains(role)) {
-        applications = await applicationRepository.getApplicationsForManagerOrOwner(userId, role);
+        applications = await applicationRepository.getApplicationsForManagerOrOwner(
+          userId,
+          role,
+          partnerId: partnerId,
+        );
       } else {
         return Response(403, body: jsonEncode({'message': 'Access denied'}));
       }
@@ -465,8 +470,9 @@ class ApplicationHandler {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
       final appId = request.params['id'];
+      final partnerId = request.context['partnerId'] as String?;
 
-      if (userId == null || appId == null) {
+      if (userId == null || appId == null || partnerId == null) {
         return Response(400, body: jsonEncode({'message': 'Missing ID'}));
       }
 
@@ -607,6 +613,7 @@ class ApplicationHandler {
     try {
       final approverId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
       final appId = request.params['id'];
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
@@ -616,8 +623,8 @@ class ApplicationHandler {
 
       final isCustomLease = customLeasePdfUrl != null;
 
-      if (approverId == null || appId == null) {
-        return Response(400, body: jsonEncode({'message': 'Missing ID'}));
+      if (approverId == null || appId == null || partnerId == null) {
+        return Response(400, body: jsonEncode({'message': 'Missing ID [partnerId, appId, approverId]'}));
       }
 
       if (!['manager', 'landowner'].contains(role)) {
@@ -659,6 +666,7 @@ class ApplicationHandler {
         applicationId: appId,
         unitId: application.unitId,
         tenantId: application.tenantId,
+        partnerId: partnerId,
         propertyId: application.propertyId,
         rentPaymentMode: property.rentPaymentMode,
         landownerId: role == 'landowner' ? approverId : application.landownerId,
@@ -708,6 +716,7 @@ class ApplicationHandler {
         NotificationModel(
           id: "",
           userId: application.tenantId,
+          partnerId: partnerId,
           type: 'application_approved',
           title: 'Your Application Has Been Approved!',
           body:

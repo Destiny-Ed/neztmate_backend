@@ -16,9 +16,15 @@ class MessageRepositoryImpl implements MessageRepository {
     String userId1,
     String userId2, {
     String? propertyId,
+    String? partnerId,
     int limit = 50,
-  }) => dataSource.getConversation(userId1, userId2, propertyId: propertyId, limit: limit);
-
+  }) => dataSource.getConversation(
+    userId1,
+    userId2,
+    propertyId: propertyId,
+    partnerId: partnerId,
+    limit: limit,
+  );
   @override
   Future<MessageModel> getMessageById(String id) => dataSource.getMessageById(id);
 
@@ -30,7 +36,6 @@ class MessageRepositoryImpl implements MessageRepository {
   Future<void> deleteMessage(String id) => dataSource.deleteMessage(id);
 
   @override
-  Future<List<ChatSummaryModel>> getUserChats(String userId, {int limit = 20}) async {
-    return await dataSource.getUserChats(userId, limit: limit);
-  }
+  Future<List<ChatSummaryModel>> getUserChats(String userId, {String? partnerId, int limit = 20}) =>
+      dataSource.getUserChats(userId, partnerId: partnerId, limit: limit);
 }

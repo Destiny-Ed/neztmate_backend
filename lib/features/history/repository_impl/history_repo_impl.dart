@@ -13,19 +13,26 @@ class HistoryRepositoryImpl implements HistoryRepository {
   @override
   Future<List<HistoryEntryModel>> getHistoryByUser(
     String userId, {
+    String? partnerId,
     int limit = 50,
     DateTime? startAfter,
     String? typeFilter,
-  }) async {
-    // typeFilter can be added later if datasource supports it
-    return dataSource.getByUser(userId, limit: limit, startAfter: startAfter);
-  }
+  }) => dataSource.getByUser(
+    userId,
+    partnerId: partnerId,
+    limit: limit,
+    startAfter: startAfter,
+    typeFilter: typeFilter,
+  );
 
   @override
-  Future<List<HistoryEntryModel>> getHistoryByRelatedId(String relatedId, String relatedCollection) =>
-      dataSource.getByRelatedId(relatedId, relatedCollection);
+  Future<List<HistoryEntryModel>> getHistoryByRelatedId(
+    String relatedId,
+    String relatedCollection, {
+    String? partnerId,
+  }) => dataSource.getByRelatedId(relatedId, relatedCollection, partnerId: partnerId);
 
   @override
-  Future<void> deleteOldEntries(String userId, {int olderThanDays = 365}) =>
-      dataSource.deleteOld(userId, olderThanDays: olderThanDays);
+  Future<void> deleteOldEntries(String userId, {String? partnerId, int olderThanDays = 365}) =>
+      dataSource.deleteOld(userId, partnerId: partnerId, olderThanDays: olderThanDays);
 }

@@ -3,9 +3,17 @@ import 'package:neztmate_backend/features/applications/models/application_model.
 abstract class ApplicationRepository {
   Future<ApplicationModel> createApplication(ApplicationModel application);
   Future<ApplicationModel> getApplicationById(String id);
-  Future<List<ApplicationModel>> getApplicationsByTenant(String tenantId);
-  Future<List<ApplicationModel>> getApplicationsForManagerOrOwner(String userId, String role);
+
+  Future<List<ApplicationModel>> getApplicationsByTenant(String tenantId, {String? partnerId});
+
+  Future<List<ApplicationModel>> getApplicationsForManagerOrOwner(
+    String userId,
+    String role, {
+    String? partnerId,
+  });
+
   Future<List<ApplicationModel>> getApplicationsByUnit(String unitId);
+
   Future<void> updateApplication(ApplicationModel application);
   Future<void> deleteApplication(String id);
   Future<ApplicationModel> approveApplication(String id, String reviewedBy);

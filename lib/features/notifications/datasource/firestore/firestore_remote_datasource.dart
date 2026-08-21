@@ -1,5 +1,4 @@
 import 'package:dart_firebase_admin/firestore.dart';
-import 'package:neztmate_backend/core/error.dart';
 import 'package:neztmate_backend/features/notifications/datasource/remote_datasource.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 
@@ -8,56 +7,64 @@ class FirestoreNotificationDataSource implements NotificationRemoteDataSource {
 
   FirestoreNotificationDataSource(this.firestore);
 
+  CollectionReference get _notifications => firestore.collection('notifications');
+
   @override
   Future<NotificationModel> create(NotificationModel notification) async {
-    final docRef = firestore.collection('notifications').doc();
+    final docRef = _notifications.doc();
     final newNotif = notification.copyWith(id: docRef.id);
     await docRef.set(newNotif.toMap());
     return newNotif;
   }
 
   @override
-  Future<List<NotificationModel>> getByUser(String userId, {int limit = 30, bool unreadOnly = false}) async {
-    var query = firestore
-        .collection('notifications')
-        .where('userId', WhereFilter.equal, userId)
-        .orderBy('createdAt', descending: true)
-        .limit(limit);
+  Future<List<NotificationModel>> getByUser(
+    String userId, {
+    String? partnerId,
+    int limit = 30,
+    bool unreadOnly = false,
+  }) async {
+    Query query = _notifications.where('userId', WhereFilter.equal, userId);
+
+    if (partnerId != null && partnerId.isNotEmpty) {
+      query = query.where('partnerId', WhereFilter.equal, partnerId);
+    }
 
     if (unreadOnly) {
       query = query.where('isRead', WhereFilter.equal, false);
     }
 
-    final snap = await query.get();
+    final snap = await query.orderBy('createdAt', descending: true).limit(limit).get();
 
     return snap.docs.map((doc) {
-      return NotificationModel.fromMap(doc.data(), doc.id);
+      return NotificationModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
     }).toList();
   }
 
   @override
   Future<void> markAsRead(String notificationId) async {
-    await firestore.collection('notifications').doc(notificationId).update({'isRead': true});
+    await _notifications.doc(notificationId).update({'isRead': true});
   }
 
   @override
-  Future<void> markAllAsRead(String userId) async {
-    final snap = await firestore
-        .collection('notifications')
+  Future<void> markAllAsRead(String userId, {String? partnerId}) async {
+    Query query = _notifications
         .where('userId', WhereFilter.equal, userId)
-        .where('isRead', WhereFilter.equal, false)
-        .get();
+        .where('isRead', WhereFilter.equal, false);
 
-    // final batch = firestore.batch();
-    for (var doc in snap.docs) {
-      // batch.update(doc.ref, {'isRead': true});
-      doc.ref.update({'isRead': true});
+    if (partnerId != null && partnerId.isNotEmpty) {
+      query = query.where('partnerId', WhereFilter.equal, partnerId);
     }
-    // await batch.commit();
+
+    final snap = await query.get();
+
+    for (final doc in snap.docs) {
+      await doc.ref.update({'isRead': true});
+    }
   }
 
   @override
   Future<void> delete(String id) async {
-    await firestore.collection('notifications').doc(id).delete();
+    await _notifications.doc(id).delete();
   }
 }

@@ -5,7 +5,11 @@ abstract class CommunityRepository {
   Future<CommunityPostModel> createPost(CommunityPostModel post);
   Future<CommunityPostModel> getPostById(String id);
   Future<List<CommunityPostModel>> getPostsByProperty(String propertyId);
-  Future<List<CommunityPostModel>> getFeed({required List<String> propertyIds, int limit = 20});
+  Future<List<CommunityPostModel>> getFeed({
+    required List<String> propertyIds,
+    String? partnerId,
+    int limit = 20,
+  });
   Future<void> updatePost(CommunityPostModel post);
   Future<void> deletePost(String id);
   Future<void> pinPost(String postId);

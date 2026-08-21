@@ -68,7 +68,7 @@ class SubscriptionHandler {
         return badRequest('maxListings is required (-1 for unlimited)');
       }
 
-      final existing = await subscriptionRepository.getPlanById(name);
+      final existing = await subscriptionRepository.getPlanById(name, partnerId: partnerId);
       if (existing != null) {
         return Response(409, body: jsonEncode({'message': 'Plan "$name" already exists'}));
       }
@@ -106,6 +106,7 @@ class SubscriptionHandler {
   Future<Response> updatePlan(Request request) async {
     try {
       final role = request.context['role'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
       final planId = request.params['id'];
 
       if (role != 'admin') {
@@ -115,8 +116,12 @@ class SubscriptionHandler {
         return badRequest('Plan id is required');
       }
 
+      if (partnerId == null) {
+        return badRequest('PartnerId is required');
+      }
+
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
-      final existing = await subscriptionRepository.getPlanById(planId);
+      final existing = await subscriptionRepository.getPlanById(planId, partnerId: partnerId);
 
       if (existing == null) {
         return Response(404, body: jsonEncode({'message': 'Plan not found'}));
@@ -152,8 +157,11 @@ class SubscriptionHandler {
 
   /// GET /subscriptions/plans - Get all available plans
   Future<Response> getPlans(Request request) async {
+    final partnerId = request.context['partnerId'] as String?;
+
+    if (partnerId == null) return badRequest("Partner Id is required");
     try {
-      final plans = await subscriptionRepository.getAllPlans();
+      final plans = await subscriptionRepository.getAllPlans(partnerId: partnerId);
 
       return Response.ok(jsonEncode({'plans': plans.map((p) => p.toMap()).toList()}));
     } catch (e, stack) {
@@ -167,9 +175,11 @@ class SubscriptionHandler {
     try {
       final userId = request.context['userId'] as String?;
 
-      if (userId == null) return unauthorized('You are not authorized');
+      final partnerId = request.context['partnerId'] as String?;
 
-      final subscription = await subscriptionRepository.getActiveSubscription(userId);
+      if (userId == null || partnerId == null) return unauthorized('You are not authorized');
+
+      final subscription = await subscriptionRepository.getActiveSubscription(userId, partnerId: partnerId);
 
       if (subscription == null) {
         return Response.ok(jsonEncode({'message': 'No active subscription', 'status': 'free'}));
@@ -201,13 +211,13 @@ class SubscriptionHandler {
         return badRequest('billingCycle must be monthly or yearly');
       }
 
-      final plan = await subscriptionRepository.getPlanById(planId);
+      final plan = await subscriptionRepository.getPlanById(planId, partnerId: partnerId);
       if (plan == null || !plan.isActive) {
         return badRequest('Invalid or inactive plan');
       }
 
       // Already on this plan?
-      final current = await subscriptionRepository.getActiveSubscription(userId);
+      final current = await subscriptionRepository.getActiveSubscription(userId, partnerId: partnerId);
       if (current != null) {
         final currentPlanId = current.planId.toLowerCase();
         final requestedPlanId = planId.toLowerCase();
@@ -250,6 +260,7 @@ class SubscriptionHandler {
             description: 'Free plan activated.',
             relatedId: created.id,
             relatedCollection: 'subscriptions',
+            partnerId: partnerId,
             timestamp: DateTime.now(),
             id: '',
           ),
@@ -359,6 +370,8 @@ class SubscriptionHandler {
           userId: userId,
           type: 'subscription_cancelled',
           title: 'Subscription Cancelled',
+          partnerId: partnerId,
+
           description:
               'Your subscription will remain active until ${graceEndDate.toIso8601String().split("T").first}.',
           relatedId: subscription.id,

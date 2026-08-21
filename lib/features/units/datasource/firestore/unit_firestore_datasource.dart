@@ -15,8 +15,9 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
   @override
   Future<UnitModel> createUnit(UnitModel unit) async {
     final docRef = _units.doc(unit.id.isEmpty ? null : unit.id);
-    await docRef.set(unit.toMap());
-    return unit;
+    final toSave = unit.id.isEmpty ? unit.copyWith(id: docRef.id) : unit;
+    await docRef.set(toSave.toMap());
+    return toSave;
   }
 
   @override
@@ -42,9 +43,34 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
     return snap.docs.map((d) => UnitModel.fromMap(d.data())).toList();
   }
 
+  // @override
+  // Future<List<UnitModel>> getAvailableUnits({String? propertyId, int? minBedrooms, double? maxRent}) async {
+  //   var query = _units
+  //       .where('status', WhereFilter.equal, 'vacant')
+  //       .where('isListedForRent', WhereFilter.equal, true);
+
+  //   if (propertyId != null) {
+  //     query = query.where('propertyId', WhereFilter.equal, propertyId);
+  //   }
+  //   if (minBedrooms != null) {
+  //     query = query.where('bedrooms', WhereFilter.greaterThanOrEqual, minBedrooms);
+  //   }
+  //   if (maxRent != null) {
+  //     query = query.where('monthlyRent', WhereFilter.greaterThanOrEqual, maxRent);
+  //   }
+
+  //   final snap = await query.orderBy('monthlyRent').get();
+  //   return snap.docs.map((d) => UnitModel.fromMap(d.data())).toList();
+  // }
   @override
-  Future<List<UnitModel>> getAvailableUnits({String? propertyId, int? minBedrooms, double? maxRent}) async {
+  Future<List<UnitModel>> getAvailableUnits({
+    required String partnerId,
+    String? propertyId,
+    int? minBedrooms,
+    double? maxRent,
+  }) async {
     var query = _units
+        .where('partnerId', WhereFilter.equal, partnerId)
         .where('status', WhereFilter.equal, 'vacant')
         .where('isListedForRent', WhereFilter.equal, true);
 
@@ -54,12 +80,13 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
     if (minBedrooms != null) {
       query = query.where('bedrooms', WhereFilter.greaterThanOrEqual, minBedrooms);
     }
+    // Use yearlyRent to match UnitModel (not monthlyRent)
     if (maxRent != null) {
-      query = query.where('monthlyRent', WhereFilter.greaterThanOrEqual, maxRent);
+      query = query.where('monthlyRent', WhereFilter.lessThanOrEqual, maxRent);
     }
 
-    final snap = await query.orderBy('monthlyRent').get();
-    return snap.docs.map((d) => UnitModel.fromMap(d.data())).toList();
+    final snap = await query.get();
+    return snap.docs.map((d) => UnitModel.fromMap(d.data() as Map<String, dynamic>)).toList();
   }
 
   @override
@@ -155,7 +182,10 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
   }) async {
     if (unitId.isEmpty) throw ValidationException('Unit ID cannot be empty');
 
-    final updates = <String, dynamic>{'status': status, 'updatedAt': DateTime.now().toIso8601String()};
+    final updates = <String, dynamic>{
+      'status': status.toLowerCase(),
+      'updatedAt': DateTime.now().toIso8601String(),
+    };
 
     if (currentTenantId != null) updates['currentTenantId'] = currentTenantId;
     if (isListedForRent != null) updates['isListedForRent'] = isListedForRent;
@@ -212,42 +242,34 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
   }
 
   @override
-  Future<int> countByOwner(String ownerId) async {
-    // First get all property IDs owned by this user
-    final propertiesSnap = await firestore
-        .collection('properties')
-        .where('landownerId', WhereFilter.equal, ownerId)
-        .where('managerId', WhereFilter.equal, ownerId)
-        .get();
+  Future<int> countByOwner(String ownerId, {String? partnerId}) async {
+    var propQuery = firestore.collection('properties').where('landownerId', WhereFilter.equal, ownerId);
+    if (partnerId != null && partnerId.isNotEmpty) {
+      propQuery = propQuery.where('partnerId', WhereFilter.equal, partnerId);
+    }
 
+    final propertiesSnap = await propQuery.get();
     if (propertiesSnap.docs.isEmpty) return 0;
 
     final propertyIds = propertiesSnap.docs.map((d) => d.id).toList();
-
-    // Then count units belonging to those properties
-    // Note: Firestore 'in' supports max 30 items. For larger portfolios, batch the queries.
     int total = 0;
 
     for (var i = 0; i < propertyIds.length; i += 30) {
       final batch = propertyIds.skip(i).take(30).toList();
-      final unitsSnap = await firestore
-          .collection('units')
-          .where('propertyId', WhereFilter.arrayContains, batch)
-          .get();
-
+      final unitsSnap = await _units.where('propertyId', WhereFilter.isIn, batch).get();
       total += unitsSnap.docs.length;
     }
-
     return total;
   }
 
   @override
-  Future<int> countListedByOwner(String ownerId) async {
-    final propertiesSnap = await firestore
-        .collection('properties')
-        .where('landownerId', WhereFilter.equal, ownerId)
-        .get();
+  Future<int> countListedByOwner(String ownerId, {String? partnerId}) async {
+    var propQuery = firestore.collection('properties').where('landownerId', WhereFilter.equal, ownerId);
+    if (partnerId != null && partnerId.isNotEmpty) {
+      propQuery = propQuery.where('partnerId', WhereFilter.equal, partnerId);
+    }
 
+    final propertiesSnap = await propQuery.get();
     if (propertiesSnap.docs.isEmpty) return 0;
 
     final propertyIds = propertiesSnap.docs.map((d) => d.id).toList();
@@ -255,15 +277,12 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
 
     for (var i = 0; i < propertyIds.length; i += 30) {
       final batch = propertyIds.skip(i).take(30).toList();
-      final unitsSnap = await firestore
-          .collection('units')
-          .where('propertyId', WhereFilter.arrayContains, batch)
+      final unitsSnap = await _units
+          .where('propertyId', WhereFilter.isIn, batch)
           .where('isListedForRent', WhereFilter.equal, true)
           .get();
-
       total += unitsSnap.docs.length;
     }
-
     return total;
   }
 

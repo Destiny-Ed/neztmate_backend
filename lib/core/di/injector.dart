@@ -270,7 +270,7 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
 
   //maintenance request
   injector.registerLazySingleton<FirestoreMaintenanceDataSource>(
-    () => FirestoreMaintenanceDataSource(injector<Firestore>()),
+    () => FirestoreMaintenanceDataSource(injector<Firestore>(), injector<PropertyRepository>()),
   );
   injector.registerLazySingleton<MaintenanceRepository>(
     () => MaintenanceRepositoryImpl(injector<FirestoreMaintenanceDataSource>()),

@@ -1,17 +1,19 @@
 class HistoryEntryModel {
   final String id;
   final String userId;
-  final String type; // e.g. "lease_signed", "task_completed", "payment_received", "withdrawal_completed"
-  final String title; // short display title
-  final String? description; // optional longer details
-  final String? relatedId; // ID of lease, task, payment, withdrawal, etc.
-  final String? relatedCollection; // "leases", "tasks", "payments", "withdrawals", etc.
+  final String partnerId;
+  final String type;
+  final String title;
+  final String? description;
+  final String? relatedId;
+  final String? relatedCollection;
   final DateTime timestamp;
-  final Map<String, dynamic>? metadata; // extra context (e.g. amount, status, unitNumber)
+  final Map<String, dynamic>? metadata;
 
   HistoryEntryModel({
     required this.id,
     required this.userId,
+    this.partnerId = 'neztmate',
     required this.type,
     required this.title,
     this.description,
@@ -21,23 +23,25 @@ class HistoryEntryModel {
     this.metadata,
   });
 
-  factory HistoryEntryModel.fromMap(Map<String, dynamic> map, String id) {
+  factory HistoryEntryModel.fromMap(Map<String, dynamic> map, [String? id]) {
     return HistoryEntryModel(
-      id: id,
+      id: id ?? map['id'] as String? ?? '',
       userId: map['userId'] as String,
+      partnerId: map['partnerId'] as String? ?? 'neztmate',
       type: map['type'] as String,
       title: map['title'] as String,
       description: map['description'] as String?,
       relatedId: map['relatedId'] as String?,
       relatedCollection: map['relatedCollection'] as String?,
       timestamp: DateTime.parse(map['timestamp'] as String),
-      metadata: map['metadata'] as Map<String, dynamic>?,
+      metadata: map['metadata'] != null ? Map<String, dynamic>.from(map['metadata'] as Map) : null,
     );
   }
 
   Map<String, dynamic> toMap() => {
     'id': id,
     'userId': userId,
+    'partnerId': partnerId,
     'type': type,
     'title': title,
     'description': description,
@@ -50,6 +54,7 @@ class HistoryEntryModel {
   HistoryEntryModel copyWith({
     String? id,
     String? userId,
+    String? partnerId,
     String? type,
     String? title,
     String? description,
@@ -61,6 +66,7 @@ class HistoryEntryModel {
     return HistoryEntryModel(
       id: id ?? this.id,
       userId: userId ?? this.userId,
+      partnerId: partnerId ?? this.partnerId,
       type: type ?? this.type,
       title: title ?? this.title,
       description: description ?? this.description,

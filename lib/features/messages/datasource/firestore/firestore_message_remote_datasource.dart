@@ -23,40 +23,38 @@ class FirestoreMessageDataSource implements MessageRemoteDataSource {
     String userId1,
     String userId2, {
     String? propertyId,
+    String? partnerId,
     int limit = 50,
   }) async {
-    var query = firestore
-        .collection('messages')
-        .where('senderId', WhereFilter.equal, userId1)
-        .where('receiverId', WhereFilter.equal, userId2)
-        .orderBy('createdAt', descending: true)
-        .limit(limit);
+    Future<List<QueryDocumentSnapshot>> fetch(String from, String to) async {
+      var query = firestore
+          .collection('messages')
+          .where('senderId', WhereFilter.equal, from)
+          .where('receiverId', WhereFilter.equal, to);
 
-    if (propertyId != null) {
-      query = query.where('propertyId', WhereFilter.equal, propertyId);
+      if (partnerId != null && partnerId.isNotEmpty) {
+        query = query.where('partnerId', WhereFilter.equal, partnerId);
+      }
+      if (propertyId != null && propertyId.isNotEmpty) {
+        query = query.where('propertyId', WhereFilter.equal, propertyId);
+      }
+
+      final snap = await query.orderBy('createdAt', descending: true).limit(limit).get();
+      return snap.docs;
     }
 
-    // Also get the reverse direction (user2 to user1)
-    final snap1 = await query.get();
+    final snap1 = await fetch(userId1, userId2);
+    final snap2 = await fetch(userId2, userId1);
 
-    query = firestore
-        .collection('messages')
-        .where('senderId', WhereFilter.equal, userId2)
-        .where('receiverId', WhereFilter.equal, userId1)
-        .orderBy('createdAt', descending: true)
-        .limit(limit);
-
-    if (propertyId != null) {
-      query = query.where('propertyId', WhereFilter.equal, propertyId);
-    }
-
-    final snap2 = await query.get();
-
-    final allMessages = [...snap1.docs, ...snap2.docs];
-    allMessages.sort((a, b) => (b.data()['createdAt'] as String).compareTo(a.data()['createdAt'] as String));
+    final allMessages = [...snap1, ...snap2];
+    allMessages.sort((a, b) {
+      final ta = (a.data() as Map)['createdAt'] as String? ?? '';
+      final tb = (b.data() as Map)['createdAt'] as String? ?? '';
+      return tb.compareTo(ta);
+    });
 
     return allMessages.take(limit).map((doc) {
-      return MessageModel.fromMap(doc.data());
+      return MessageModel.fromMap(doc.data() as Map<String, dynamic>);
     }).toList();
   }
 
@@ -72,66 +70,58 @@ class FirestoreMessageDataSource implements MessageRemoteDataSource {
     await firestore.collection('messages').doc(id).delete();
   }
 
-  // In FirestoreMessageDataSource.dart
   @override
-  Future<List<ChatSummaryModel>> getUserChats(String userId, {int limit = 20}) async {
-    // Get all messages where user is sender OR receiver
-    final sentSnap = await firestore
-        .collection('messages')
-        .where('senderId', WhereFilter.equal, userId)
-        .orderBy('createdAt', descending: true)
-        .limit(limit * 2) // fetch more to deduplicate
-        .get();
+  Future<List<ChatSummaryModel>> getUserChats(String userId, {String? partnerId, int limit = 20}) async {
+    Future<QuerySnapshot> sent() async {
+      var q = firestore.collection('messages').where('senderId', WhereFilter.equal, userId);
+      if (partnerId != null && partnerId.isNotEmpty) {
+        q = q.where('partnerId', WhereFilter.equal, partnerId);
+      }
+      return q.orderBy('createdAt', descending: true).limit(limit * 2).get();
+    }
 
-    final receivedSnap = await firestore
-        .collection('messages')
-        .where('receiverId', WhereFilter.equal, userId)
-        .orderBy('createdAt', descending: true)
-        .limit(limit * 2)
-        .get();
+    Future<QuerySnapshot> received() async {
+      var q = firestore.collection('messages').where('receiverId', WhereFilter.equal, userId);
+      if (partnerId != null && partnerId.isNotEmpty) {
+        q = q.where('partnerId', WhereFilter.equal, partnerId);
+      }
+      return q.orderBy('createdAt', descending: true).limit(limit * 2).get();
+    }
 
+    final sentSnap = await sent();
+    final receivedSnap = await received();
     final allDocs = [...sentSnap.docs, ...receivedSnap.docs];
 
-    // Group by the other user (create a unique chat key)
     final Map<String, List<DocumentSnapshot>> chatGroups = {};
 
-    for (var doc in allDocs) {
+    for (final doc in allDocs) {
       final data = doc.data() as Map<String, dynamic>;
       final sender = data['senderId'] as String;
       final receiver = data['receiverId'] as String;
       final otherUserId = sender == userId ? receiver : sender;
-
-      final key = otherUserId; // simple key for now
-
-      chatGroups.putIfAbsent(key, () => []).add(doc);
+      chatGroups.putIfAbsent(otherUserId, () => []).add(doc);
     }
 
     final summaries = <ChatSummaryModel>[];
 
-    for (var entry in chatGroups.entries) {
+    for (final entry in chatGroups.entries) {
       final otherUserId = entry.key;
       final messages = entry.value;
 
-      // Get the latest message
       messages.sort((a, b) {
-        final timeA = (a.data() as Map)['createdAt'] as String;
-        final timeB = (b.data() as Map)['createdAt'] as String;
+        final timeA = (a.data() as Map)['createdAt'] as String? ?? '';
+        final timeB = (b.data() as Map)['createdAt'] as String? ?? '';
         return timeB.compareTo(timeA);
       });
 
-      final latestDoc = messages.first;
-      final latestData = latestDoc.data() as Map<String, dynamic>;
-
-      // Get other user info (you may want to cache this or join)
-      // For simplicity, we'll use a placeholder. In production, fetch user once.
-      final otherUserName = "User $otherUserId"; // Replace with real user fetch
+      final latestData = messages.first.data() as Map<String, dynamic>;
 
       summaries.add(
         ChatSummaryModel(
-          chatId: "${userId}_$otherUserId", // composite chat id
+          chatId: '${userId}_$otherUserId',
           otherUserId: otherUserId,
-          otherUserName: otherUserName,
-          lastMessage: latestData['content'] as String,
+          otherUserName: 'User $otherUserId', // replace with user fetch if you have it
+          lastMessage: latestData['content'] as String? ?? '',
           lastMessageTime: DateTime.parse(latestData['createdAt'] as String),
           isUnread: latestData['receiverId'] == userId && latestData['readAt'] == null,
           unreadCount: messages.where((m) {
@@ -139,21 +129,18 @@ class FirestoreMessageDataSource implements MessageRemoteDataSource {
             return d['receiverId'] == userId && d['readAt'] == null;
           }).length,
           propertyId: latestData['propertyId'] as String?,
+          partnerId: latestData['partnerId'].toString(),
         ),
       );
     }
 
-    // Sort by last message time
     summaries.sort((a, b) => b.lastMessageTime.compareTo(a.lastMessageTime));
-
     return summaries.take(limit).toList();
   }
 
   @override
   Future<void> markChatAsRead(String chatId, String readerId) async {
-    await firestore.collection('messages').doc(chatId).update({
-      'readAt': DateTime.now().toIso8601String(),
-    });
+    await firestore.collection('messages').doc(chatId).update({'readAt': DateTime.now().toIso8601String()});
   }
 
   @override

@@ -33,7 +33,12 @@ class TenantHandler {
         return Response(400, body: jsonEncode({'message': 'Search query is required'}));
       }
 
-      final tenants = await tenantRepository.searchTenants(query: query, userId: userId, role: role);
+      final tenants = await tenantRepository.searchTenants(
+        query: query,
+        userId: userId,
+        role: role,
+        partnerId: partnerId,
+      );
 
       return Response.ok(
         jsonEncode({

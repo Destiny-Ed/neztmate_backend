@@ -60,7 +60,7 @@ class InviteHandler {
         return badRequest('At least one propertyId is required');
       }
 
-      // ========== SUBSCRIPTION RESTRICTION ==========
+      //  SUBSCRIPTION RESTRICTION
       final plan = subscriptionPlan;
 
       if (plan == 'free') {
@@ -106,7 +106,10 @@ class InviteHandler {
       final normalizedEmail = inviteeEmail.toLowerCase();
 
       // 1. Check for existing active invites
-      final existingInvites = await repository.getInvitesByInviteeEmail(normalizedEmail);
+      final existingInvites = await repository.getInvitesByInviteeEmail(
+        normalizedEmail,
+        partnerId: partnerId,
+      );
 
       if (existingInvites.isNotEmpty) {
         for (var existing in existingInvites) {
@@ -226,15 +229,16 @@ class InviteHandler {
   Future<Response> getMyInvites(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
       final role = request.context['role'] as String?;
 
-      if (userId == null) return unauthorized();
+      if (userId == null || partnerId == null) return unauthorized();
 
       if (!['landowner', 'manager'].contains(role)) {
         return Response(403, body: jsonEncode({'message': 'Only landowners/managers can view sent invites'}));
       }
 
-      final invites = await repository.getInvitesByInviter(userId);
+      final invites = await repository.getInvitesByInviter(userId, partnerId: partnerId);
       final enriched = await _enrichInvites(invites);
 
       return Response.ok(
@@ -251,12 +255,13 @@ class InviteHandler {
   Future<Response> getInviteRequests(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
 
-      if (userId == null) return unauthorized();
+      if (userId == null || partnerId == null) return unauthorized();
 
       final user = await userRepository.getUserById(userId);
 
-      final invites = await repository.getInvitesByInviteeEmail(user.email);
+      final invites = await repository.getInvitesByInviteeEmail(user.email, partnerId: partnerId);
 
       final enriched = await _enrichInvites(invites);
 
@@ -291,9 +296,10 @@ class InviteHandler {
     try {
       final userId = request.context['userId'] as String?;
       final userRole = request.context['role'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
       final inviteId = request.params['id'];
 
-      if (userId == null || inviteId == null) {
+      if (userId == null || inviteId == null || partnerId == null) {
         return badRequest('Missing invite ID');
       }
 
@@ -355,6 +361,7 @@ class InviteHandler {
             propertyId: propertyId,
             userId: userId,
             role: invite.role,
+
             // Pass commission only for managers
             commissionType: invite.role == 'manager' ? invite.commissionType : null,
             commissionRate: invite.role == 'manager' ? invite.commissionRate : null,
@@ -368,7 +375,7 @@ class InviteHandler {
       await repository.acceptInvite(inviteId, userId);
 
       // Send notifications
-      await _sendAcceptNotifications(invite, userId);
+      await _sendAcceptNotifications(invite, userId, partnerId);
 
       return Response.ok(
         jsonEncode({
@@ -450,12 +457,13 @@ class InviteHandler {
     return enriched;
   }
 
-  Future<void> _sendAcceptNotifications(InviteModel invite, String newUserId) async {
+  Future<void> _sendAcceptNotifications(InviteModel invite, String newUserId, String partnerId) async {
     // Notify Invitee
     await notificationRepository.create(
       NotificationModel(
         userId: newUserId,
         type: 'invite_accepted',
+        partnerId: partnerId,
         title: 'Invite Accepted',
         body: 'You have successfully joined the properties as ${invite.role}.',
         relatedId: invite.id,
@@ -471,6 +479,8 @@ class InviteHandler {
         userId: invite.inviterId,
         type: 'invite_accepted',
         title: 'Invite Accepted',
+        partnerId: partnerId,
+
         body: 'User has accepted your invite as ${invite.role}.',
         relatedId: invite.id,
         relatedCollection: 'invites',

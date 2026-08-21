@@ -52,6 +52,7 @@ class UserReviewHandler {
         reviewedEntityId: reviewedEntityId,
         reviewedEntityType: reviewedEntityType,
         reviewType: reviewType,
+        partnerId: partnerId,
       );
 
       if (existing != null) {
@@ -93,6 +94,7 @@ class UserReviewHandler {
   Future<Response> updateReview(Request request) async {
     try {
       final reviewerId = request.context['userId'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
       final reviewId = request.params['id'];
 
       if (reviewerId == null || reviewId == null) return badRequest('Review ID is required');
@@ -106,6 +108,10 @@ class UserReviewHandler {
 
       if (existingReview.reviewerId != reviewerId) {
         return Response(403, body: jsonEncode({'message': 'You can only edit your own reviews'}));
+      }
+
+      if (existingReview.partnerId != partnerId) {
+        return Response(403, body: jsonEncode({'message': 'Forbidden'}));
       }
 
       final updatedReview = existingReview.copyWith(
@@ -127,6 +133,7 @@ class UserReviewHandler {
   Future<Response> deleteReview(Request request) async {
     try {
       final reviewerId = request.context['userId'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
       final reviewId = request.params['id'];
 
       if (reviewerId == null || reviewId == null) return badRequest('Review ID is required');
@@ -138,6 +145,10 @@ class UserReviewHandler {
 
       if (existingReview.reviewerId != reviewerId) {
         return Response(403, body: jsonEncode({'message': 'You can only delete your own reviews'}));
+      }
+
+      if (existingReview.partnerId != partnerId) {
+        return Response(403, body: jsonEncode({'message': 'Forbidden'}));
       }
 
       await reviewRepository.deleteReview(reviewId);
@@ -153,10 +164,11 @@ class UserReviewHandler {
   Future<Response> getUserReviews(Request request) async {
     try {
       final userId = request.params['userId'];
-      if (userId == null) return badRequest('User ID is required');
+      final partnerId = request.context['partnerId'] as String?;
+      if (userId == null || partnerId == null) return badRequest('User ID or PartnerId is required');
 
-      final reviews = await reviewRepository.getReviewsForUser(userId);
-      final averageRating = await reviewRepository.calculateAverageRating(userId);
+      final reviews = await reviewRepository.getReviewsForUser(userId, partnerId: partnerId);
+      final averageRating = await reviewRepository.calculateAverageRating(userId, partnerId: partnerId);
 
       return Response.ok(
         jsonEncode({
@@ -174,6 +186,10 @@ class UserReviewHandler {
 
   /// NEW: GET /reviews/entity/<entityType>/<entityId> - Get reviews for any entity (property, unit, etc.)
   Future<Response> getReviewsByEntity(Request request) async {
+    final partnerId = request.context['partnerId'] as String?;
+
+    if (partnerId == null) return badRequest('PartnerId is required');
+
     try {
       final entityType = request.params['entityType'];
       final entityId = request.params['entityId'];
@@ -182,11 +198,16 @@ class UserReviewHandler {
         return badRequest('Entity type and ID are required');
       }
 
-      final reviews = await reviewRepository.getReviewsForEntity(entityId: entityId, entityType: entityType);
+      final reviews = await reviewRepository.getReviewsForEntity(
+        entityId: entityId,
+        entityType: entityType,
+        partnerId: partnerId,
+      );
 
       final averageRating = await reviewRepository.calculateAverageRatingForEntity(
         entityId: entityId,
         entityType: entityType,
+        partnerId: partnerId,
       );
 
       return Response.ok(
@@ -236,9 +257,10 @@ class UserReviewHandler {
   Future<Response> getMyWrittenReviews(Request request) async {
     try {
       final reviewerId = request.context['userId'] as String?;
-      if (reviewerId == null) return unauthorized("You're not authorised");
+      final partnerId = request.context['partnerId'] as String?;
+      if (reviewerId == null || partnerId == null) return unauthorized("You're not authorised");
 
-      final reviews = await reviewRepository.getReviewsByReviewer(reviewerId);
+      final reviews = await reviewRepository.getReviewsByReviewer(reviewerId, partnerId: partnerId);
 
       return Response.ok(
         jsonEncode({'reviewsWritten': reviews.length, 'reviews': reviews.map((r) => r.toMap()).toList()}),

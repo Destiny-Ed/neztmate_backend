@@ -16,10 +16,8 @@ class FirestoreCommunityDataSource implements CommunityRemoteDataSource {
   @override
   Future<CommunityPostModel> createPost(CommunityPostModel post) async {
     final docRef = post.id.isNotEmpty ? _posts.doc(post.id) : _posts.doc();
-
     final newPost = post.copyWith(id: docRef.id);
     await docRef.set(newPost.toMap());
-
     return newPost;
   }
 
@@ -57,16 +55,36 @@ class FirestoreCommunityDataSource implements CommunityRemoteDataSource {
   // FEED
 
   @override
-  Future<List<CommunityPostModel>> getFeed({required List<String> propertyIds, int limit = 20}) async {
+  Future<List<CommunityPostModel>> getFeed({
+    required List<String> propertyIds,
+    String? partnerId,
+    int limit = 20,
+  }) async {
     if (propertyIds.isEmpty) return [];
 
-    final snap = await _posts
-        .where('propertyId', WhereFilter.arrayContains, propertyIds)
-        .orderBy('createdAt', descending: true)
-        .limit(limit)
-        .get();
+    final results = <CommunityPostModel>[];
 
-    return snap.docs.map((e) => CommunityPostModel.fromMap(e.data())).toList();
+    // Firestore `isIn` max 30 values — batch propertyIds
+    for (var i = 0; i < propertyIds.length; i += 30) {
+      final batch = propertyIds.skip(i).take(30).toList();
+
+      // Use `isIn` on propertyId — NOT arrayContains (that's for array fields)
+      var query = _posts.where('propertyId', WhereFilter.isIn, batch);
+
+      if (partnerId != null && partnerId.isNotEmpty) {
+        query = query.where('partnerId', WhereFilter.equal, partnerId);
+      }
+
+      final snap = await query.orderBy('createdAt', descending: true).limit(limit).get();
+
+      results.addAll(snap.docs.map((e) => CommunityPostModel.fromMap(e.data() as Map<String, dynamic>)));
+    }
+
+    results.sort((a, b) => b.createdAt.compareTo(a.createdAt));
+    if (results.length > limit) {
+      return results.take(limit).toList();
+    }
+    return results;
   }
 
   // LIKES

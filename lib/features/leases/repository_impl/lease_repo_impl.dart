@@ -33,32 +33,35 @@ class LeaseRepositoryImpl implements LeaseRepository {
 
   // QUERIES
   @override
-  Future<List<LeaseModel>> getActiveLeasesByTenant(String tenantId) =>
-      dataSource.getActiveLeasesByTenant(tenantId);
+  Future<List<LeaseModel>> getActiveLeasesByTenant(String tenantId, {String? partnerId}) =>
+      dataSource.getActiveLeasesByTenant(tenantId, partnerId: partnerId);
 
   @override
   Future<List<LeaseModel>> getActiveLeasesByProperty(String propertyId) =>
       dataSource.getActiveLeasesByProperty(propertyId);
 
   @override
-  Future<List<LeaseModel>> getLeasesByTenant(String tenantId) => dataSource.getLeasesByTenant(tenantId);
+  Future<List<LeaseModel>> getLeasesByTenant(String tenantId, {String? partnerId}) =>
+      dataSource.getLeasesByTenant(tenantId, partnerId: partnerId);
 
   @override
-  Future<List<LeaseModel>> getLeasesByLandowner(String landownerId) =>
-      dataSource.getLeasesByLandowner(landownerId);
+  Future<List<LeaseModel>> getLeasesByLandowner(String landownerId, {String? partnerId}) =>
+      dataSource.getLeasesByLandowner(landownerId, partnerId: partnerId);
 
   @override
-  Future<List<LeaseModel>> getLeasesByManager(String managerId) => dataSource.getLeasesByManager(managerId);
+  Future<List<LeaseModel>> getLeasesByManager(String managerId, {String? partnerId}) =>
+      dataSource.getLeasesByManager(managerId, partnerId: partnerId);
 
   @override
   Future<List<LeaseModel>> getLeasesByUnit(String unitId) => dataSource.getLeasesByUnit(unitId);
 
   @override
-  Future<List<LeaseModel>> getAllActiveLeases() => dataSource.getAllActiveLeases();
+  Future<List<LeaseModel>> getAllActiveLeases({String? partnerId}) =>
+      dataSource.getAllActiveLeases(partnerId: partnerId);
 
   @override
-  Future<List<LeaseModel>> getExpiringLeases({int withinDays = 5}) =>
-      dataSource.getExpiringLeases(withinDays: withinDays);
+  Future<List<LeaseModel>> getExpiringLeases({int withinDays = 5, String? partnerId}) =>
+      dataSource.getExpiringLeases(withinDays: withinDays, partnerId: partnerId);
 
   @override
   Future<LeaseRequestModel> updateLeaseRequest(LeaseRequestModel request) =>
@@ -156,22 +159,23 @@ class LeaseRepositoryImpl implements LeaseRepository {
       dataSource.getLeaseRequestsByLease(leaseId);
 
   @override
-  Future<List<LeaseRequestModel>> getLeaseRequestsByTenant(String tenantId) =>
-      dataSource.getLeaseRequestsByTenant(tenantId);
+  Future<List<LeaseRequestModel>> getLeaseRequestsByTenant(String tenantId, {String? partnerId}) =>
+      dataSource.getLeaseRequestsByTenant(tenantId, partnerId: partnerId);
 
   @override
-  Future<List<LeaseRequestModel>> getLeaseRequestsForLandowner(String landownerId) =>
-      dataSource.getLeaseRequestsForLandowner(landownerId);
+  Future<List<LeaseRequestModel>> getLeaseRequestsForLandowner(String landownerId, {String? partnerId}) =>
+      dataSource.getLeaseRequestsForLandowner(landownerId, partnerId: partnerId);
 
   @override
-  Future<List<LeaseRequestModel>> getLeaseRequestsForManager(String managerId) =>
-      dataSource.getLeaseRequestsForManager(managerId);
+  Future<List<LeaseRequestModel>> getLeaseRequestsForManager(String managerId, {String? partnerId}) =>
+      dataSource.getLeaseRequestsForManager(managerId, partnerId: partnerId);
 
   @override
   Future<List<LeaseRequestModel>> getPendingLeaseRequestsForUser({
     required String userId,
     required String role,
-  }) => dataSource.getPendingLeaseRequestsForUser(userId: userId, role: role);
+    String? partnerId,
+  }) => dataSource.getPendingLeaseRequestsForUser(userId: userId, role: role, partnerId: partnerId);
 
   @override
   Future<void> approveLeaseRequest({required String requestId, required String approvedBy, String? notes}) =>

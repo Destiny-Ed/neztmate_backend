@@ -1,6 +1,4 @@
-import 'package:neztmate_backend/features/auth_user/models/user_model.dart';
 import 'package:neztmate_backend/features/properties/datasources/property_remote_datasource.dart';
-import 'package:neztmate_backend/features/properties/models/artisan_with_stats.dart';
 import 'package:neztmate_backend/features/properties/models/property_model.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
 import 'package:neztmate_backend/features/tenants/models/tenant_summary.dart';
@@ -17,19 +15,23 @@ class PropertyRepositoryImpl implements PropertyRepository {
   Future<PropertyModel> getPropertyById(String id) => dataSource.getPropertyById(id);
 
   @override
-  Future<List<PropertyModel>> getMyProperties(String userId, String role) async {
-    if (role == 'landowner') {
-      return dataSource.getPropertiesByLandowner(userId);
-    } else if (role == 'manager') {
-      return dataSource.getPropertiesByManager(userId);
-    } else if (role == 'artisan') {
-      return dataSource.getPropertiesByArtisan(userId);
+  Future<List<PropertyModel>> getMyProperties(String userId, String role, {String? partnerId}) async {
+    final r = role.toLowerCase();
+    if (r == 'landowner') {
+      return dataSource.getPropertiesByLandowner(userId, partnerId: partnerId);
+    }
+    if (r == 'manager') {
+      return dataSource.getPropertiesByManager(userId, partnerId: partnerId);
+    }
+    if (r == 'artisan') {
+      return dataSource.getPropertiesByArtisan(userId, partnerId: partnerId);
     }
     return [];
   }
 
   @override
-  Future<List<PropertyModel>> getAllAvailableProperties() => dataSource.getAllProperties();
+  Future<List<PropertyModel>> getAllAvailableProperties({required String partnerId}) =>
+      dataSource.getAllAvailableProperties(partnerId: partnerId);
 
   @override
   Future<void> updateProperty(PropertyModel property) => dataSource.updateProperty(property);
@@ -38,12 +40,16 @@ class PropertyRepositoryImpl implements PropertyRepository {
   Future<void> deleteProperty(String id) => dataSource.deleteProperty(id);
 
   @override
-  Future<List<PropertyModel>> getPropertiesByLandowner(String landownerId) =>
-      dataSource.getPropertiesByLandowner(landownerId);
+  Future<List<PropertyModel>> getPropertiesByLandowner(String landownerId, {String? partnerId}) =>
+      dataSource.getPropertiesByLandowner(landownerId, partnerId: partnerId);
 
   @override
-  Future<List<PropertyModel>> getPropertiesByManager(String managerId) =>
-      dataSource.getPropertiesByManager(managerId);
+  Future<List<PropertyModel>> getPropertiesByManager(String managerId, {String? partnerId}) =>
+      dataSource.getPropertiesByManager(managerId, partnerId: partnerId);
+
+  @override
+  Future<List<PropertyModel>> getPropertiesByArtisan(String artisanId, {String? partnerId}) =>
+      dataSource.getPropertiesByArtisan(artisanId, partnerId: partnerId);
 
   @override
   Future<List<TenantSummary>> getCurrentTenantsByProperty(String propertyId) =>
@@ -84,15 +90,14 @@ class PropertyRepositoryImpl implements PropertyRepository {
   }) => dataSource.removeUserFromProperty(propertyId: propertyId, userId: userId, removedBy: removedBy);
 
   @override
-  Future<List<PropertyModel>> getPropertiesByArtisan(String artisanId) =>
-      dataSource.getPropertiesByManager(artisanId);
+  Future<int> countArtisansByOwner(String ownerId, {String? partnerId}) =>
+      dataSource.countArtisansByOwner(ownerId, partnerId: partnerId);
 
   @override
-  Future<int> countArtisansByOwner(String ownerId) => dataSource.countArtisansByOwner(ownerId);
+  Future<int> countByOwner(String ownerId, {String? partnerId}) =>
+      dataSource.countByOwner(ownerId, partnerId: partnerId);
 
   @override
-  Future<int> countByOwner(String ownerId) => dataSource.countByOwner(ownerId);
-
-  @override
-  Future<int> countManagersByOwner(String ownerId) => dataSource.countManagersByOwner(ownerId);
+  Future<int> countManagersByOwner(String ownerId, {String? partnerId}) =>
+      dataSource.countManagersByOwner(ownerId, partnerId: partnerId);
 }

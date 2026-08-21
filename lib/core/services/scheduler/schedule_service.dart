@@ -109,6 +109,7 @@ class SchedulerService {
           NotificationModel(
             userId: lease.tenantId,
             type: 'lease_due_soon',
+            partnerId: lease.partnerId,
             title: 'Lease Renewal Reminder',
             body: 'Your lease expires in $daysLeft days.',
             relatedId: lease.id,
@@ -121,6 +122,8 @@ class SchedulerService {
         await notificationRepository.create(
           NotificationModel(
             userId: lease.landownerId,
+            partnerId: lease.partnerId,
+
             type: 'lease_due_soon',
             title: 'Tenant Lease Expiring',
             body: 'A lease expires in $daysLeft days.',
@@ -212,6 +215,8 @@ class SchedulerService {
     await notificationRepository.create(
       NotificationModel(
         userId: lease.tenantId,
+        partnerId: lease.partnerId,
+
         type: 'lease_due_soon',
         title: 'Lease Renewal Reminder',
         body: 'Your lease ends in $daysLeft days. Please renew soon.',
@@ -226,6 +231,8 @@ class SchedulerService {
     await notificationRepository.create(
       NotificationModel(
         userId: lease.landownerId,
+        partnerId: lease.partnerId,
+
         type: 'lease_due_soon',
         title: 'Tenant Lease Expiring Soon',
         body: 'Tenant lease for unit ends in $daysLeft days.',
@@ -241,6 +248,8 @@ class SchedulerService {
     await notificationRepository.create(
       NotificationModel(
         userId: lease.tenantId,
+        partnerId: lease.partnerId,
+
         type: 'lease_overdue',
         title: 'Lease Has Expired',
         body: 'Your lease has expired. Please renew immediately or contact your landlord.',
@@ -255,6 +264,7 @@ class SchedulerService {
       NotificationModel(
         userId: lease.landownerId,
         type: 'lease_overdue',
+        partnerId: lease.partnerId,
         title: 'Lease Expired',
         body: 'A tenant lease has expired.',
         relatedId: lease.id,

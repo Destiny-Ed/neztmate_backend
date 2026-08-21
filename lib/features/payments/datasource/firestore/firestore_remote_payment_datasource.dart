@@ -8,6 +8,13 @@ import 'package:neztmate_backend/features/payments/models/payout_account_model.d
 import 'package:neztmate_backend/features/payments/models/plaform_fee_record_model.dart';
 import 'package:neztmate_backend/features/payments/models/withdrawal_model.dart';
 
+Query _withPartner(Query q, String? partnerId) {
+  if (partnerId != null && partnerId.isNotEmpty) {
+    return q.where('partnerId', WhereFilter.equal, partnerId);
+  }
+  return q;
+}
+
 class FirestorePaymentDataSource implements PaymentRemoteDataSource {
   final Firestore firestore;
 
@@ -26,15 +33,15 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
   }
 
   @override
-  Future<List<PaymentDisbursementModel>> getPendingDisbursements() async {
-    final snap = await _disbursements
+  Future<List<PaymentDisbursementModel>> getPendingDisbursements({String? partnerId}) async {
+    var q = _disbursements
         .where('status', WhereFilter.equal, 'held')
-        .where('scheduledDate', WhereFilter.lessThanOrEqual, DateTime.now().toIso8601String())
-        .get();
-
-    return snap.docs.map((doc) {
-      return PaymentDisbursementModel.fromMap(doc.data() as Map<String, dynamic>);
-    }).toList();
+        .where('scheduledDate', WhereFilter.lessThanOrEqual, DateTime.now().toIso8601String());
+    q = _withPartner(q, partnerId);
+    final snap = await q.get();
+    return snap.docs
+        .map((doc) => PaymentDisbursementModel.fromMap(doc.data() as Map<String, dynamic>))
+        .toList();
   }
 
   @override
@@ -107,12 +114,10 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
   }
 
   @override
-  Future<List<PaymentModel>> getPaymentsByUser(String userId) async {
-    final snap = await firestore
-        .collection('payments')
-        .where('payerId', WhereFilter.equal, userId)
-        .orderBy('createdAt', descending: true)
-        .get();
+  Future<List<PaymentModel>> getPaymentsByUser(String userId, {String? partnerId}) async {
+    Query q = firestore.collection('payments').where('payerId', WhereFilter.equal, userId);
+    q = _withPartner(q, partnerId);
+    final snap = await q.orderBy('createdAt', descending: true).get();
     return snap.docs.map((d) => PaymentModel.fromMap(d.data() as Map<String, dynamic>)).toList();
   }
 
@@ -316,12 +321,10 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
   }
 
   @override
-  Future<List<WithdrawalModel>> getWithdrawalsByUser(String userId) async {
-    final snap = await firestore
-        .collection('withdrawals')
-        .where('userId', WhereFilter.equal, userId)
-        .orderBy('requestedAt', descending: true)
-        .get();
+  Future<List<WithdrawalModel>> getWithdrawalsByUser(String userId, {String? partnerId}) async {
+    Query q = firestore.collection('withdrawals').where('userId', WhereFilter.equal, userId);
+    q = _withPartner(q, partnerId);
+    final snap = await q.orderBy('requestedAt', descending: true).get();
     return snap.docs.map((d) => WithdrawalModel.fromMap(d.data() as Map<String, dynamic>)).toList();
   }
 
@@ -392,31 +395,35 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
   }
 
   @override
-  Future<List<PayoutAccountModel>> getPayoutAccounts(String userId, {String? propertyId}) async {
-    var query = firestore.collection('payout_accounts').where('userId', WhereFilter.equal, userId);
-
+  Future<List<PayoutAccountModel>> getPayoutAccounts(
+    String userId, {
+    String? propertyId,
+    String? partnerId,
+  }) async {
+    Query query = firestore.collection('payout_accounts').where('userId', WhereFilter.equal, userId);
+    query = _withPartner(query, partnerId);
     if (propertyId != null) {
       query = query.where('propertyId', WhereFilter.equal, propertyId);
     }
-
     final snap = await query.orderBy('createdAt', descending: true).get();
-
     return snap.docs.map((d) => PayoutAccountModel.fromMap(d.data() as Map<String, dynamic>)).toList();
   }
 
   @override
-  Future<PayoutAccountModel?> getDefaultPayoutAccount(String userId, {String? propertyId}) async {
-    var query = firestore
+  Future<PayoutAccountModel?> getDefaultPayoutAccount(
+    String userId, {
+    String? propertyId,
+    String? partnerId,
+  }) async {
+    Query query = firestore
         .collection('payout_accounts')
         .where('userId', WhereFilter.equal, userId)
         .where('isDefault', WhereFilter.equal, true);
-
+    query = _withPartner(query, partnerId);
     if (propertyId != null) {
       query = query.where('propertyId', WhereFilter.equal, propertyId);
     }
-
     final snap = await query.limit(1).get();
-
     if (snap.docs.isEmpty) return null;
     return PayoutAccountModel.fromMap(snap.docs.first.data() as Map<String, dynamic>);
   }
@@ -510,41 +517,50 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
   }
 
   @override
-  Future<void> recordPlatformFee(String paymentId, double amount, String paymentType) async {
+  Future<void> recordPlatformFee(
+    String paymentId,
+    double amount,
+    String paymentType, {
+    String? partnerId,
+  }) async {
     await _platformFees.add({
       'paymentId': paymentId,
       'amount': amount,
       'paymentType': paymentType,
+      'partnerId': partnerId ?? 'neztmate',
+      'status': 'collected',
       'createdAt': DateTime.now().toIso8601String(),
     });
   }
 
   @override
-  Future<List<PlatformFeeRecord>> getPlatformFeeHistory() async {
-    final snap = await _platformFees.orderBy('collectedAt', descending: true).get();
-
+  Future<List<PlatformFeeRecord>> getPlatformFeeHistory({String? partnerId}) async {
+    var q = _platformFees.orderBy('collectedAt', descending: true);
+    q = _withPartner(q, partnerId);
+    final snap = await q.get();
     return snap.docs.map((doc) {
       return PlatformFeeRecord.fromMap(doc.data() as Map<String, dynamic>, doc.id);
     }).toList();
   }
 
   @override
-  Future<double> getTotalUnwithdrawnPlatformFees() async {
-    final snap = await _platformFees.where('status', WhereFilter.equal, 'collected').get();
-
+  Future<double> getTotalUnwithdrawnPlatformFees({String? partnerId}) async {
+    var q = _platformFees.where('status', WhereFilter.equal, 'collected');
+    q = _withPartner(q, partnerId);
+    final snap = await q.get();
     double total = 0.0;
-    for (var doc in snap.docs) {
-      final data = doc.data() as Map<String, dynamic>;
-      total += (data['amount'] as num).toDouble();
+    for (final doc in snap.docs) {
+      total += ((doc.data() as Map)['amount'] as num).toDouble();
     }
     return total;
   }
 
   @override
-  Future<void> markPlatformFeesAsWithdrawn(String withdrawalReference) async {
-    final snap = await _platformFees.where('status', WhereFilter.equal, 'collected').get();
-
-    for (var doc in snap.docs) {
+  Future<void> markPlatformFeesAsWithdrawn(String withdrawalReference, {String? partnerId}) async {
+    var q = _platformFees.where('status', WhereFilter.equal, 'collected');
+    q = _withPartner(q, partnerId);
+    final snap = await q.get();
+    for (final doc in snap.docs) {
       await doc.ref.update({
         'status': 'withdrawn',
         'withdrawnAt': DateTime.now().toIso8601String(),
@@ -573,51 +589,40 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
   }
 
   @override
-  Future<double> getTotalPendingCommission(String managerId) async {
-    try {
-      final snap = await firestore
-          .collection('manager_commissions')
-          .where('managerId', WhereFilter.equal, managerId)
-          .where('status', WhereFilter.equal, 'pending')
-          .get();
-
-      double total = 0.0;
-      for (var doc in snap.docs) {
-        final data = doc.data() as Map<String, dynamic>;
-        total += (data['commissionAmount'] as num).toDouble();
-      }
-      return total;
-    } catch (e) {
-      print('Error calculating pending commission: $e');
-      return 0.0;
+  Future<double> getTotalPendingCommission(String managerId, {String? partnerId}) async {
+    Query q = firestore
+        .collection('manager_commissions')
+        .where('managerId', WhereFilter.equal, managerId)
+        .where('status', WhereFilter.equal, 'pending');
+    q = _withPartner(q, partnerId);
+    final snap = await q.get();
+    double total = 0.0;
+    for (final doc in snap.docs) {
+      total += ((doc.data() as Map)['commissionAmount'] as num).toDouble();
     }
+    return total;
   }
 
   @override
-  Future<List<ManagerCommissionModel>> getManagerCommissions(String managerId) async {
-    final snap = await firestore
-        .collection('manager_commissions')
-        .where('managerId', WhereFilter.equal, managerId)
-        .orderBy('createdAt', descending: true)
-        .get();
-
+  Future<List<ManagerCommissionModel>> getManagerCommissions(String managerId, {String? partnerId}) async {
+    Query q = firestore.collection('manager_commissions').where('managerId', WhereFilter.equal, managerId);
+    q = _withPartner(q, partnerId);
+    final snap = await q.orderBy('createdAt', descending: true).get();
     return snap.docs
         .map((doc) => ManagerCommissionModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
         .toList();
   }
 
   @override
-  Future<List<ManagerCommissionModel>> getManagersCommissions() async {
-    final snap = await firestore
-        .collection('manager_commissions')
-        .where('status', WhereFilter.equal, 'pending')
-        .where(
-          'createdAt',
-          WhereFilter.lessThan,
-          DateTime.now().subtract(const Duration(days: 3)).toIso8601String(),
-        )
-        .get();
-
+  Future<List<ManagerCommissionModel>> getManagersCommissions({String? partnerId}) async {
+    Query q = firestore.collection('manager_commissions').where('status', WhereFilter.equal, 'pending')
+      ..where(
+        'createdAt',
+        WhereFilter.lessThan,
+        DateTime.now().subtract(const Duration(days: 3)).toIso8601String(),
+      );
+    q = _withPartner(q, partnerId);
+    final snap = await q.orderBy('createdAt', descending: true).get();
     return snap.docs
         .map((doc) => ManagerCommissionModel.fromMap(doc.data() as Map<String, dynamic>, doc.id))
         .toList();

@@ -14,14 +14,16 @@ class UserReviewRepositoryImpl implements UserReviewRepository {
   Future<UserReviewModel?> getReviewById(String id) => dataSource.getReviewById(id);
 
   @override
-  Future<List<UserReviewModel>> getReviewsForUser(String userId) => dataSource.getReviewsForUser(userId);
+  Future<List<UserReviewModel>> getReviewsForUser(String userId, {String? partnerId}) =>
+      dataSource.getReviewsForUser(userId, partnerId: partnerId);
 
   @override
-  Future<List<UserReviewModel>> getReviewsByReviewer(String reviewerId) =>
-      dataSource.getReviewsByReviewer(reviewerId);
+  Future<List<UserReviewModel>> getReviewsByReviewer(String reviewerId, {String? partnerId}) =>
+      dataSource.getReviewsByReviewer(reviewerId, partnerId: partnerId);
 
   @override
-  Future<double> calculateAverageRating(String userId) => dataSource.calculateAverageRating(userId);
+  Future<double> calculateAverageRating(String userId, {String? partnerId}) =>
+      dataSource.calculateAverageRating(userId, partnerId: partnerId);
 
   @override
   Future<UserReviewModel?> getExistingReview({
@@ -29,11 +31,13 @@ class UserReviewRepositoryImpl implements UserReviewRepository {
     required String reviewedEntityId,
     required String reviewedEntityType,
     required String reviewType,
+    String? partnerId,
   }) => dataSource.getExistingReview(
     reviewerId: reviewerId,
     reviewedEntityId: reviewedEntityId,
     reviewedEntityType: reviewedEntityType,
     reviewType: reviewType,
+    partnerId: partnerId,
   );
 
   @override
@@ -47,10 +51,20 @@ class UserReviewRepositoryImpl implements UserReviewRepository {
       dataSource.updateUserReputationAfterReview(reviewedUserId);
 
   @override
-  Future<List<UserReviewModel>> getReviewsForEntity({required String entityId, required String entityType}) =>
-      dataSource.getReviewsForEntity(entityId: entityId, entityType: entityType);
+  Future<List<UserReviewModel>> getReviewsForEntity({
+    required String entityId,
+    required String entityType,
+    String? partnerId,
+  }) => dataSource.getReviewsForEntity(entityId: entityId, entityType: entityType, partnerId: partnerId);
 
   @override
-  Future<double> calculateAverageRatingForEntity({required String entityId, required String entityType}) =>
-      dataSource.calculateAverageRatingForEntity(entityId: entityId, entityType: entityType);
+  Future<double> calculateAverageRatingForEntity({
+    required String entityId,
+    required String entityType,
+    String? partnerId,
+  }) => dataSource.calculateAverageRatingForEntity(
+    entityId: entityId,
+    entityType: entityType,
+    partnerId: partnerId,
+  );
 }

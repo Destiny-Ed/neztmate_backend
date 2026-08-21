@@ -13,11 +13,19 @@ class FirestorePropertyDataSource implements PropertyRemoteDataSource {
 
   CollectionReference get _properties => firestore.collection('properties');
 
+  Query _withPartner(Query query, String? partnerId) {
+    if (partnerId != null && partnerId.isNotEmpty) {
+      return query.where('partnerId', WhereFilter.equal, partnerId);
+    }
+    return query;
+  }
+
   @override
   Future<PropertyModel> createProperty(PropertyModel property) async {
     final docRef = _properties.doc(property.id.isEmpty ? null : property.id);
-    await docRef.set(property.toMap());
-    return property;
+    final toSave = property.id.isEmpty ? property.copyWith(id: docRef.id) : property;
+    await docRef.set(toSave.toMap());
+    return toSave;
   }
 
   @override
@@ -28,27 +36,36 @@ class FirestorePropertyDataSource implements PropertyRemoteDataSource {
   }
 
   @override
-  Future<List<PropertyModel>> getPropertiesByLandowner(String landownerId) async {
-    final snap = await _properties.where('landownerId', WhereFilter.equal, landownerId).get();
-    return snap.docs.map((d) => PropertyModel.fromMap(d.data())).toList();
+  Future<List<PropertyModel>> getPropertiesByLandowner(String landownerId, {String? partnerId}) async {
+    var query = _properties.where('landownerId', WhereFilter.equal, landownerId);
+    query = _withPartner(query, partnerId);
+    final snap = await query.get();
+    return snap.docs.map((d) => PropertyModel.fromMap(d.data() as Map<String, dynamic>)).toList();
   }
 
   @override
-  Future<List<PropertyModel>> getPropertiesByManager(String managerId) async {
-    final snap = await _properties.where('managerId', WhereFilter.equal, managerId).get();
-    return snap.docs.map((d) => PropertyModel.fromMap(d.data())).toList();
+  Future<List<PropertyModel>> getPropertiesByManager(String managerId, {String? partnerId}) async {
+    var query = _properties.where('managerId', WhereFilter.equal, managerId);
+    query = _withPartner(query, partnerId);
+    final snap = await query.get();
+    return snap.docs.map((d) => PropertyModel.fromMap(d.data() as Map<String, dynamic>)).toList();
   }
 
   @override
-  Future<List<PropertyModel>> getPropertiesByArtisan(String artisanId) async {
-    final snap = await _properties.where('artisanIds', WhereFilter.arrayContains, artisanId).get();
-    return snap.docs.map((d) => PropertyModel.fromMap(d.data())).toList();
+  Future<List<PropertyModel>> getPropertiesByArtisan(String artisanId, {String? partnerId}) async {
+    var query = _properties.where('artisanIds', WhereFilter.arrayContains, artisanId);
+    query = _withPartner(query, partnerId);
+    final snap = await query.get();
+    return snap.docs.map((d) => PropertyModel.fromMap(d.data() as Map<String, dynamic>)).toList();
   }
 
   @override
-  Future<List<PropertyModel>> getAllProperties() async {
-    final snap = await _properties.orderBy('createdAt', descending: true).get();
-    return snap.docs.map((d) => PropertyModel.fromMap(d.data())).toList();
+  Future<List<PropertyModel>> getAllAvailableProperties({required String partnerId}) async {
+    final snap = await _properties
+        .where('partnerId', WhereFilter.equal, partnerId)
+        .orderBy('createdAt', descending: true)
+        .get();
+    return snap.docs.map((d) => PropertyModel.fromMap(d.data() as Map<String, dynamic>)).toList();
   }
 
   @override
@@ -82,7 +99,6 @@ class FirestorePropertyDataSource implements PropertyRemoteDataSource {
         if (!unitDoc.exists) continue;
 
         final unitData = unitDoc.data() as Map<String, dynamic>;
-
         final tenantData = tenantDoc.data() as Map<String, dynamic>;
 
         tenants.add(
@@ -93,7 +109,7 @@ class FirestorePropertyDataSource implements PropertyRemoteDataSource {
             phone: tenantData['phone'],
             profilePhotoUrl: tenantData['profilePhotoUrl'],
             unitId: leaseData['unitId'],
-            leaseId: leaseData['id'],
+            leaseId: leaseData['id'] ?? doc.id,
             unitNumber: unitData['unitNumber'] ?? 'N/A',
             monthlyRent: (leaseData['monthlyRent'] as num?)?.toDouble() ?? 0.0,
             leaseStartDate: DateTime.parse(leaseData['startDate']),
@@ -113,30 +129,25 @@ class FirestorePropertyDataSource implements PropertyRemoteDataSource {
   @override
   Future<List<TenantSummary>> getCurrentTenantsByProperty(String propertyId) async {
     final allTenants = await getTenantsByProperty(propertyId);
-    return allTenants
-        .where(
-          (t) =>
-              t.leaseStatus.toLowerCase() == 'active' ||
-              t.leaseStatus.toLowerCase() == 'inactive' ||
-              t.leaseStatus.toLowerCase() == 'terminationrequested' ||
-              t.leaseStatus.toLowerCase() == 'transferrequested' ||
-              t.leaseStatus.toLowerCase() == 'termination_requested' ||
-              t.leaseStatus.toLowerCase() == 'transfer_requested',
-        )
-        .toList();
+    return allTenants.where((t) {
+      final s = t.leaseStatus.toLowerCase();
+      return s == 'active' ||
+          s == 'inactive' ||
+          s == 'terminationrequested' ||
+          s == 'transferrequested' ||
+          s == 'termination_requested' ||
+          s == 'transfer_requested' ||
+          s == 'pending payment';
+    }).toList();
   }
 
   @override
   Future<List<TenantSummary>> getPastTenantsByProperty(String propertyId) async {
     final allTenants = await getTenantsByProperty(propertyId);
-    return allTenants
-        .where(
-          (t) =>
-              t.leaseStatus.toLowerCase() == 'terminated' ||
-              t.leaseStatus.toLowerCase() == 'expired' ||
-              t.leaseStatus.toLowerCase() == 'transferred',
-        )
-        .toList();
+    return allTenants.where((t) {
+      final s = t.leaseStatus.toLowerCase();
+      return s == 'terminated' || s == 'expired' || s == 'transferred';
+    }).toList();
   }
 
   @override
@@ -144,7 +155,7 @@ class FirestorePropertyDataSource implements PropertyRemoteDataSource {
     required String propertyId,
     required String userId,
     required String role,
-    String? commissionType, // "percentage", "flat_fee", "none"
+    String? commissionType,
     double? commissionRate,
     double? flatFeeAmount,
     String? flatFeePeriod,
@@ -153,13 +164,11 @@ class FirestorePropertyDataSource implements PropertyRemoteDataSource {
 
     if (role.toLowerCase() == 'manager') {
       updateData['managerId'] = userId;
-
-      // Store commission terms at property level
       if (commissionType != null) {
         updateData['managerCommissionType'] = commissionType;
         if (commissionType == 'percentage' && commissionRate != null) {
           updateData['managerCommissionRate'] = commissionRate;
-        } else if (commissionType == 'flat') {
+        } else if (commissionType == 'flat' || commissionType == 'flat_fee') {
           updateData['managerFlatFeeAmount'] = flatFeeAmount;
           updateData['managerFlatFeePeriod'] = flatFeePeriod ?? 'yearly';
         }
@@ -168,7 +177,7 @@ class FirestorePropertyDataSource implements PropertyRemoteDataSource {
       updateData['artisanIds'] = FieldValue.arrayUnion([userId]);
     }
 
-    await firestore.collection('properties').doc(propertyId).update(updateData);
+    await _properties.doc(propertyId).update(updateData);
   }
 
   @override
@@ -177,17 +186,17 @@ class FirestorePropertyDataSource implements PropertyRemoteDataSource {
     required String userId,
     required String removedBy,
   }) async {
-    final propDoc = await firestore.collection('properties').doc(propertyId).get();
+    final propDoc = await _properties.doc(propertyId).get();
     final data = propDoc.data() as Map<String, dynamic>;
 
     if (data['managerId'] == userId) {
-      await firestore.collection('properties').doc(propertyId).update({
+      await _properties.doc(propertyId).update({
         'managerId': null,
         'updatedAt': DateTime.now().toIso8601String(),
         'removedBy': removedBy,
       });
     } else {
-      await firestore.collection('properties').doc(propertyId).update({
+      await _properties.doc(propertyId).update({
         'artisanIds': FieldValue.arrayRemove([userId]),
         'updatedAt': DateTime.now().toIso8601String(),
         'removedBy': removedBy,
@@ -196,43 +205,38 @@ class FirestorePropertyDataSource implements PropertyRemoteDataSource {
   }
 
   @override
-  Future<int> countByOwner(String ownerId) async {
-    final snap = await firestore
-        .collection('properties')
-        .where('landownerId', WhereFilter.equal, ownerId)
-        .where('managerId', WhereFilter.equal, ownerId)
-        .get();
-
+  Future<int> countByOwner(String ownerId, {String? partnerId}) async {
+    var query = _properties.where('landownerId', WhereFilter.equal, ownerId);
+    query = _withPartner(query, partnerId);
+    final snap = await query.get();
     return snap.docs.length;
   }
 
   @override
-  Future<int> countManagersByOwner(String ownerId) async {
-    final snap = await firestore
-        .collection('properties')
-        .where('landownerId', WhereFilter.equal, ownerId)
-        .where('managerId', WhereFilter.notEqual, null)
-        .get();
+  Future<int> countManagersByOwner(String ownerId, {String? partnerId}) async {
+    var query = _properties.where('landownerId', WhereFilter.equal, ownerId);
+    query = _withPartner(query, partnerId);
+    final snap = await query.get();
 
-    return snap.docs.length;
+    return snap.docs.where((doc) {
+      final data = doc.data() as Map<String, dynamic>;
+      final managerId = data['managerId'];
+      return managerId != null && managerId.toString().isNotEmpty;
+    }).length;
   }
 
   @override
-  Future<int> countArtisansByOwner(String ownerId) async {
-    // Count distinct artisans across all properties owned by this landowner
-    final properties = await firestore
-        .collection('properties')
-        .where('landownerId', WhereFilter.equal, ownerId)
-        .get();
+  Future<int> countArtisansByOwner(String ownerId, {String? partnerId}) async {
+    var query = _properties.where('landownerId', WhereFilter.equal, ownerId);
+    query = _withPartner(query, partnerId);
+    final properties = await query.get();
 
     final Set<String> artisanIds = {};
-
     for (var doc in properties.docs) {
       final data = doc.data() as Map<String, dynamic>;
       final ids = (data['artisanIds'] as List?)?.cast<String>() ?? [];
       artisanIds.addAll(ids);
     }
-
     return artisanIds.length;
   }
 }

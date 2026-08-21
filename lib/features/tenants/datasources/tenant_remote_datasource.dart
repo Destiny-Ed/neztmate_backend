@@ -6,6 +6,7 @@ abstract class TenantRemoteDataSource {
     required String query,
     required String userId,
     required String role,
+    String? partnerId,
   });
 
   Future<List<NeighborModel>> getTenantNeighbors(String propertyId, String tenantId);

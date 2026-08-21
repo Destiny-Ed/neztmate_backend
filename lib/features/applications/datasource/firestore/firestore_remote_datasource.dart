@@ -2,6 +2,7 @@ import 'package:dart_firebase_admin/firestore.dart';
 import 'package:neztmate_backend/core/error.dart';
 import 'package:neztmate_backend/features/applications/datasource/application_remote_datasource.dart';
 import 'package:neztmate_backend/features/applications/models/application_model.dart';
+import 'package:neztmate_backend/features/properties/models/property_model.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
 
 class FirestoreApplicationDataSource implements ApplicationRemoteDataSource {
@@ -14,7 +15,7 @@ class FirestoreApplicationDataSource implements ApplicationRemoteDataSource {
 
   @override
   Future<ApplicationModel> createApplication(ApplicationModel application) async {
-    final docRef = _applications.doc();
+    final docRef = _applications.doc(application.id.isEmpty ? null : application.id);
     final newApp = application.copyWith(id: docRef.id);
     await docRef.set(newApp.toMap());
     return newApp;
@@ -28,9 +29,13 @@ class FirestoreApplicationDataSource implements ApplicationRemoteDataSource {
   }
 
   @override
-  Future<List<ApplicationModel>> getApplicationsByTenant(String tenantId) async {
-    final snap = await _applications.where('tenantId', WhereFilter.equal, tenantId).get();
-    return snap.docs.map((d) => ApplicationModel.fromMap(d.data())).toList();
+  Future<List<ApplicationModel>> getApplicationsByTenant(String tenantId, {String? partnerId}) async {
+    var query = _applications.where('tenantId', WhereFilter.equal, tenantId);
+    if (partnerId != null && partnerId.isNotEmpty) {
+      query = query.where('partnerId', WhereFilter.equal, partnerId);
+    }
+    final snap = await query.get();
+    return snap.docs.map((d) => ApplicationModel.fromMap(d.data() as Map<String, dynamic>)).toList();
   }
 
   @override
@@ -103,39 +108,49 @@ class FirestoreApplicationDataSource implements ApplicationRemoteDataSource {
   }
 
   @override
-  Future<List<ApplicationModel>> getApplicationsForManagerOrOwner(String userId, String role) async {
+  Future<List<ApplicationModel>> getApplicationsForManagerOrOwner(
+    String userId,
+    String role, {
+    String? partnerId,
+  }) async {
     try {
-      final snap = await _applications.where('status', WhereFilter.notIn, ['fee_pending', 'withdrawn']).get();
-      if (snap.docs.isEmpty) return [];
+      final r = role.toLowerCase();
 
-      final allApplications = snap.docs
-          .map((doc) => ApplicationModel.fromMap(doc.data() as Map<String, dynamic>))
-          .toList();
+      //  Properties for this owner/manager (+ partner)
+      List<PropertyModel> properties;
+      if (r == 'landowner') {
+        properties = await propertyRepository.getPropertiesByLandowner(userId, partnerId: partnerId);
+      } else if (r == 'manager') {
+        properties = await propertyRepository.getPropertiesByManager(userId, partnerId: partnerId);
+      } else {
+        return [];
+      }
 
-      final filteredApplications = <ApplicationModel>[];
+      if (properties.isEmpty) return [];
 
-      for (final app in allApplications) {
-        try {
-          final property = await propertyRepository.getPropertyById(app.propertyId);
+      final propertyIds = properties.map((p) => p.id).toList();
+      final results = <ApplicationModel>[];
 
-          bool shouldInclude = false;
+      //  Applications for those properties (batch `in`, max 30)
+      for (var i = 0; i < propertyIds.length; i += 30) {
+        final batch = propertyIds.skip(i).take(30).toList();
+        var query = _applications.where('propertyId', WhereFilter.isIn, batch);
 
-          if (role == 'landowner') {
-            shouldInclude = property.landownerId == userId;
-          } else if (role == 'manager') {
-            shouldInclude = property.managerId == userId;
-          }
+        if (partnerId != null && partnerId.isNotEmpty) {
+          query = query.where('partnerId', WhereFilter.equal, partnerId);
+        }
 
-          if (shouldInclude) {
-            filteredApplications.add(app);
-          }
-        } catch (e) {
-          // Skip applications where property can't be loaded
-          print('Failed to load property for application ${app.id}: $e');
+        final snap = await query.get();
+
+        for (final doc in snap.docs) {
+          final app = ApplicationModel.fromMap(doc.data() as Map<String, dynamic>);
+          final status = app.status.toLowerCase();
+          if (status == 'fee_pending' || status == 'withdrawn') continue;
+          results.add(app);
         }
       }
 
-      return filteredApplications;
+      return results;
     } catch (e, stack) {
       print('Error fetching applications for manager/landowner: $e\n$stack');
       return [];

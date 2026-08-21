@@ -3,12 +3,20 @@ import 'package:neztmate_backend/features/applications/models/application_model.
 abstract class ApplicationRemoteDataSource {
   Future<ApplicationModel> createApplication(ApplicationModel application);
   Future<ApplicationModel> getApplicationById(String id);
-  Future<List<ApplicationModel>> getApplicationsByTenant(String tenantId);
+
+  Future<List<ApplicationModel>> getApplicationsByTenant(String tenantId, {String? partnerId});
+
+  Future<List<ApplicationModel>> getApplicationsForManagerOrOwner(
+    String userId,
+    String role, {
+    String? partnerId,
+  });
+
   Future<List<ApplicationModel>> getApplicationsByUnit(String unitId);
+
   Future<void> updateApplication(ApplicationModel application);
   Future<void> deleteApplication(String id);
   Future<ApplicationModel> approveApplication(String id, String reviewedBy);
   Future<void> rejectApplication(String id, String reviewedBy, String? reason);
   Future<void> withdrawApplication(String id, String tenantId, String? reason);
-  Future<List<ApplicationModel>> getApplicationsForManagerOrOwner(String userId, String role);
 }

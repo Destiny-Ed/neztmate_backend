@@ -4,10 +4,13 @@ abstract class InviteRepository {
   Future<InviteModel> createInvite(InviteModel invite);
   Future<InviteModel> getInviteById(String id);
   Future<InviteModel?> getInviteByLink(String inviteLink);
-  Future<List<InviteModel>> getInvitesByInviter(String inviterId);
+
+  Future<List<InviteModel>> getInvitesByInviter(String inviterId, {String? partnerId});
+
   Future<void> acceptInvite(String id, String inviteeId);
   Future<void> declineInvite(String id);
   Future<void> withdrawInvite(String id);
   Future<void> deleteInvite(String id);
-  Future<List<InviteModel>> getInvitesByInviteeEmail(String email);
+
+  Future<List<InviteModel>> getInvitesByInviteeEmail(String email, {String? partnerId});
 }

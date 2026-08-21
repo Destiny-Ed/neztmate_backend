@@ -16,16 +16,19 @@ class MaintenanceRepositoryImpl implements MaintenanceRepository {
   Future<MaintenanceRequestModel> getRequestById(String id) => dataSource.getRequestById(id);
 
   @override
-  Future<List<MaintenanceRequestModel>> getRequestsByTenant(String tenantId) =>
-      dataSource.getRequestsByTenant(tenantId);
+  Future<List<MaintenanceRequestModel>> getRequestsByTenant(String tenantId, {String? partnerId}) =>
+      dataSource.getRequestsByTenant(tenantId, partnerId: partnerId);
 
   @override
   Future<List<MaintenanceRequestModel>> getRequestsByProperty(String propertyId) =>
       dataSource.getRequestsByProperty(propertyId);
 
   @override
-  Future<List<MaintenanceRequestModel>> getAllRequestsForManagerOrLandowner(String userId) =>
-      dataSource.getAllRequestsForManagerOrLandowner(userId);
+  Future<List<MaintenanceRequestModel>> getAllRequestsForManagerOrLandowner(
+    String userId, {
+    String? partnerId,
+    String? role,
+  }) => dataSource.getAllRequestsForManagerOrLandowner(userId, partnerId: partnerId, role: role);
 
   @override
   Future<MaintenanceTaskModel> createTask(MaintenanceTaskModel task) => dataSource.createTask(task);
@@ -38,8 +41,8 @@ class MaintenanceRepositoryImpl implements MaintenanceRepository {
       dataSource.getTasksByRequest(requestId);
 
   @override
-  Future<List<MaintenanceTaskModel>> getTasksByArtisan(String artisanId) =>
-      dataSource.getTasksByArtisan(artisanId);
+  Future<List<MaintenanceTaskModel>> getTasksByArtisan(String artisanId, {String? partnerId}) =>
+      dataSource.getTasksByArtisan(artisanId, partnerId: partnerId);
 
   @override
   Future<void> acceptTask(String taskId, String artisanId) => dataSource.acceptTask(taskId, artisanId);
@@ -50,10 +53,7 @@ class MaintenanceRepositoryImpl implements MaintenanceRepository {
   @override
   Future<void> updateTask(MaintenanceTaskModel task) async {
     await dataSource.updateTask(task);
-
-    // Sync parent request status
     final newRequestStatus = await dataSource.calculateRequestStatus(task.maintenanceRequestId);
-
     await dataSource.updateRequestStatus(task.maintenanceRequestId, newRequestStatus);
   }
 

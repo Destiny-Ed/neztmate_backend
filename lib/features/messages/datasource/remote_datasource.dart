@@ -7,11 +7,12 @@ abstract class MessageRemoteDataSource {
     String userId1,
     String userId2, {
     String? propertyId,
+    String? partnerId,
     int limit = 50,
   });
   Future<MessageModel> getMessageById(String id);
   Future<void> markChatAsRead(String chatId, String readerId);
   Future<void> markConversationAsRead(String conversationId, String readerId);
   Future<void> deleteMessage(String id);
-  Future<List<ChatSummaryModel>> getUserChats(String userId, {int limit = 20});
+  Future<List<ChatSummaryModel>> getUserChats(String userId, {String? partnerId, int limit = 20});
 }

@@ -17,9 +17,12 @@ class InviteRepositoryImpl implements InviteRepository {
   Future<InviteModel?> getInviteByLink(String inviteLink) => dataSource.getInviteByLink(inviteLink);
 
   @override
-  Future<List<InviteModel>> getInvitesByInviter(String inviterId) =>
-      dataSource.getInvitesByInviter(inviterId);
+  Future<List<InviteModel>> getInvitesByInviter(String inviterId, {String? partnerId}) =>
+      dataSource.getInvitesByInviter(inviterId, partnerId: partnerId);
 
+  @override
+  Future<List<InviteModel>> getInvitesByInviteeEmail(String email, {String? partnerId}) =>
+      dataSource.getInvitesByInviteeEmail(email, partnerId: partnerId);
   @override
   Future<void> acceptInvite(String id, String inviteeId) => dataSource.acceptInvite(id, inviteeId);
 
@@ -28,10 +31,6 @@ class InviteRepositoryImpl implements InviteRepository {
 
   @override
   Future<void> deleteInvite(String id) => dataSource.deleteInvite(id);
-
-  @override
-  Future<List<InviteModel>> getInvitesByInviteeEmail(String email) =>
-      dataSource.getInvitesByInviteeEmail(email);
 
   @override
   Future<void> withdrawInvite(String id) => dataSource.withdrawInvite(id);

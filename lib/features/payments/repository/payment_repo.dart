@@ -10,7 +10,8 @@ abstract class PaymentRepository {
   Future<PaymentModel> getPaymentById(String id);
   Future<PaymentModel> getPaymentByReference(String reference);
   Future<List<PaymentModel>> getPaymentsByLease(String leaseId);
-  Future<List<PaymentModel>> getPaymentsByUser(String userId);
+  Future<List<PaymentModel>> getPaymentsByUser(String userId, {String? partnerId});
+
   Future<List<PaymentModel>> getPaymentsByTask(String taskId);
 
   Future<List<PaymentModel>> getPaymentsByProperty(String propertyId);
@@ -30,7 +31,7 @@ abstract class PaymentRepository {
 
   Future<WithdrawalModel> createWithdrawal(WithdrawalModel withdrawal);
   Future<WithdrawalModel> getWithdrawalById(String id);
-  Future<List<WithdrawalModel>> getWithdrawalsByUser(String userId);
+  Future<List<PayoutAccountModel>> getPayoutAccounts(String userId, {String? propertyId, String? partnerId});
   Future<List<WithdrawalModel>> getWithdrawalsByProperty(String propertyId);
   Future<void> updateWithdrawalStatus(String id, String status, String? processedBy);
   Future<bool> isPaymentAlreadyProcessed(String reference);
@@ -39,9 +40,9 @@ abstract class PaymentRepository {
   Future<PayoutAccountModel> savePayoutAccount(PayoutAccountModel account);
   Future<void> removePayoutAccount(String accountId);
   Future<void> setDefaultPayoutAccount(String accountId, String userId);
-  Future<List<PayoutAccountModel>> getPayoutAccounts(String userId, {String? propertyId});
-  Future<PayoutAccountModel?> getDefaultPayoutAccount(String userId, {String? propertyId});
+  Future<List<WithdrawalModel>> getWithdrawalsByUser(String userId, {String? partnerId});
 
+  Future<PayoutAccountModel?> getDefaultPayoutAccount(String userId, {String? propertyId, String? partnerId});
   Future<PayoutAccountModel?> getPayoutAccountById(String id);
   Future<void> updatePayoutAccount(PayoutAccountModel account);
 
@@ -59,22 +60,21 @@ abstract class PaymentRepository {
   //
 
   Future<void> createDisbursement(PaymentDisbursementModel disbursement);
-  Future<List<PaymentDisbursementModel>> getPendingDisbursements();
+  Future<List<PaymentDisbursementModel>> getPendingDisbursements({String? partnerId});
   Future<void> markDisbursementAsCompleted(String disbursementId, String transferReference);
   Future<void> markDisbursementAsFailed(String disbursementId, String reason);
 
-  Future<void> recordPlatformFee(String paymentId, double amount, String paymentType);
-
+  Future<void> recordPlatformFee(String paymentId, double amount, String paymentType, {String? partnerId});
   Future<void> createWithdrawalAsFallback(PaymentDisbursementModel disbursement);
 
-  Future<double> getTotalUnwithdrawnPlatformFees();
-  Future<void> markPlatformFeesAsWithdrawn(String withdrawalReference);
-  Future<List<PlatformFeeRecord>> getPlatformFeeHistory();
+  Future<double> getTotalUnwithdrawnPlatformFees({String? partnerId});
+  Future<void> markPlatformFeesAsWithdrawn(String withdrawalReference, {String? partnerId});
+  Future<List<PlatformFeeRecord>> getPlatformFeeHistory({String? partnerId});
 
   Future<void> recordManagerCommission(ManagerCommissionModel commission);
-  Future<double> getTotalPendingCommission(String managerId);
-  Future<List<ManagerCommissionModel>> getManagerCommissions(String managerId);
-  Future<void> markCommissionAsPaid(String commissionId, String payoutReference);
+  Future<double> getTotalPendingCommission(String managerId, {String? partnerId});
 
-  Future<List<ManagerCommissionModel>> getManagersCommissions();
+  Future<List<ManagerCommissionModel>> getManagerCommissions(String managerId, {String? partnerId});
+  Future<void> markCommissionAsPaid(String commissionId, String payoutReference);
+  Future<List<ManagerCommissionModel>> getManagersCommissions({String? partnerId});
 }

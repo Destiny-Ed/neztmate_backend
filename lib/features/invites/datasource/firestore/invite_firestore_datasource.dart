@@ -35,9 +35,13 @@ class FirestoreInviteDataSource implements InviteRemoteDataSource {
   }
 
   @override
-  Future<List<InviteModel>> getInvitesByInviter(String inviterId) async {
-    final snap = await _invites.where('inviterId', WhereFilter.equal, inviterId).get();
-    return snap.docs.map((d) => InviteModel.fromMap(d.data())).toList();
+  Future<List<InviteModel>> getInvitesByInviter(String inviterId, {String? partnerId}) async {
+    var query = _invites.where('inviterId', WhereFilter.equal, inviterId);
+    if (partnerId != null && partnerId.isNotEmpty) {
+      query = query.where('partnerId', WhereFilter.equal, partnerId);
+    }
+    final snap = await query.orderBy('createdAt', descending: true).get();
+    return snap.docs.map((d) => InviteModel.fromMap(d.data() as Map<String, dynamic>)).toList();
   }
 
   @override
@@ -61,23 +65,23 @@ class FirestoreInviteDataSource implements InviteRemoteDataSource {
   }
 
   @override
-  Future<List<InviteModel>> getInvitesByInviteeEmail(String email) async {
+  Future<List<InviteModel>> getInvitesByInviteeEmail(String email, {String? partnerId}) async {
     try {
-      final snap = await _invites
-          .where('inviteeEmail', WhereFilter.equal, email.toLowerCase())
-          .orderBy('createdAt', descending: true)
-          .get();
+      var query = _invites.where('inviteeEmail', WhereFilter.equal, email.toLowerCase().trim());
+      if (partnerId != null && partnerId.isNotEmpty) {
+        query = query.where('partnerId', WhereFilter.equal, partnerId);
+      }
+
+      final snap = await query.orderBy('createdAt', descending: true).get();
 
       return snap.docs.map((doc) {
         final data = doc.data() as Map<String, dynamic>;
         final invite = InviteModel.fromMap(data);
 
-        // Auto-update status to Expired if needed
         if (invite.status.toLowerCase() == 'pending' && invite.isExpired) {
           _invites.doc(doc.id).update({'status': 'expired', 'updatedAt': DateTime.now().toIso8601String()});
           return invite.copyWith(status: 'expired');
         }
-
         return invite;
       }).toList();
     } catch (e) {

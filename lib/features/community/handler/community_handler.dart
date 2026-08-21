@@ -164,10 +164,14 @@ class CommunityHandler {
   Future<Response> getFeed(Request request) async {
     try {
       final ids = request.url.queryParameters['propertyIds'];
+      final partnerId = request.context['partnerId'] as String?;
+      if (partnerId == null) {
+        return badRequest("PartnerId is required");
+      }
       final propertyIds =
           ids?.split(',').map((e) => e.trim()).where((e) => e.isNotEmpty).toList() ?? <String>[];
 
-      final posts = await communityRepository.getFeed(propertyIds: propertyIds);
+      final posts = await communityRepository.getFeed(propertyIds: propertyIds, partnerId: partnerId);
 
       return Response.ok(
         jsonEncode({'posts': posts.map((e) => e.toMap()).toList()}),
@@ -184,9 +188,11 @@ class CommunityHandler {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
+
       final postId = request.params['postId'];
 
-      if (userId == null || postId == null) {
+      if (userId == null || postId == null || partnerId == null) {
         return Response.unauthorized(jsonEncode({'message': 'Unauthorized'}));
       }
 
@@ -235,9 +241,11 @@ class CommunityHandler {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
+
       final postId = request.params['postId'];
 
-      if (userId == null || postId == null) {
+      if (userId == null || postId == null || partnerId == null) {
         return Response.unauthorized(jsonEncode({'message': 'Unauthorized'}));
       }
 

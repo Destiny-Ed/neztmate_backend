@@ -395,12 +395,17 @@ class PropertyHandler {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
       final propertyId = request.params['propertyId'];
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final targetUserId = body['userId'] as String?;
 
       if (userId == null || propertyId == null || targetUserId == null) {
         return badRequest('Missing required fields');
+      }
+
+      if (partnerId == null) {
+        return badRequest("Partner Id is required");
       }
 
       if (!['landowner', 'manager'].contains(role)) {
@@ -417,6 +422,7 @@ class PropertyHandler {
       await notificationRepository.create(
         NotificationModel(
           userId: targetUserId,
+          partnerId: partnerId,
           type: 'removed_from_property',
           title: 'Removed from Property',
           body: 'You have been removed from this property.',
@@ -517,9 +523,10 @@ class PropertyHandler {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
       final propertyId = request.params['id'];
 
-      if (userId == null || propertyId == null) {
+      if (userId == null || propertyId == null || partnerId == null) {
         return Response(401, body: jsonEncode({'message': 'Unauthorized'}));
       }
       if (!['landowner', 'manager'].contains(role)) {
@@ -646,6 +653,7 @@ class PropertyHandler {
             tenantId: lease.tenantId,
             landownerId: lease.landownerId,
             managerId: lease.managerId,
+            partnerId: partnerId,
             type: LeaseRequestType.rentAdjustment,
             status: LeaseRequestStatus.pending,
             initiatedBy: role == 'manager' ? LeaseRequestActor.manager : LeaseRequestActor.landlord,
@@ -680,6 +688,7 @@ class PropertyHandler {
           NotificationModel(
             id: '',
             userId: lease.tenantId,
+            partnerId: partnerId,
             type: 'rent_adjustment_proposed',
             title: 'Lease terms update proposed',
             body:
