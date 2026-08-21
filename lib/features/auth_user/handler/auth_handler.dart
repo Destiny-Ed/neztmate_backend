@@ -148,7 +148,7 @@ class AuthHandler {
         throw ValidationException('Fcm Token is required ');
       }
 
-      final partnerSlug = request.partnerSlug as String? ?? req.headers['x-partner-slug'];
+      final partnerSlug = req.headers['x-partner-slug'] ?? request.partnerSlug as String?;
 
       if (partnerSlug == null && partnerSlug!.isEmpty) {
         throw ValidationException('partner slug header is required');
