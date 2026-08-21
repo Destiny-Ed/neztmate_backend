@@ -148,9 +148,15 @@ class AuthHandler {
         throw ValidationException('Fcm Token is required ');
       }
 
-      final slug = request.partnerSlug as String? ?? req.headers['x-partner-slug'];
+      final partnerSlug = request.partnerSlug as String? ?? req.headers['x-partner-slug'];
 
-      final user = await authRepository.socialLogin(req: request.copyWith(partnerSlug: slug));
+      if (partnerSlug == null && partnerSlug!.isEmpty) {
+        throw ValidationException('partner slug header is required');
+      }
+
+      final partner = await partnerRepository.getPartnerBySlug(partnerSlug);
+
+      final user = await authRepository.socialLogin(req: request.copyWith(partnerSlug: partnerSlug));
 
       final accessToken = jwtService.generateAccessToken(user.id, user.role, partnerId: user.partnerId);
       final refreshToken = jwtService.generateRefreshToken(user.id);
