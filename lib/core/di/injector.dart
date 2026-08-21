@@ -132,11 +132,10 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
     () => UserHandler(injector<UserRepository>(), injector<JwtService>()),
   );
 
-  //properties and maintenance request
+  //properties
   injector.registerLazySingleton<PropertyRemoteDataSource>(
-    () => FirestorePropertyDataSource(injector<Firestore>(), injector()),
+    () => FirestorePropertyDataSource(injector<Firestore>()),
   );
-
   injector.registerLazySingleton<PropertyRepository>(() => PropertyRepositoryImpl(injector()));
   injector.registerLazySingleton<PropertyHandler>(
     () => PropertyHandler(
@@ -147,27 +146,6 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
       injector<UnitRepository>(),
       injector<PaymentRepository>(),
       injector<LeaseRepository>(),
-    ),
-  );
-
-  //maintenance request
-  injector.registerLazySingleton<FirestoreMaintenanceDataSource>(
-    () => FirestoreMaintenanceDataSource(injector<Firestore>(), injector()),
-  );
-
-  injector.registerLazySingleton<MaintenanceRepository>(
-    () => MaintenanceRepositoryImpl(injector<FirestoreMaintenanceDataSource>()),
-  );
-
-  injector.registerLazySingleton<MaintenanceHandler>(
-    () => MaintenanceHandler(
-      maintenanceRepository: injector<MaintenanceRepository>(),
-      userRepository: injector<UserRepository>(),
-      propertyRepository: injector<PropertyRepository>(),
-      notificationRepository: injector<NotificationRepository>(),
-      historyRepository: injector<HistoryRepository>(),
-      paymentRepository: injector<PaymentRepository>(),
-      unitRepository: injector<UnitRepository>(),
     ),
   );
 
@@ -224,7 +202,6 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
     ),
   );
 
-  //Tenant
   //Tenant
   injector.registerLazySingleton<TenantRemoteDataSource>(
     () => FirestoreTenantDataSource(injector<Firestore>()),
@@ -287,6 +264,25 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
       notificationRepository: injector<NotificationRepository>(),
       userReviewRepository: injector<UserReviewRepository>(),
       paymentRepository: injector<PaymentRepository>(),
+    ),
+  );
+
+  //maintenance request
+  injector.registerLazySingleton<FirestoreMaintenanceDataSource>(
+    () => FirestoreMaintenanceDataSource(injector<Firestore>(), injector<PropertyRepository>()),
+  );
+  injector.registerLazySingleton<MaintenanceRepository>(
+    () => MaintenanceRepositoryImpl(injector<FirestoreMaintenanceDataSource>()),
+  );
+  injector.registerLazySingleton<MaintenanceHandler>(
+    () => MaintenanceHandler(
+      maintenanceRepository: injector<MaintenanceRepository>(),
+      userRepository: injector<UserRepository>(),
+      propertyRepository: injector<PropertyRepository>(),
+      notificationRepository: injector<NotificationRepository>(),
+      historyRepository: injector<HistoryRepository>(),
+      paymentRepository: injector<PaymentRepository>(),
+      unitRepository: injector<UnitRepository>(),
     ),
   );
 

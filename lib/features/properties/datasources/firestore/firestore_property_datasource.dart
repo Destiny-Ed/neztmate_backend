@@ -1,15 +1,13 @@
 import 'package:dart_firebase_admin/firestore.dart';
 import 'package:neztmate_backend/core/error.dart';
-import 'package:neztmate_backend/features/maintenance/repository/maintenance_repo.dart';
 import 'package:neztmate_backend/features/properties/datasources/property_remote_datasource.dart';
 import 'package:neztmate_backend/features/properties/models/property_model.dart';
 import 'package:neztmate_backend/features/tenants/models/tenant_summary.dart';
 
 class FirestorePropertyDataSource implements PropertyRemoteDataSource {
   final Firestore firestore;
-  final MaintenanceRepository maintenanceRepository;
 
-  FirestorePropertyDataSource(this.firestore, this.maintenanceRepository);
+  FirestorePropertyDataSource(this.firestore);
 
   CollectionReference get _properties => firestore.collection('properties');
 
