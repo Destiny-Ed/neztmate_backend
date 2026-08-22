@@ -488,6 +488,57 @@ class PartnerHandler {
     }
   }
 
+  /// GET /partners/me/analytics
+  Future<Response> getMyPartnerAnalytics(Request request) async {
+    try {
+      final partnerId = request.context['partnerId'] as String?;
+      if (partnerId == null || partnerId.isEmpty) {
+        return Response(
+          403,
+          body: jsonEncode({'message': 'partnerId required'}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
+
+      // Ensure partner exists (id or slug)
+      try {
+        await partnerRepository.getPartnerById(partnerId);
+      } on NotFoundException {
+        await partnerRepository.getPartnerBySlug(partnerId);
+      }
+
+      final analytics = await partnerRepository.getPartnerAnalytics(partnerId);
+
+      return Response.ok(jsonEncode(analytics), headers: {'Content-Type': 'application/json'});
+    } on NotFoundException catch (e) {
+      return Response(404, body: jsonEncode({'message': e.message}));
+    } catch (e, s) {
+      print('getMyPartnerAnalytics: $e\n$s');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to load partner analytics'}));
+    }
+  }
+
+  /// GET /platform/analytics
+  Future<Response> getPlatformAnalytics(Request request) async {
+    try {
+      final role = (request.context['role'] as String?)?.toLowerCase() ?? '';
+      if (role != 'platform_admin' && role != 'super_admin') {
+        return Response(
+          403,
+          body: jsonEncode({'message': 'Platform admin only'}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
+
+      final analytics = await partnerRepository.getPlatformAnalytics();
+
+      return Response.ok(jsonEncode(analytics), headers: {'Content-Type': 'application/json'});
+    } catch (e, s) {
+      print('getPlatformAnalytics: $e\n$s');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to load platform analytics'}));
+    }
+  }
+
   Future<PartnerModel> _resolvePartner(String partnerIdOrSlug) async {
     try {
       return await partnerRepository.getPartnerById(partnerIdOrSlug);

@@ -58,4 +58,11 @@ class PartnerRepositoryImpl implements PartnerRepository {
     type: type,
     metadata: metadata,
   );
+
+  @override
+  Future<Map<String, dynamic>> getPartnerAnalytics(String partnerId) =>
+      dataSource.getPartnerAnalytics(partnerId);
+
+  @override
+  Future<Map<String, dynamic>> getPlatformAnalytics() => dataSource.getPlatformAnalytics();
 }

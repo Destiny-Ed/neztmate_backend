@@ -23,6 +23,8 @@ Router partnerProtectedRoutes(PartnerHandler handler) {
   router.get('/me/notifications', handler.getMyPartnerNotifications);
   router.post('/me/notifications', handler.sendPartnerNotification);
 
+  router.get('/me/analytics', handler.getMyPartnerAnalytics);
+
   // Platform admin
   router.get('/', handler.listPartners);
   router.post('/', handler.createPartner);
@@ -32,5 +34,11 @@ Router partnerProtectedRoutes(PartnerHandler handler) {
   router.get('/requests', handler.listPartnerRequests);
   router.patch('/requests/<id>', handler.updatePartnerRequest);
 
+  return router;
+}
+
+Router platformRoutes(PartnerHandler handler) {
+  final router = Router();
+  router.get('/analytics', handler.getPlatformAnalytics);
   return router;
 }

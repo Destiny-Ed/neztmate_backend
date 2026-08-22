@@ -241,6 +241,8 @@ void main() async {
         .addHandler(partnerProtectedRoutes(injector<PartnerHandler>()).call),
   );
 
+  router.mount('/platform/', platformRoutes(injector<PartnerHandler>()).call);
+
   //  SWAGGER UI SETUP
 
   final swaggerHandler = SwaggerUI(

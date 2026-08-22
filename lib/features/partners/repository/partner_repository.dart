@@ -22,4 +22,7 @@ abstract class PartnerRepository {
     String type,
     Map<String, dynamic>? metadata,
   });
+
+  Future<Map<String, dynamic>> getPartnerAnalytics(String partnerId);
+  Future<Map<String, dynamic>> getPlatformAnalytics();
 }
