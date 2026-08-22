@@ -18,10 +18,16 @@ class FirestoreSubscriptionRepository implements SubscriptionRepository {
   CollectionReference get _plans => firestore.collection('subscription_plans');
   CollectionReference get _subscriptions => firestore.collection('user_subscriptions');
 
-  // Firestore
+  UserSubscriptionModel _fromDoc(DocumentSnapshot doc) {
+    final data = doc.data() as Map<String, dynamic>;
+    return UserSubscriptionModel.fromMap({...data, 'id': doc.id});
+  }
+
+  //  Plans
+
   @override
   Future<SubscriptionPlanModel> createPlan(SubscriptionPlanModel plan) async {
-    final docRef = firestore.collection('subscription_plans').doc(plan.id.isNotEmpty ? plan.id : null);
+    final docRef = _plans.doc(plan.id.isNotEmpty ? plan.id : null);
     final created = plan.copyWith(id: docRef.id, createdAt: DateTime.now(), updatedAt: DateTime.now());
     await docRef.set(created.toMap());
     return created;
@@ -29,24 +35,20 @@ class FirestoreSubscriptionRepository implements SubscriptionRepository {
 
   @override
   Future<void> updatePlan(SubscriptionPlanModel plan) async {
-    await firestore.collection('subscription_plans').doc(plan.id).update({
-      ...plan.toMap(),
-      'updatedAt': DateTime.now().toIso8601String(),
-    });
+    await _plans.doc(plan.id).update({...plan.toMap(), 'updatedAt': DateTime.now().toIso8601String()});
   }
 
   @override
   Future<SubscriptionPlanModel?> getPlanById(String id, {String? partnerId}) async {
-    // Prefer doc id if plans use id == name
     final doc = await _plans.doc(id).get();
-    if (doc.exists) {
-      final plan = SubscriptionPlanModel.fromMap(doc.data() as Map<String, dynamic>);
-      if (partnerId != null && partnerId.isNotEmpty && plan.partnerId != partnerId) {
-        return null;
-      }
-      return plan;
+    if (!doc.exists) return null;
+
+    final plan = SubscriptionPlanModel.fromMap({...doc.data() as Map<String, dynamic>, 'id': doc.id});
+
+    if (partnerId != null && partnerId.isNotEmpty && plan.partnerId != partnerId) {
+      return null;
     }
-    return null;
+    return plan;
   }
 
   @override
@@ -55,9 +57,11 @@ class FirestoreSubscriptionRepository implements SubscriptionRepository {
     q = _withPartner(q, partnerId);
     final snapshot = await q.get();
     return snapshot.docs
-        .map((doc) => SubscriptionPlanModel.fromMap(doc.data() as Map<String, dynamic>))
+        .map((doc) => SubscriptionPlanModel.fromMap({...doc.data() as Map<String, dynamic>, 'id': doc.id}))
         .toList();
   }
+
+  //  User subscriptions
 
   @override
   Future<UserSubscriptionModel?> getActiveSubscription(String userId, {String? partnerId}) async {
@@ -65,10 +69,10 @@ class FirestoreSubscriptionRepository implements SubscriptionRepository {
         .where('userId', WhereFilter.equal, userId)
         .where('status', WhereFilter.equal, 'active');
     q = _withPartner(q, partnerId);
+
     final snapshot = await q.limit(1).get();
     if (snapshot.docs.isEmpty) return null;
-    final doc = snapshot.docs.first;
-    return UserSubscriptionModel.fromMap({...doc.data() as Map<String, dynamic>, 'id': doc.id});
+    return _fromDoc(snapshot.docs.first);
   }
 
   @override
@@ -81,7 +85,7 @@ class FirestoreSubscriptionRepository implements SubscriptionRepository {
 
   @override
   Future<void> updateSubscription(String id, Map<String, dynamic> data) async {
-    await _subscriptions.doc(id).update(data);
+    await _subscriptions.doc(id).update({...data, 'updatedAt': DateTime.now().toIso8601String()});
   }
 
   @override
@@ -89,9 +93,7 @@ class FirestoreSubscriptionRepository implements SubscriptionRepository {
     var q = _subscriptions.where('userId', WhereFilter.equal, userId);
     q = _withPartner(q, partnerId);
     final snapshot = await q.orderBy('startDate', descending: true).get();
-    return snapshot.docs
-        .map((doc) => UserSubscriptionModel.fromMap({...doc.data() as Map<String, dynamic>, 'id': doc.id}))
-        .toList();
+    return snapshot.docs.map(_fromDoc).toList();
   }
 
   @override
@@ -99,22 +101,67 @@ class FirestoreSubscriptionRepository implements SubscriptionRepository {
     await _subscriptions.doc(subscriptionId).update({
       'status': 'cancelled',
       'cancelledAt': DateTime.now().toIso8601String(),
-      'graceEndDate': graceEndDate.toIso8601String(), // Full cycle access
+      'graceEndDate': graceEndDate.toIso8601String(),
       'updatedAt': DateTime.now().toIso8601String(),
     });
   }
 
+  /// Active user subs past endDate (optional partner filter)
   @override
   Future<List<UserSubscriptionModel>> getExpiredSubscriptions({String? partnerId}) async {
     final now = DateTime.now().toIso8601String();
+
     var q = _subscriptions
         .where('status', WhereFilter.equal, 'active')
         .where('endDate', WhereFilter.lessThan, now);
+
     q = _withPartner(q, partnerId);
-    final snap = await q.get();
-    return snap.docs
-        .map((doc) => UserSubscriptionModel.fromMap({...doc.data() as Map<String, dynamic>, 'id': doc.id}))
-        .toList();
+
+    final snap = await q.limit(200).get();
+    return snap.docs.map(_fromDoc).toList();
+  }
+
+  /// Platform scheduler: expired subs for every partner
+  /// (same collection; no partnerId filter)
+  @override
+  Future<List<UserSubscriptionModel>> getExpiredPartnerSubscriptions() async {
+    final now = DateTime.now().toIso8601String();
+    final results = <UserSubscriptionModel>[];
+
+    // Still "active" but endDate passed
+    final activePastEnd = await _subscriptions
+        .where('status', WhereFilter.equal, 'active')
+        .where('endDate', WhereFilter.lessThan, now)
+        .limit(200)
+        .get();
+
+    results.addAll(activePastEnd.docs.map(_fromDoc));
+
+    // Cancelled but grace period ended (graceEndDate or endDate)
+    try {
+      final cancelledPastGrace = await _subscriptions
+          .where('status', WhereFilter.equal, 'cancelled')
+          .where('graceEndDate', WhereFilter.lessThan, now)
+          .limit(200)
+          .get();
+
+      results.addAll(cancelledPastGrace.docs.map(_fromDoc));
+    } catch (_) {
+      // Index may be missing — fall back to endDate only
+      final cancelledPastEnd = await _subscriptions
+          .where('status', WhereFilter.equal, 'cancelled')
+          .where('endDate', WhereFilter.lessThan, now)
+          .limit(200)
+          .get();
+      results.addAll(cancelledPastEnd.docs.map(_fromDoc));
+    }
+
+    // Dedupe by id
+    final byId = <String, UserSubscriptionModel>{};
+    for (final s in results) {
+      byId[s.id] = s;
+    }
+    return byId.values.toList();
   }
 
   @override
@@ -127,19 +174,14 @@ class FirestoreSubscriptionRepository implements SubscriptionRepository {
 
   @override
   Future<UserSubscriptionModel?> getSubscriptionByReference(String reference) async {
-    final snap = await firestore
-        .collection('user_subscriptions')
-        .where('paymentReference', WhereFilter.equal, reference)
-        .limit(1)
-        .get();
+    final snap = await _subscriptions.where('paymentReference', WhereFilter.equal, reference).limit(1).get();
     if (snap.docs.isEmpty) return null;
-    final data = snap.docs.first.data() as Map<String, dynamic>;
-    return UserSubscriptionModel.fromMap({...data, 'id': snap.docs.first.id});
+    return _fromDoc(snap.docs.first);
   }
 
   @override
   Future<void> activateSubscription(String subscriptionId, {required double amountPaid}) async {
-    await firestore.collection('user_subscriptions').doc(subscriptionId).update({
+    await _subscriptions.doc(subscriptionId).update({
       'status': 'active',
       'amountPaid': amountPaid,
       'activatedAt': DateTime.now().toIso8601String(),
@@ -149,11 +191,9 @@ class FirestoreSubscriptionRepository implements SubscriptionRepository {
 
   @override
   Future<UserSubscriptionModel?> getSubscriptionById(String id) async {
-    final doc = await firestore.collection('user_subscriptions').doc(id).get();
+    final doc = await _subscriptions.doc(id).get();
     if (!doc.exists) return null;
-
-    final data = doc.data() as Map<String, dynamic>;
-    return UserSubscriptionModel.fromMap({...data, 'id': doc.id});
+    return _fromDoc(doc);
   }
 
   @override

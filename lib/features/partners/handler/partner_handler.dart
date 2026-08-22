@@ -25,7 +25,7 @@ class PartnerHandler {
   Response _json(Object body, {int status = 200}) =>
       Response(status, body: jsonEncode(body), headers: {'Content-Type': 'application/json'});
 
-  // ——— PUBLIC ———
+  //  PUBLIC
 
   /// GET /partners/config?slug=
   Future<Response> getPublicConfig(Request request) async {

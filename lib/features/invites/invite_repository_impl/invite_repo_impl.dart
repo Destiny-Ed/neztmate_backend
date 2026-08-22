@@ -19,7 +19,8 @@ class InviteRepositoryImpl implements InviteRepository {
   @override
   Future<List<InviteModel>> getInvitesByInviter(String inviterId, {String? partnerId}) =>
       dataSource.getInvitesByInviter(inviterId, partnerId: partnerId);
-
+  @override
+  Future<int> expireOverdueInvites() => dataSource.expireOverdueInvites();
   @override
   Future<List<InviteModel>> getInvitesByInviteeEmail(String email, {String? partnerId}) =>
       dataSource.getInvitesByInviteeEmail(email, partnerId: partnerId);

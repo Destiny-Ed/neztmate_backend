@@ -7,6 +7,8 @@ abstract class InviteRemoteDataSource {
 
   Future<List<InviteModel>> getInvitesByInviter(String inviterId, {String? partnerId});
 
+  Future<int> expireOverdueInvites();
+
   Future<void> acceptInvite(String id, String inviteeId);
   Future<void> declineInvite(String id);
   Future<void> withdrawInvite(String id);

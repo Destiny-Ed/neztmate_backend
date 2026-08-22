@@ -1,21 +1,27 @@
 import 'dart:async';
+
 import 'package:neztmate_backend/core/services/payment/paystack_service.dart';
 import 'package:neztmate_backend/features/affiliates/repository/affiliate_repository.dart';
+import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
 import 'package:neztmate_backend/features/invites/repository/invite_repo.dart';
 import 'package:neztmate_backend/features/leases/models/leases_model.dart';
 import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
-import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
+import 'package:neztmate_backend/features/partners/repository/partner_repository.dart';
 import 'package:neztmate_backend/features/payments/models/payment_disbursement_model.dart';
 import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
 import 'package:neztmate_backend/features/subscriptions/repository/subscription_repository.dart';
+import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
 
 class SchedulerService {
-  // static Timer? _inviteCleanupTimer;
-  static Timer? _leaseReminderTimer;
-  static Timer? _leaseStatusTimer;
-  Timer? _disbursementTimer;
+  Timer? _hourlyTimer;
+  Timer? _dailyTimer;
+  Timer? _twelveHourTimer;
+
+  bool _hourlyRunning = false;
+  bool _dailyRunning = false;
+  bool _twelveHourRunning = false;
 
   final InviteRepository inviteRepository;
   final LeaseRepository leaseRepository;
@@ -24,6 +30,10 @@ class SchedulerService {
   final PaymentRepository paymentRepository;
   final AffiliateRepository affiliateRepository;
   final SubscriptionRepository subscriptionRepository;
+  final PartnerRepository? partnerRepository;
+  final UnitRepository? unitRepository;
+
+  final PaystackService paystackService;
 
   SchedulerService({
     required this.inviteRepository,
@@ -33,259 +43,373 @@ class SchedulerService {
     required this.paymentRepository,
     required this.affiliateRepository,
     required this.subscriptionRepository,
-  });
-
-  final PaystackService paystackService = PaystackService();
+    required this.partnerRepository,
+    required this.unitRepository,
+    PaystackService? paystackService,
+  }) : paystackService = paystackService ?? PaystackService();
 
   void start() {
-    // Clean expired invites every 6 hours
-    // _inviteCleanupTimer = Timer.periodic(const Duration(hours: 6), (_) async {
-    //   await _cleanupExpiredInvites();
-    // });
+    // Light / frequent jobs
+    // _hourlyTimer = Timer.periodic(const Duration(hours: 1), (_) => _runHourlyJobs());
 
-    // _disbursementTimer = Timer.periodic(const Duration(hours: 12), (_) async {
-    //   await _processDueDisbursements();
-    //   await _processManagerCommissions();
-    //   await _processAffiliatePayouts();
-    // });
-
-    _leaseStatusTimer = Timer.periodic(const Duration(days: 1), (_) async {
-      await _updateExpiredLeases();
-      // await _cleanupExpiredInvites();
+    // Money movement
+    _twelveHourTimer = Timer.periodic(const Duration(hours: 12), (_) {
+      _runHourlyJobs(); //remove in production
+      _runTwelveHourJobs();
     });
 
-    // Check lease due dates every day
-    _leaseReminderTimer = Timer.periodic(const Duration(days: 1), (_) async {
-      await _sendLeaseDueReminders();
+    // Heavy daily maintenance
+    _dailyTimer = Timer.periodic(const Duration(days: 1), (_) => _runDailyJobs());
 
-      await _checkAndUpdateExpiredSubscriptions();
-    });
+    // Optional: run once shortly after boot (don't block start)
+    // Future.delayed(const Duration(seconds: 15), () async {
+    //   await _runHourlyJobs();
+    // });
 
-    print('✅ SchedulerService started - Lease & Invite maintenance enabled');
+    print('✅ SchedulerService started (hourly / 12h / daily)');
   }
 
   void stop() {
-    // _inviteCleanupTimer?.cancel();
-    _leaseStatusTimer?.cancel();
-    _leaseReminderTimer?.cancel();
-    _disbursementTimer?.cancel();
+    _hourlyTimer?.cancel();
+    _twelveHourTimer?.cancel();
+    _dailyTimer?.cancel();
     print('🛑 SchedulerService stopped');
   }
+
+  // JOB GROUPS
+
+  Future<void> _runHourlyJobs() async {
+    if (_hourlyRunning) return;
+    _hourlyRunning = true;
+    try {
+      await _cleanupExpiredInvites();
+      await _sendLeaseDueReminders(withinDays: 5);
+      await _sendLeaseOverdueNotices();
+    } catch (e, s) {
+      print('Hourly jobs error: $e\n$s');
+    } finally {
+      _hourlyRunning = false;
+    }
+  }
+
+  Future<void> _runTwelveHourJobs() async {
+    if (_twelveHourRunning) return;
+    _twelveHourRunning = true;
+    try {
+      await _processDueDisbursements();
+      await _processManagerCommissions();
+      await _processAffiliatePayouts();
+    } catch (e, s) {
+      print('12h money jobs error: $e\n$s');
+    } finally {
+      _twelveHourRunning = false;
+    }
+  }
+
+  Future<void> _runDailyJobs() async {
+    if (_dailyRunning) return;
+    _dailyRunning = true;
+    try {
+      await _updateExpiredLeases();
+      await _checkAndUpdateExpiredSubscriptions();
+      await _checkAndUpdateExpiredPartnerSubscriptions();
+      await _deactivateInactivePartners();
+      // Optional: await _autoListVacantUnitsAfterLeaseEnd();
+    } catch (e, s) {
+      print('Daily jobs error: $e\n$s');
+    } finally {
+      _dailyRunning = false;
+    }
+  }
+
+  // INVITES
+
+  Future<void> _cleanupExpiredInvites() async {
+    try {
+      // Prefer a bulk method on the repo, e.g. expirePendingOlderThan(days: 5)
+      final count = await inviteRepository.expireOverdueInvites();
+      if (count > 0) {
+        print('🎫 Expired $count invite(s)');
+      }
+    } catch (e) {
+      // Method may not exist yet — fail soft
+      print('Invite cleanup skipped/error: $e');
+    }
+  }
+
+  // LEASES
 
   Future<void> _updateExpiredLeases() async {
     try {
       final updatedCount = await leaseRepository.updateExpiredLeasesToInactive();
-
       if (updatedCount > 0) {
-        print('Automatically updated $updatedCount leases to Inactive');
+        print('📄 Marked $updatedCount lease(s) Inactive');
       }
     } catch (e) {
-      print('Error in lease status update job: $e');
+      print('Error updating expired leases: $e');
     }
   }
 
-  // INVITE CLEANUP
-  // Future<void> _cleanupExpiredInvites() async {
-  //   try {
-  //     print('Running expired invites cleanup...');
-  //     // You can implement bulk cleanup in repository if needed
-  //     // For now, placeholder
-  //     print('Expired invites cleanup completed');
-  //   } catch (e) {
-  //     print('Error cleaning expired invites: $e');
-  //   }
-  // }
-
-  // LEASE DUE REMINDERS
-  Future<void> _sendLeaseDueReminders() async {
-    final expiringLeases = await leaseRepository.getExpiringLeases(withinDays: 5);
-
-    for (var lease in expiringLeases) {
-      final daysLeft = lease.endDate.difference(DateTime.now()).inDays;
-
-      if (daysLeft > 0) {
-        // Send reminder to tenant and landowner
-        await notificationRepository.create(
-          NotificationModel(
-            userId: lease.tenantId,
-            type: 'lease_due_soon',
-            partnerId: lease.partnerId,
-            title: 'Lease Renewal Reminder',
-            body: 'Your lease expires in $daysLeft days.',
-            relatedId: lease.id,
-            relatedCollection: 'leases',
-            createdAt: DateTime.now(),
-            id: '',
-          ),
-        );
-
-        await notificationRepository.create(
-          NotificationModel(
-            userId: lease.landownerId,
-            partnerId: lease.partnerId,
-
-            type: 'lease_due_soon',
-            title: 'Tenant Lease Expiring',
-            body: 'A lease expires in $daysLeft days.',
-            relatedId: lease.id,
-            relatedCollection: 'leases',
-            createdAt: DateTime.now(),
-            id: '',
-          ),
-        );
-      }
-    }
-  }
-
-  Future<void> _processAffiliatePayouts() async {
+  Future<void> _sendLeaseDueReminders({int withinDays = 5}) async {
     try {
-      final pendingPayouts = await affiliateRepository.getPendingPayouts();
+      final expiringLeases = await leaseRepository.getExpiringLeases(withinDays: withinDays);
 
-      int processedCount = 0;
+      for (final lease in expiringLeases) {
+        final daysLeft = lease.endDate.difference(DateTime.now()).inDays;
+        if (daysLeft <= 0) continue;
 
-      for (var payout in pendingPayouts) {
-        // Get affiliate's default payout account
-        final account = await paymentRepository.getDefaultPayoutAccount(payout.affiliateId);
+        // Avoid spam: only remind on day 5, 3, 1 (adjust as needed)
+        if (![1, 3, 5].contains(daysLeft)) continue;
 
-        if (account?.paystackSubaccountId != null) {
-          final ref = 'aff_payout_${payout.id}_${DateTime.now().microsecondsSinceEpoch}';
-          final success = await paystackService.transferToSubaccount(
-            amount: payout.amount,
-            subaccountId: account!.paystackSubaccountId!,
-            reference: ref,
-            reason: 'Affiliate commission payout',
-          );
-
-          if (success) {
-            await affiliateRepository.processPayout(payout.id, ref);
-            processedCount++;
-            print('✅ $processedCount Auto payout processed for affiliate ${payout.affiliateId}');
-          }
-        }
+        await _notifyBothParties(
+          lease: lease,
+          type: 'lease_due_soon',
+          tenantTitle: 'Lease renewal reminder',
+          tenantBody: 'Your lease expires in $daysLeft day(s). Renew or contact your landlord.',
+          ownerTitle: 'Tenant lease expiring',
+          ownerBody: 'A lease expires in $daysLeft day(s).',
+        );
       }
     } catch (e) {
-      print('Auto payout scheduler error: $e');
+      print('Lease due reminders error: $e');
     }
   }
+
+  Future<void> _sendLeaseOverdueNotices() async {
+    try {
+      // Active leases whose endDate is already past (if status job lags)
+      final overdue = await leaseRepository.getExpiringLeases(withinDays: 0);
+      // Or: getLeasesByStatus('Active') filtered client-side if needed
+
+      for (final lease in overdue) {
+        if (lease.endDate.isAfter(DateTime.now())) continue;
+        if (lease.status.toLowerCase() == 'inactive') continue;
+
+        await _notifyBothParties(
+          lease: lease,
+          type: 'lease_overdue',
+          tenantTitle: 'Lease has expired',
+          tenantBody: 'Your lease has expired. Renew or contact your landlord.',
+          ownerTitle: 'Lease expired',
+          ownerBody: 'A tenant lease has expired and may need action.',
+        );
+      }
+    } catch (e) {
+      print('Lease overdue notices error: $e');
+    }
+  }
+
+  Future<void> _notifyBothParties({
+    required LeaseModel lease,
+    required String type,
+    required String tenantTitle,
+    required String tenantBody,
+    required String ownerTitle,
+    required String ownerBody,
+  }) async {
+    final now = DateTime.now();
+
+    await notificationRepository.create(
+      NotificationModel(
+        id: '',
+        userId: lease.tenantId,
+        partnerId: lease.partnerId,
+        type: type,
+        title: tenantTitle,
+        body: tenantBody,
+        relatedId: lease.id,
+        relatedCollection: 'leases',
+        createdAt: now,
+      ),
+    );
+
+    await notificationRepository.create(
+      NotificationModel(
+        id: '',
+        userId: lease.landownerId,
+        partnerId: lease.partnerId,
+        type: type,
+        title: ownerTitle,
+        body: ownerBody,
+        relatedId: lease.id,
+        relatedCollection: 'leases',
+        createdAt: now,
+      ),
+    );
+  }
+
+  // SUBSCRIPTIONS (landowner plans)
 
   Future<void> _checkAndUpdateExpiredSubscriptions() async {
     try {
       final expiredSubscriptions = await subscriptionRepository.getExpiredSubscriptions();
+      var updatedCount = 0;
 
-      int updatedCount = 0;
-
-      for (var sub in expiredSubscriptions) {
+      for (final sub in expiredSubscriptions) {
         await subscriptionRepository.updateSubscriptionStatus(sub.id, status: 'expired');
+
+        await notificationRepository.create(
+          NotificationModel(
+            id: '',
+            userId: sub.userId,
+            partnerId: sub.partnerId,
+            type: 'subscription_expired',
+            title: 'Subscription expired',
+            body: 'Your plan has expired. Renew to keep premium features.',
+            relatedId: sub.id,
+            relatedCollection: 'subscriptions',
+            createdAt: DateTime.now(),
+          ),
+        );
+
         updatedCount++;
       }
 
-      print('Updated $updatedCount subscriptions to expired');
+      if (updatedCount > 0) {
+        print('📦 Expired $updatedCount user subscription(s)');
+      }
     } catch (e, stack) {
       print('Subscription expiry check error: $e\n$stack');
     }
   }
 
-  // Future<void> _sendLeaseDueReminders() async {
-  //   try {
-  //     print('Checking for lease due reminders...');
+  // PARTNER SUBSCRIPTIONS / STATUS
+  // (white-label partners billed at partner level)
 
-  //     final now = DateTime.now();
-  //     final fiveDaysLater = now.add(const Duration(days: 5));
+  Future<void> _checkAndUpdateExpiredPartnerSubscriptions() async {
+    if (partnerRepository == null) return;
 
-  //     final activeLeases = await leaseRepository.getAllActiveLeases(); // You'll need to add this
+    try {
+      // Preferred: dedicated method on partner or subscription repo
+      // e.g. subscriptionRepository.getExpiredPartnerSubscriptions()
+      final expired = await subscriptionRepository.getExpiredPartnerSubscriptions();
 
-  //     for (var lease in activeLeases) {
-  //       final daysUntilDue = lease.endDate.difference(now).inDays;
+      for (final sub in expired) {
+        await subscriptionRepository.updateSubscriptionStatus(sub.id, status: 'expired');
 
-  //       if (daysUntilDue <= 5 && daysUntilDue > 0) {
-  //         // 5 days reminder
-  //         await _sendLeaseReminder(lease, daysUntilDue);
-  //       } else if (daysUntilDue <= 0) {
-  //         // Lease is due or overdue
-  //         await _sendLeaseOverdueReminder(lease);
-  //       }
-  //     }
-  //   } catch (e) {
-  //     print('Error sending lease reminders: $e');
-  //   }
-  // }
+        // Soft-flag partner features (do not delete data)
+        if (sub.partnerId != null && sub.partnerId.isNotEmpty) {
+          try {
+            final partner = await partnerRepository!.getPartnerById(sub.partnerId);
+            // Keep isActive true but mark billing state in fees/features if you store it
+            await partnerRepository!.updatePartner(
+              partner.copyWith(
+                features: {...partner.features, 'subscriptionStatus': 'expired', 'billingPastDue': true},
+                updatedAt: DateTime.now(),
+              ),
+            );
 
-  Future<void> _sendLeaseReminder(LeaseModel lease, int daysLeft) async {
-    // Notify Tenant
-    await notificationRepository.create(
-      NotificationModel(
-        userId: lease.tenantId,
-        partnerId: lease.partnerId,
-
-        type: 'lease_due_soon',
-        title: 'Lease Renewal Reminder',
-        body: 'Your lease ends in $daysLeft days. Please renew soon.',
-        relatedId: lease.id,
-        relatedCollection: 'leases',
-        createdAt: DateTime.now(),
-        id: '',
-      ),
-    );
-
-    // Notify Landowner/Manager
-    await notificationRepository.create(
-      NotificationModel(
-        userId: lease.landownerId,
-        partnerId: lease.partnerId,
-
-        type: 'lease_due_soon',
-        title: 'Tenant Lease Expiring Soon',
-        body: 'Tenant lease for unit ends in $daysLeft days.',
-        relatedId: lease.id,
-        relatedCollection: 'leases',
-        createdAt: DateTime.now(),
-        id: '',
-      ),
-    );
+            await partnerRepository!.createPartnerNotification(
+              partnerId: partner.id,
+              title: 'Partner subscription expired',
+              body: 'Your partner plan has expired. Update billing to restore full limits.',
+              type: 'partner_billing',
+            );
+          } catch (e) {
+            print('Partner sub update for ${sub.partnerId}: $e');
+          }
+        }
+      }
+    } catch (e) {
+      // Method may not exist yet
+      print('Partner subscription expiry skipped/error: $e');
+    }
   }
 
-  Future<void> _sendLeaseOverdueReminder(LeaseModel lease) async {
-    await notificationRepository.create(
-      NotificationModel(
-        userId: lease.tenantId,
-        partnerId: lease.partnerId,
+  Future<void> _deactivateInactivePartners() async {
+    if (partnerRepository == null) return;
 
-        type: 'lease_overdue',
-        title: 'Lease Has Expired',
-        body: 'Your lease has expired. Please renew immediately or contact your landlord.',
-        relatedId: lease.id,
-        relatedCollection: 'leases',
-        createdAt: DateTime.now(),
-        id: '',
-      ),
-    );
+    try {
+      // Partners explicitly marked suspended / inactive by platform stay inactive.
+      // Optional: auto-suspend partners with billingPastDue longer than N days.
+      final partners = await partnerRepository!.listPartners(activeOnly: false);
 
-    await notificationRepository.create(
-      NotificationModel(
-        userId: lease.landownerId,
-        type: 'lease_overdue',
-        partnerId: lease.partnerId,
-        title: 'Lease Expired',
-        body: 'A tenant lease has expired.',
-        relatedId: lease.id,
-        relatedCollection: 'leases',
-        createdAt: DateTime.now(),
-        id: '',
-      ),
-    );
+      for (final p in partners) {
+        final billingPastDue = p.features['billingPastDue'] == true;
+        final status = p.features['subscriptionStatus']?.toString();
+        final graceDays = 14;
+        final updatedAt = p.updatedAt;
+        final pastGrace = DateTime.now().difference(updatedAt).inDays >= graceDays;
+
+        if (billingPastDue && status == 'expired' && pastGrace && p.isActive) {
+          await partnerRepository!.updatePartner(p.copyWith(isActive: false, updatedAt: DateTime.now()));
+
+          await partnerRepository!.createPartnerNotification(
+            partnerId: p.id,
+            title: 'Partner suspended',
+            body: 'Partner access suspended after billing grace period.',
+            type: 'partner_billing',
+          );
+
+          print('🚫 Suspended partner ${p.slug} after billing grace');
+        }
+      }
+    } catch (e) {
+      print('Partner deactivation check error: $e');
+    }
+  }
+
+  // PAYOUTS / DISBURSEMENTS / COMMISSIONS
+
+  Future<void> _processAffiliatePayouts() async {
+    try {
+      final pendingPayouts = await affiliateRepository.getPendingPayouts();
+      var processedCount = 0;
+
+      for (final payout in pendingPayouts) {
+        final account = await paymentRepository.getDefaultPayoutAccount(payout.affiliateId);
+
+        if (account?.paystackSubaccountId == null) {
+          print('Affiliate ${payout.affiliateId}: no payout account — skip');
+          continue;
+        }
+
+        final ref = 'aff_payout_${payout.id}_${DateTime.now().microsecondsSinceEpoch}';
+        final success = await paystackService.transferToSubaccount(
+          amount: payout.amount,
+          subaccountId: account!.paystackSubaccountId!,
+          reference: ref,
+          reason: 'Affiliate commission payout',
+        );
+
+        if (success) {
+          await affiliateRepository.processPayout(payout.id, ref);
+          processedCount++;
+
+          await notificationRepository.create(
+            NotificationModel(
+              id: '',
+              userId: payout.affiliateId,
+              partnerId: payout.partnerId,
+              type: 'affiliate_payout',
+              title: 'Commission paid',
+              body: 'Your affiliate payout of ₦${payout.amount.toStringAsFixed(0)} was sent.',
+              relatedId: payout.id,
+              relatedCollection: 'affiliate_payouts',
+              createdAt: DateTime.now(),
+            ),
+          );
+        }
+      }
+
+      if (processedCount > 0) {
+        print('✅ Processed $processedCount affiliate payout(s)');
+      }
+    } catch (e) {
+      print('Affiliate payout scheduler error: $e');
+    }
   }
 
   Future<void> _processDueDisbursements() async {
     try {
       final dueDisbursements = await paymentRepository.getPendingDisbursements();
+      print('📊 ${dueDisbursements.length} disbursement(s) due');
 
-      print('📊 Found ${dueDisbursements.length} disbursements ready for processing');
-
-      for (var disbursement in dueDisbursements) {
+      for (final disbursement in dueDisbursements) {
         await _processSingleDisbursement(disbursement);
       }
     } catch (e, stack) {
-      print('❌ Scheduler error: $e\n$stack');
+      print('❌ Disbursement scheduler error: $e\n$stack');
     }
   }
 
@@ -294,7 +418,6 @@ class SchedulerService {
       final account = await paymentRepository.getDefaultPayoutAccount(disbursement.recipientId);
 
       if (account?.paystackSubaccountId == null) {
-        // Fallback to manual withdrawal
         await paymentRepository.createWithdrawalAsFallback(disbursement);
         await paymentRepository.markDisbursementAsFailed(
           disbursement.id,
@@ -303,7 +426,7 @@ class SchedulerService {
         return;
       }
 
-      final reference = 'disb_${DateTime.now().millisecondsSinceEpoch}';
+      final reference = 'disb_${disbursement.id}_${DateTime.now().millisecondsSinceEpoch}';
 
       final success = await paystackService.transferToSubaccount(
         amount: disbursement.netAmount,
@@ -314,28 +437,29 @@ class SchedulerService {
 
       if (success) {
         await paymentRepository.markDisbursementAsCompleted(disbursement.id, reference);
-        print('✅ Auto-disbursed ₦${disbursement.netAmount} to ${disbursement.recipientType}');
+        print('✅ Auto-disbursed ₦${disbursement.netAmount} → ${disbursement.recipientType}');
       } else {
         await paymentRepository.markDisbursementAsFailed(disbursement.id, 'Transfer failed');
       }
     } catch (e) {
-      print('Failed to process disbursement ${disbursement.id}: $e');
+      print('Failed disbursement ${disbursement.id}: $e');
       await paymentRepository.markDisbursementAsFailed(disbursement.id, e.toString());
     }
   }
 
   Future<void> _processManagerCommissions() async {
-    // Get all pending manager commissions older than 3 days
-    final commissions = await paymentRepository.getManagersCommissions();
+    try {
+      final commissions = await paymentRepository.getManagersCommissions();
 
-    for (var commission in commissions) {
-      final account = await paymentRepository.getDefaultPayoutAccount(commission.managerId);
+      for (final commission in commissions) {
+        final account = await paymentRepository.getDefaultPayoutAccount(commission.managerId);
+        if (account?.paystackSubaccountId == null) continue;
 
-      if (account?.paystackSubaccountId != null) {
+        final ref = 'comm_${commission.id}_${DateTime.now().millisecondsSinceEpoch}';
         final success = await paystackService.transferToSubaccount(
           amount: commission.commissionAmount,
           subaccountId: account!.paystackSubaccountId!,
-          reference: 'comm_${DateTime.now().millisecondsSinceEpoch}',
+          reference: ref,
           reason: 'Manager commission payout',
         );
 
@@ -343,6 +467,8 @@ class SchedulerService {
           await paymentRepository.markCommissionAsPaid(commission.id, 'auto');
         }
       }
+    } catch (e) {
+      print('Manager commission scheduler error: $e');
     }
   }
 }

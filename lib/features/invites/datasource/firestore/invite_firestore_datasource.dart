@@ -65,6 +65,32 @@ class FirestoreInviteDataSource implements InviteRemoteDataSource {
   }
 
   @override
+  Future<int> expireOverdueInvites() async {
+    final nowIso = DateTime.now().toIso8601String();
+
+    // Pending invites whose expiresAt is in the past
+    final snap = await firestore
+        .collection('invites')
+        .where('status', WhereFilter.equal, 'pending')
+        .where('expiresAt', WhereFilter.lessThan, nowIso)
+        .limit(200)
+        .get();
+
+    if (snap.docs.isEmpty) return 0;
+
+    var count = 0;
+    for (final doc in snap.docs) {
+      await firestore.collection('invites').doc(doc.id).update({
+        'status': 'expired',
+        'updatedAt': DateTime.now().toIso8601String(),
+      });
+      count++;
+    }
+
+    return count;
+  }
+
+  @override
   Future<List<InviteModel>> getInvitesByInviteeEmail(String email, {String? partnerId}) async {
     try {
       var query = _invites.where('inviteeEmail', WhereFilter.equal, email.toLowerCase().trim());

@@ -24,4 +24,6 @@ abstract class SubscriptionRepository {
   Future<UserSubscriptionModel?> getSubscriptionById(String id);
 
   Future<void> deactivateOtherSubscriptions(String userId, {required String exceptId, String? partnerId});
+
+  Future<List<UserSubscriptionModel>> getExpiredPartnerSubscriptions();
 }

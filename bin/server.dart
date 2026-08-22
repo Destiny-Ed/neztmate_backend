@@ -24,6 +24,7 @@ import 'package:neztmate_backend/features/messages/handler/messages_handler.dart
 import 'package:neztmate_backend/features/notifications/handler/handler.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
 import 'package:neztmate_backend/features/partners/handler/partner_handler.dart';
+import 'package:neztmate_backend/features/partners/repository/partner_repository.dart';
 import 'package:neztmate_backend/features/payments/handler/payment_handler.dart';
 import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
 import 'package:neztmate_backend/features/properties/handler/property_handler.dart';
@@ -32,6 +33,7 @@ import 'package:neztmate_backend/features/subscriptions/handler/subscription_han
 import 'package:neztmate_backend/features/subscriptions/repository/subscription_repository.dart';
 import 'package:neztmate_backend/features/tenants/handler/tenant_handler.dart';
 import 'package:neztmate_backend/features/units/handler/unit_handler.dart';
+import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
 import 'package:neztmate_backend/features/verification/handler/verification_handler.dart';
 import 'package:neztmate_backend/routes/affiliate_routes.dart';
 import 'package:neztmate_backend/routes/applications_routes.dart';
@@ -83,6 +85,8 @@ void main() async {
     paymentRepository: injector<PaymentRepository>(),
     affiliateRepository: injector<AffiliateRepository>(),
     subscriptionRepository: injector<SubscriptionRepository>(),
+    partnerRepository: injector<PartnerRepository>(),
+    unitRepository: injector<UnitRepository>(),
   );
 
   scheduler.start();
