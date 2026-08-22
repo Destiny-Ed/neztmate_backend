@@ -1,15 +1,18 @@
 class PartnerModel {
   final String id;
-  final String slug; // neztmate, acme_pm
+  final String slug;
   final String name;
+  final String? tagline;
   final String? logoUrl;
   final String primaryColor;
   final String? secondaryColor;
   final String? supportEmail;
-  final String? domain; // optional custom domain later
+  final String? supportPhone;
+  final String? website;
+  final String? domain;
   final bool isActive;
-  final Map<String, dynamic> features; // feature flags
-  final Map<String, dynamic> fees; // applicationFee, etc.
+  final Map<String, dynamic> features;
+  final Map<String, dynamic> fees;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -17,10 +20,13 @@ class PartnerModel {
     required this.id,
     required this.slug,
     required this.name,
+    this.tagline,
     this.logoUrl,
-    this.primaryColor = '#008080',
+    this.primaryColor = '#0d9488',
     this.secondaryColor,
     this.supportEmail,
+    this.supportPhone,
+    this.website,
     this.domain,
     this.isActive = true,
     this.features = const {},
@@ -34,10 +40,13 @@ class PartnerModel {
       id: id ?? map['id'] as String? ?? '',
       slug: map['slug'] as String? ?? '',
       name: map['name'] as String? ?? '',
+      tagline: map['tagline'] as String?,
       logoUrl: map['logoUrl'] as String?,
-      primaryColor: map['primaryColor'] as String? ?? '#008080',
+      primaryColor: map['primaryColor'] as String? ?? '#0d9488',
       secondaryColor: map['secondaryColor'] as String?,
       supportEmail: map['supportEmail'] as String?,
+      supportPhone: map['supportPhone'] as String?,
+      website: map['website'] as String?,
       domain: map['domain'] as String?,
       isActive: map['isActive'] as bool? ?? true,
       features: map['features'] != null ? Map<String, dynamic>.from(map['features'] as Map) : {},
@@ -51,10 +60,13 @@ class PartnerModel {
     'id': id,
     'slug': slug,
     'name': name,
+    'tagline': tagline,
     'logoUrl': logoUrl,
     'primaryColor': primaryColor,
     'secondaryColor': secondaryColor,
     'supportEmail': supportEmail,
+    'supportPhone': supportPhone,
+    'website': website,
     'domain': domain,
     'isActive': isActive,
     'features': features,
@@ -67,10 +79,13 @@ class PartnerModel {
     String? id,
     String? slug,
     String? name,
+    String? tagline,
     String? logoUrl,
     String? primaryColor,
     String? secondaryColor,
     String? supportEmail,
+    String? supportPhone,
+    String? website,
     String? domain,
     bool? isActive,
     Map<String, dynamic>? features,
@@ -82,10 +97,13 @@ class PartnerModel {
       id: id ?? this.id,
       slug: slug ?? this.slug,
       name: name ?? this.name,
+      tagline: tagline ?? this.tagline,
       logoUrl: logoUrl ?? this.logoUrl,
       primaryColor: primaryColor ?? this.primaryColor,
       secondaryColor: secondaryColor ?? this.secondaryColor,
       supportEmail: supportEmail ?? this.supportEmail,
+      supportPhone: supportPhone ?? this.supportPhone,
+      website: website ?? this.website,
       domain: domain ?? this.domain,
       isActive: isActive ?? this.isActive,
       features: features ?? this.features,
@@ -95,15 +113,19 @@ class PartnerModel {
     );
   }
 
-  /// Public branding payload for mobile apps
+  /// Used by web + mobile branding
   Map<String, dynamic> toPublicMap() => {
     'id': id,
     'slug': slug,
     'name': name,
+    'tagline': tagline,
     'logoUrl': logoUrl,
     'primaryColor': primaryColor,
     'secondaryColor': secondaryColor,
     'supportEmail': supportEmail,
+    'supportPhone': supportPhone,
+    'website': website,
     'features': features,
+    'isActive': isActive,
   };
 }
