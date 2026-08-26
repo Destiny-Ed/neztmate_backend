@@ -241,8 +241,10 @@ void main() async {
   );
   router.mount('/partners/', partnerPublicRoutes(injector<PartnerHandler>()).call);
 
-  router.mount('/platform/', platformRoutes(injector<PartnerHandler>()).call);
-
+  router.mount(
+    '/platform/',
+    Pipeline().addMiddleware(authMiddleWare).addHandler(platformRoutes(injector<PartnerHandler>()).call),
+  );
   //  SWAGGER UI SETUP
 
   final swaggerHandler = SwaggerUI(
