@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Partners · Platform Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/styles.css" />
+</head>
+<body class="admin-body">
+  <div class="admin-shell">
+    <aside class="sidebar">
+      <a class="logo" href="index.html">Nezt<span>Mate</span></a>
+      <nav>
+        <a href="index.html">Dashboard</a>
+        <a class="active" href="partners-list.html">All partners</a>
+        <a href="partner-requests.html">Partner requests</a>
+        <a href="partner-create.html">Create partner</a>
+        <a href="#" id="logout-link">Sign out</a>
+      </nav>
+      <div class="side-foot" id="side-user">Signed in</div>
+    </aside>
+    <div class="admin-main">
+      <header class="admin-top"><strong>All partners</strong></header>
+      <div class="admin-content">
+        <h1 class="page-title">Partners</h1>
+        <p class="page-sub">Platform-only · GET /partners/</p>
+        <div id="error" class="alert alert-error" style="display:none"></div>
+        <div class="panel">
+          <div class="table-wrap">
+            <table class="data">
+              <thead><tr><th>Name</th><th>Slug</th><th>Status</th><th>Primary</th><th></th></tr></thead>
+              <tbody id="tbody"><tr><td colspan="5" class="empty-state">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/admin.js"></script>
+  <script>
+    AdminGuard.requireAuth();
+    (async () => {
+      const tbody = document.getElementById('tbody');
+      try {
+        const data = await NeztMateApi.listPartners();
+        const list = data.partners || data || [];
+        if (!list.length) {
+          tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No partners</td></tr>';
+          return;
+        }
+        tbody.innerHTML = list.map((p) => `<tr>
+          <td>${p.name || '—'}</td>
+          <td><code>${p.slug || '—'}</code></td>
+          <td><span class="badge-soft">${p.status || 'active'}</span></td>
+          <td><span style="display:inline-block;width:14px;height:14px;border-radius:4px;background:${p.primaryColor||'#0d9488'}"></span> ${p.primaryColor||''}</td>
+          <td><a href="../index.html?partner=${encodeURIComponent(p.slug||'')}">Preview</a></td>
+        </tr>`).join('');
+      } catch (e) {
+        document.getElementById('error').style.display = 'block';
+        document.getElementById('error').textContent = e.message;
+        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Failed to load</td></tr>';
+      }
+    })();
+  </script>
+</body>
+</html>

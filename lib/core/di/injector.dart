@@ -199,6 +199,7 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
       injector<JwtService>(),
       injector<UserRepository>(),
       injector<PartnerRepository>(),
+      injector<Auth>(),
     ),
   );
 

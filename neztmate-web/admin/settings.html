@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Partner settings · NeztMate Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/styles.css" />
+</head>
+<body class="admin-body">
+  <div class="admin-shell">
+    <aside class="sidebar">
+      <a class="logo" href="index.html">Nezt<span>Mate</span></a>
+      <nav>
+        <a href="index.html">Dashboard</a>
+        <a href="branding.html">Branding</a>
+        <a class="active" href="settings.html">Partner settings</a>
+        <a href="#" id="logout-link">Sign out</a>
+      </nav>
+      <div class="side-foot" id="side-user">Signed in</div>
+    </aside>
+    <div class="admin-main">
+      <header class="admin-top"><strong>Partner settings</strong></header>
+      <div class="admin-content">
+        <h1 class="page-title">Settings</h1>
+        <p class="page-sub">Slug is usually fixed after go-live. Contact platform support to change it.</p>
+        <div id="alert" class="alert" style="display:none"></div>
+        <div class="form-card" style="max-width:560px;box-shadow:none">
+          <form id="settings-form">
+            <div class="field"><label>Partner ID</label><input id="partnerId" readonly /></div>
+            <div class="field"><label>Slug</label><input id="slug" readonly /></div>
+            <div class="field"><label>Status</label><input id="status" readonly /></div>
+            <div class="field"><label>Support phone</label><input id="supportPhone" /></div>
+            <div class="field"><label>Website</label><input id="website" type="url" /></div>
+            <button class="btn btn-primary" type="submit">Save settings</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/admin.js"></script>
+  <script>
+    AdminGuard.requireAuth();
+    const alertEl = document.getElementById('alert');
+    (async () => {
+      try {
+        const data = await NeztMateApi.getMyPartner();
+        const p = data.partner || data;
+        document.getElementById('partnerId').value = p.id || p.partnerId || '';
+        document.getElementById('slug').value = p.slug || '';
+        document.getElementById('status').value = p.status || 'active';
+        document.getElementById('supportPhone').value = p.supportPhone || '';
+        document.getElementById('website').value = p.website || '';
+      } catch (e) {
+        alertEl.style.display = 'block';
+        alertEl.className = 'alert alert-error';
+        alertEl.textContent = e.message;
+      }
+    })();
+    document.getElementById('settings-form').onsubmit = async (e) => {
+      e.preventDefault();
+      try {
+        await NeztMateApi.updateMyPartner({
+          supportPhone: document.getElementById('supportPhone').value.trim(),
+          website: document.getElementById('website').value.trim(),
+        });
+        alertEl.style.display = 'block';
+        alertEl.className = 'alert alert-ok';
+        alertEl.textContent = 'Saved';
+      } catch (err) {
+        alertEl.style.display = 'block';
+        alertEl.className = 'alert alert-error';
+        alertEl.textContent = err.message;
+      }
+    };
+  </script>
+</body>
+</html>

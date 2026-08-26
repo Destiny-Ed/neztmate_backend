@@ -1,0 +1,105 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Admin login · NeztMate</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/styles.css" />
+</head>
+<body class="admin-body">
+  <div class="auth-page">
+    <div class="auth-card">
+      <a class="logo" href="../index.html">Nezt<span>Mate</span></a>
+      <h1 style="margin-top:1rem">Admin sign in</h1>
+      <p class="sub">Operators only. Public site has no admin link — use <code>/admin</code>.</p>
+
+      <div class="tabs" role="tablist">
+        <button type="button" class="active" id="tab-partner">Partner admin</button>
+        <button type="button" id="tab-platform">Platform admin</button>
+      </div>
+
+      <div id="alert" class="alert alert-error" style="display:none"></div>
+
+      <form id="login-form">
+        <div class="field">
+          <label for="email">Email</label>
+          <input id="email" type="email" required autocomplete="username" />
+        </div>
+        <div class="field">
+          <label for="password">Password</label>
+          <input id="password" type="password" required minlength="6" autocomplete="current-password" />
+        </div>
+        <div class="field" id="partner-field">
+          <label for="partnerId">Partner ID</label>
+          <input id="partnerId" value="neztmate" placeholder="neztmate" />
+        </div>
+        <p class="muted" style="font-size:.8rem;margin:-.4rem 0 1rem" id="login-hint">
+          Partner admins must include partnerId. A web FCM token is sent automatically.
+        </p>
+        <button class="btn btn-primary" style="width:100%" type="submit" id="submit-btn">Sign in</button>
+      </form>
+    </div>
+  </div>
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
+  <script>
+    let isPlatform = false;
+    const partnerField = document.getElementById('partner-field');
+    const partnerInput = document.getElementById('partnerId');
+    const hint = document.getElementById('login-hint');
+
+    document.getElementById('tab-partner').onclick = () => {
+      isPlatform = false;
+      document.getElementById('tab-partner').classList.add('active');
+      document.getElementById('tab-platform').classList.remove('active');
+      partnerField.style.display = '';
+      partnerInput.required = true;
+      hint.textContent = 'Partner admins must include partnerId. A web FCM token is sent automatically.';
+    };
+    document.getElementById('tab-platform').onclick = () => {
+      isPlatform = true;
+      document.getElementById('tab-platform').classList.add('active');
+      document.getElementById('tab-partner').classList.remove('active');
+      partnerField.style.display = 'none';
+      partnerInput.required = false;
+      hint.textContent = 'Platform admins sign in without partnerId. JWT role must be platform_admin.';
+    };
+
+    document.getElementById('login-form').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const alertEl = document.getElementById('alert');
+      const btn = document.getElementById('submit-btn');
+      alertEl.style.display = 'none';
+      btn.disabled = true;
+      btn.textContent = 'Signing in…';
+      try {
+        const data = await NeztMateApi.login({
+          email: document.getElementById('email').value.trim(),
+          password: document.getElementById('password').value,
+          partnerId: isPlatform ? undefined : document.getElementById('partnerId').value.trim(),
+          isPlatformAdmin: isPlatform,
+          fcmToken: 'web-admin-' + Date.now(),
+        });
+        const accessToken = data.accessToken || data.access_token;
+        const refreshToken = data.refreshToken || data.refresh_token;
+        let user = data.user || { email: document.getElementById('email').value.trim() };
+        // Prefer role from token response
+        if (data.role) user.role = data.role;
+        if (isPlatform) user.role = user.role || 'platform_admin';
+        if (!isPlatform && !user.partnerId) {
+          user.partnerId = document.getElementById('partnerId').value.trim();
+        }
+        if (!accessToken) throw new Error(data.message || 'No access token');
+        NeztMateApi.setSession({ accessToken, refreshToken, user });
+        location.href = 'index.html';
+      } catch (err) {
+        alertEl.style.display = 'block';
+        alertEl.textContent = err.message || 'Login failed';
+        btn.disabled = false;
+        btn.textContent = 'Sign in';
+      }
+    });
+  </script>
+</body>
+</html>

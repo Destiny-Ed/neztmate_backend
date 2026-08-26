@@ -8,5 +8,7 @@ Router authRoutes(AuthHandler handler) {
   router.post('/login', handler.login);
   router.post('/social', handler.social);
 
+  router.post('/platform/google', handler.platformGoogleLogin);
+
   return router;
 }

@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Partner requests · NeztMate Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/styles.css" />
+</head>
+<body class="admin-body">
+  <div class="admin-shell">
+    <aside class="sidebar">
+      <a class="logo" href="index.html">Nezt<span>Mate</span></a>
+      <nav>
+        <a href="index.html">Dashboard</a>
+        <a class="active" href="partner-requests.html">Partner requests</a>
+        <a href="properties.html">Properties</a>
+        <a href="payments.html">Payments</a>
+        <a href="notifications.html">Notifications</a>
+        <a href="#" id="logout-link">Sign out</a>
+      </nav>
+      <div class="side-foot" id="side-user">Signed in</div>
+    </aside>
+    <div class="admin-main">
+      <header class="admin-top"><strong>Partner requests</strong></header>
+      <div class="admin-content">
+        <h1 class="page-title">Become-a-partner inbox</h1>
+        <p class="page-sub">
+          Loads from <code>GET /partners/requests</code> when available; otherwise shows requests
+          saved in this browser from the public form (until the API is deployed).
+        </p>
+        <div id="error" class="alert alert-error" style="display:none"></div>
+        <div class="panel">
+          <div class="panel-head"><h3>Requests</h3></div>
+          <div class="table-wrap">
+            <table class="data">
+              <thead>
+                <tr>
+                  <th>Company</th>
+                  <th>Contact</th>
+                  <th>Slug</th>
+                  <th>Cities</th>
+                  <th>Size</th>
+                  <th>Message</th>
+                  <th>When</th>
+                </tr>
+              </thead>
+              <tbody id="tbody"><tr><td colspan="7" class="empty-state">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/admin.js"></script>
+  <script>
+    AdminGuard.requireAuth();
+    (async () => {
+      const tbody = document.getElementById('tbody');
+      const errEl = document.getElementById('error');
+      let list = [];
+      try {
+        const data = await NeztMateApi.listPartnerRequests();
+        list = data.requests || data || [];
+      } catch (e) {
+        list = JSON.parse(localStorage.getItem('neztmate_partner_requests') || '[]');
+        if (e.status && e.status !== 404) {
+          errEl.style.display = 'block';
+          errEl.textContent = e.message + ' — showing local fallback if any.';
+        }
+      }
+      if (!list.length) {
+        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No partner requests yet</td></tr>';
+        return;
+      }
+      tbody.innerHTML = list.map((r) => `<tr>
+        <td>${r.companyName || '—'}</td>
+        <td>${r.contactName || ''}<br/><span class="muted">${r.email || ''}</span><br/>${r.phone || ''}</td>
+        <td><code>${r.proposedSlug || '—'}</code></td>
+        <td>${r.cities || '—'}</td>
+        <td>${r.portfolioSize || '—'}</td>
+        <td style="max-width:220px">${r.message || '—'}</td>
+        <td>${r.createdAt ? new Date(r.createdAt).toLocaleString() : '—'}</td>
+      </tr>`).join('');
+    })();
+  </script>
+</body>
+</html>

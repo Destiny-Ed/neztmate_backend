@@ -1,0 +1,93 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Branding · NeztMate Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/styles.css" />
+</head>
+<body class="admin-body">
+  <div class="admin-shell">
+    <aside class="sidebar">
+      <a class="logo" href="index.html">Nezt<span>Mate</span></a>
+      <nav>
+        <a href="index.html">Dashboard</a>
+        <a href="properties.html">Properties</a>
+        <a href="payments.html">Payments</a>
+        <a href="notifications.html">Notifications</a>
+        <a class="active" href="branding.html">Branding</a>
+        <a href="settings.html">Partner settings</a>
+        <a href="#" id="logout-link">Sign out</a>
+      </nav>
+      <div class="side-foot" id="side-user">Signed in</div>
+    </aside>
+    <div class="admin-main">
+      <header class="admin-top"><strong>App & web branding</strong></header>
+      <div class="admin-content">
+        <h1 class="page-title">Branding</h1>
+        <p class="page-sub">These fields power <code>/partners/config</code> and the mobile app theme.</p>
+        <div id="alert" class="alert" style="display:none"></div>
+        <div class="form-card" style="max-width:560px;box-shadow:none">
+          <form id="brand-form">
+            <div class="field"><label>Display name</label><input id="name" required /></div>
+            <div class="field"><label>Tagline</label><input id="tagline" /></div>
+            <div class="field"><label>Primary color</label><input id="primaryColor" type="color" value="#0d9488" style="height:44px;padding:.25rem" /></div>
+            <div class="field"><label>Secondary color</label><input id="secondaryColor" type="color" value="#0f766e" style="height:44px;padding:.25rem" /></div>
+            <div class="field"><label>Logo URL</label><input id="logoUrl" type="url" placeholder="https://…" /></div>
+            <div class="field"><label>Support email</label><input id="supportEmail" type="email" /></div>
+            <button class="btn btn-primary" type="submit" id="save-btn">Save branding</button>
+          </form>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/admin.js"></script>
+  <script>
+    AdminGuard.requireAuth();
+    const alertEl = document.getElementById('alert');
+    function show(ok, msg) {
+      alertEl.style.display = 'block';
+      alertEl.className = 'alert ' + (ok ? 'alert-ok' : 'alert-error');
+      alertEl.textContent = msg;
+    }
+    (async () => {
+      try {
+        const data = await NeztMateApi.getMyPartner();
+        const p = data.partner || data;
+        document.getElementById('name').value = p.name || '';
+        document.getElementById('tagline').value = p.tagline || '';
+        document.getElementById('primaryColor').value = p.primaryColor || '#0d9488';
+        document.getElementById('secondaryColor').value = p.secondaryColor || '#0f766e';
+        document.getElementById('logoUrl').value = p.logoUrl || '';
+        document.getElementById('supportEmail').value = p.supportEmail || '';
+      } catch (e) {
+        show(false, e.message + ' — ensure GET /partners/me exists.');
+      }
+    })();
+    document.getElementById('brand-form').onsubmit = async (e) => {
+      e.preventDefault();
+      const btn = document.getElementById('save-btn');
+      btn.disabled = true;
+      const payload = {
+        name: document.getElementById('name').value.trim(),
+        tagline: document.getElementById('tagline').value.trim(),
+        primaryColor: document.getElementById('primaryColor').value,
+        secondaryColor: document.getElementById('secondaryColor').value,
+        logoUrl: document.getElementById('logoUrl').value.trim() || null,
+        supportEmail: document.getElementById('supportEmail').value.trim(),
+      };
+      try {
+        await NeztMateApi.updateMyBranding(payload).catch(() => NeztMateApi.updateMyPartner(payload));
+        show(true, 'Branding saved. Public config and app should pick this up.');
+      } catch (err) {
+        show(false, err.message || 'Save failed');
+      } finally {
+        btn.disabled = false;
+      }
+    };
+  </script>
+</body>
+</html>

@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Notifications · NeztMate Admin</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" href="../css/styles.css" />
+  </head>
+  <body class="admin-body">
+    <div class="admin-shell">
+      <aside class="sidebar">
+        <a class="logo" href="index.html">Nezt<span>Mate</span></a>
+        <nav>
+          <a href="index.html">Dashboard</a>
+        <a href="partner-requests.html">Partner requests</a>
+          <a href="properties.html">Properties</a>
+          <a href="payments.html">Payments</a>
+          <a class="active" href="notifications.html">Notifications</a>
+          <a href="#" id="logout-link">Sign out</a>
+        </nav>
+        <div class="side-foot" id="side-user">Signed in</div>
+      </aside>
+      <div class="admin-main">
+        <header class="admin-top">
+          <strong>Notifications</strong>
+          <a class="btn btn-ghost btn-sm" href="../index.html">View site</a>
+        </header>
+        <div class="admin-content">
+          <h1 class="page-title">Notifications</h1>
+          <p class="page-sub">Partner-scoped inbox for the current user.</p>
+          <div id="error" class="alert alert-error" style="display: none"></div>
+          <div class="panel">
+            <div class="panel-head"><h3>Recent</h3></div>
+            <div class="table-wrap">
+              <table class="data">
+                <thead>
+                  <tr>
+                    <th>Title</th>
+                    <th>Body</th>
+                    <th>Type</th>
+                    <th>When</th>
+                  </tr>
+                </thead>
+                <tbody id="tbody">
+                  <tr>
+                    <td colspan="4" class="empty-state">Loading…</td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
+    <script src="../js/admin.js"></script>
+    <script>
+      AdminGuard.requireAuth();
+      (async () => {
+        const tbody = document.getElementById('tbody');
+        const errEl = document.getElementById('error');
+        try {
+          const data = await NeztMateApi.getNotifications();
+          const list = data.notifications || [];
+          if (!list.length) {
+            tbody.innerHTML =
+              '<tr><td colspan="4" class="empty-state">No notifications</td></tr>';
+            return;
+          }
+          tbody.innerHTML = list
+            .map((n) => {
+              const when = n.createdAt ? new Date(n.createdAt).toLocaleString() : '—';
+              return `<tr>
+                <td>${n.title || '—'}</td>
+                <td>${n.body || '—'}</td>
+                <td><span class="badge-soft">${n.type || '—'}</span></td>
+                <td>${when}</td>
+              </tr>`;
+            })
+            .join('');
+        } catch (e) {
+          errEl.style.display = 'block';
+          errEl.textContent = e.message || 'Failed to load notifications';
+          tbody.innerHTML =
+            '<tr><td colspan="4" class="empty-state">Could not load</td></tr>';
+        }
+      })();
+    </script>
+  </body>
+</html>
