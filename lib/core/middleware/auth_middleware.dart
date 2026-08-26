@@ -4,6 +4,11 @@ import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
 import 'package:neztmate_backend/features/subscriptions/repository/subscription_repository.dart';
 import 'package:shelf/shelf.dart';
 
+bool _isPlatformAdmin(String? role) {
+  final r = (role ?? '').toLowerCase().trim();
+  return r == 'platform_admin' || r == 'super_admin';
+}
+
 Middleware authMiddleware(JwtService jwtService, SubscriptionRepository subscriptionRepository) {
   return (Handler innerHandler) {
     return (Request request) async {
@@ -16,7 +21,14 @@ Middleware authMiddleware(JwtService jwtService, SubscriptionRepository subscrip
         );
       }
 
-      final token = authHeader.replaceFirst("Bearer ", "");
+      // Accept "Bearer <token>" with any casing on "Bearer"
+      final token = authHeader.substring(authHeader.indexOf(' ') + 1).trim();
+      if (token.isEmpty) {
+        return Response.forbidden(
+          jsonEncode({'message': 'Missing token'}),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
 
       try {
         final jwt = jwtService.verify(token);
@@ -25,6 +37,7 @@ Middleware authMiddleware(JwtService jwtService, SubscriptionRepository subscrip
         final userId = payload['sub'] as String?;
         final role = payload['role'] as String?;
         final partnerId = (payload['partnerId'] as String?)?.trim() ?? '';
+        final isPlatformAdmin = _isPlatformAdmin(role);
 
         if (userId == null || userId.isEmpty) {
           return Response.unauthorized(
@@ -33,8 +46,8 @@ Middleware authMiddleware(JwtService jwtService, SubscriptionRepository subscrip
           );
         }
 
-        // Block if partnerId is missing entirely
-        if (partnerId.isEmpty) {
+        // Partner context required for everyone except platform / super admin
+        if (!isPlatformAdmin && partnerId.isEmpty) {
           return Response(
             403,
             body: jsonEncode({
@@ -45,17 +58,23 @@ Middleware authMiddleware(JwtService jwtService, SubscriptionRepository subscrip
           );
         }
 
-        // Optional: platform_admin may use header override later; still require a partnerId
-        // for normal product routes, or skip subscription lookup for platform_admin.
-
-        final subscription = await subscriptionRepository.getActiveSubscription(userId, partnerId: partnerId);
+        // Subscription is partner-scoped — skip for platform admins
+        String subscriptionPlan = 'free';
+        if (!isPlatformAdmin && partnerId.isNotEmpty) {
+          final subscription = await subscriptionRepository.getActiveSubscription(
+            userId,
+            partnerId: partnerId,
+          );
+          subscriptionPlan = subscription?.planId ?? 'free';
+        }
 
         final updated = request.change(
           context: {
             'userId': userId,
             'role': role,
-            'partnerId': partnerId,
-            'subscriptionPlan': subscription?.planId ?? 'free',
+            'partnerId': isPlatformAdmin ? (partnerId.isEmpty ? null : partnerId) : partnerId,
+            'isPlatformAdmin': isPlatformAdmin,
+            'subscriptionPlan': subscriptionPlan,
           },
         );
 
