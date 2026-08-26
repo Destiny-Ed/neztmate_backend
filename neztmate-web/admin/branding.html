@@ -9,83 +9,103 @@
 </head>
 <body class="admin-body">
   <div class="admin-shell">
-    <aside class="sidebar">
-      <a class="logo" href="index.html">Nezt<span>Mate</span></a>
-      <nav>
-        <a href="index.html">Dashboard</a>
-        <a href="properties.html">Properties</a>
-        <a href="payments.html">Payments</a>
-        <a href="notifications.html">Notifications</a>
-        <a class="active" href="branding.html">Branding</a>
-        <a href="settings.html">Partner settings</a>
-        <a href="#" id="logout-link">Sign out</a>
-      </nav>
-      <div class="side-foot" id="side-user">Signed in</div>
-    </aside>
+    <aside class="sidebar" id="sidebar"></aside>
     <div class="admin-main">
-      <header class="admin-top"><strong>App & web branding</strong></header>
+      <header class="admin-top">
+        <div><strong>Branding</strong> <span class="muted" id="partner-label"></span></div>
+        <button type="button" class="theme-toggle" id="theme-toggle">🌙</button>
+      </header>
       <div class="admin-content">
-        <h1 class="page-title">Branding</h1>
-        <p class="page-sub">These fields power <code>/partners/config</code> and the mobile app theme.</p>
-        <div id="alert" class="alert" style="display:none"></div>
-        <div class="form-card" style="max-width:560px;box-shadow:none">
-          <form id="brand-form">
-            <div class="field"><label>Display name</label><input id="name" required /></div>
-            <div class="field"><label>Tagline</label><input id="tagline" /></div>
-            <div class="field"><label>Primary color</label><input id="primaryColor" type="color" value="#0d9488" style="height:44px;padding:.25rem" /></div>
-            <div class="field"><label>Secondary color</label><input id="secondaryColor" type="color" value="#0f766e" style="height:44px;padding:.25rem" /></div>
-            <div class="field"><label>Logo URL</label><input id="logoUrl" type="url" placeholder="https://…" /></div>
-            <div class="field"><label>Support email</label><input id="supportEmail" type="email" /></div>
-            <button class="btn btn-primary" type="submit" id="save-btn">Save branding</button>
-          </form>
+        <h1 class="page-title">Partner branding</h1>
+        <p class="page-sub">Public site theme, store links, legal URLs, and copyright for your slug or domain.</p>
+        <div id="error" class="alert alert-error" style="display:none"></div>
+        <div id="info" class="alert alert-ok" style="display:none"></div>
+        <div class="panel" style="max-width:640px">
+          <div class="panel-body">
+            <form id="form">
+              <h3 style="margin:0 0 1rem;font-size:1rem">Identity</h3>
+              <div class="field"><label>Name</label><input id="name" required /></div>
+              <div class="field"><label>Tagline</label><input id="tagline" /></div>
+              <div class="field-row">
+                <div class="field"><label>Primary color</label><input id="primaryColor" placeholder="#0d9488" /></div>
+                <div class="field"><label>Secondary color</label><input id="secondaryColor" placeholder="#0f766e" /></div>
+              </div>
+              <div class="field"><label>Logo URL</label><input id="logoUrl" placeholder="https://..." /></div>
+              <div class="field"><label>Support email</label><input id="supportEmail" type="email" /></div>
+
+              <hr style="border:none;border-top:1px solid var(--line);margin:1.25rem 0" />
+              <h3 style="margin:0 0 .35rem;font-size:1rem">App stores</h3>
+              <p class="muted" style="font-size:.82rem;margin:0 0 1rem">Leave empty to use NeztMate default store links on the landing page.</p>
+              <div class="field"><label>Google Play URL</label><input id="playStoreUrl" placeholder="https://play.google.com/..." /></div>
+              <div class="field"><label>App Store URL</label><input id="appStoreUrl" placeholder="https://apps.apple.com/..." /></div>
+
+              <hr style="border:none;border-top:1px solid var(--line);margin:1.25rem 0" />
+              <h3 style="margin:0 0 .35rem;font-size:1rem">Legal</h3>
+              <p class="muted" style="font-size:.82rem;margin:0 0 1rem">Leave empty to use default privacy.html / terms.html on the site.</p>
+              <div class="field"><label>Privacy policy URL</label><input id="privacyUrl" placeholder="https://... or leave empty" /></div>
+              <div class="field"><label>Terms of use URL</label><input id="termsUrl" placeholder="https://... or leave empty" /></div>
+              <div class="field">
+                <label>Copyright line</label>
+                <input id="copyright" placeholder="© {year} Acme Homes. All rights reserved." />
+                <p class="muted" style="font-size:.78rem;margin:.35rem 0 0">Use <code>{year}</code> and <code>{name}</code> as placeholders.</p>
+              </div>
+
+              <button class="btn btn-primary" type="submit">Save branding</button>
+            </form>
+          </div>
         </div>
       </div>
     </div>
   </div>
   <script src="../js/config.js"></script>
   <script src="../js/api.js"></script>
+  <script src="../js/admin-shell.js"></script>
   <script src="../js/admin.js"></script>
   <script>
-    AdminGuard.requireAuth();
-    const alertEl = document.getElementById('alert');
-    function show(ok, msg) {
-      alertEl.style.display = 'block';
-      alertEl.className = 'alert ' + (ok ? 'alert-ok' : 'alert-error');
-      alertEl.textContent = msg;
+    if (!AdminGuard.requireAuth()) throw 0;
+    AdminShell.mount('branding.html');
+
+    var FIELDS = [
+      'name', 'tagline', 'primaryColor', 'secondaryColor', 'logoUrl', 'supportEmail',
+      'playStoreUrl', 'appStoreUrl', 'privacyUrl', 'termsUrl', 'copyright'
+    ];
+
+    function emptyToNull(s) {
+      var v = (s || '').trim();
+      return v === '' ? null : v;
     }
-    (async () => {
-      try {
-        const data = await NeztMateApi.getMyPartner();
-        const p = data.partner || data;
-        document.getElementById('name').value = p.name || '';
-        document.getElementById('tagline').value = p.tagline || '';
-        document.getElementById('primaryColor').value = p.primaryColor || '#0d9488';
-        document.getElementById('secondaryColor').value = p.secondaryColor || '#0f766e';
-        document.getElementById('logoUrl').value = p.logoUrl || '';
-        document.getElementById('supportEmail').value = p.supportEmail || '';
-      } catch (e) {
-        show(false, e.message + ' — ensure GET /partners/me exists.');
-      }
+
+    (async function () {
+      var data = await AdminGuard.api(function () {
+        return NeztMateApi.request('/partners/me');
+      }, {});
+      var p = data.partner || data || {};
+      FIELDS.forEach(function (k) {
+        var el = document.getElementById(k);
+        if (el) el.value = p[k] || '';
+      });
     })();
-    document.getElementById('brand-form').onsubmit = async (e) => {
+
+    document.getElementById('form').onsubmit = async function (e) {
       e.preventDefault();
-      const btn = document.getElementById('save-btn');
-      btn.disabled = true;
-      const payload = {
-        name: document.getElementById('name').value.trim(),
-        tagline: document.getElementById('tagline').value.trim(),
-        primaryColor: document.getElementById('primaryColor').value,
-        secondaryColor: document.getElementById('secondaryColor').value,
-        logoUrl: document.getElementById('logoUrl').value.trim() || null,
-        supportEmail: document.getElementById('supportEmail').value.trim(),
-      };
+      AdminGuard.clearAlerts();
       try {
-        await NeztMateApi.updateMyBranding(payload).catch(() => NeztMateApi.updateMyPartner(payload));
-        show(true, 'Branding saved. Public config and app should pick this up.');
+        await NeztMateApi.updateMyBranding({
+          name: document.getElementById('name').value.trim(),
+          tagline: emptyToNull(document.getElementById('tagline').value),
+          primaryColor: document.getElementById('primaryColor').value.trim(),
+          secondaryColor: emptyToNull(document.getElementById('secondaryColor').value),
+          logoUrl: emptyToNull(document.getElementById('logoUrl').value),
+          supportEmail: emptyToNull(document.getElementById('supportEmail').value),
+          playStoreUrl: emptyToNull(document.getElementById('playStoreUrl').value),
+          appStoreUrl: emptyToNull(document.getElementById('appStoreUrl').value),
+          privacyUrl: emptyToNull(document.getElementById('privacyUrl').value),
+          termsUrl: emptyToNull(document.getElementById('termsUrl').value),
+          copyright: emptyToNull(document.getElementById('copyright').value),
+        });
+        AdminGuard.showOk('Branding saved. Public site loads this via GET /partners/config?slug=…');
       } catch (err) {
-        show(false, err.message || 'Save failed');
-      } finally {
-        btn.disabled = false;
+        AdminGuard.showError(err.message);
       }
     };
   </script>

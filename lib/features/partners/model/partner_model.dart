@@ -10,6 +10,18 @@ class PartnerModel {
   final String? supportPhone;
   final String? website;
   final String? domain;
+
+  /// App store links (optional — web falls back to NeztMate defaults)
+  final String? playStoreUrl;
+  final String? appStoreUrl;
+
+  /// Legal (optional — web falls back to privacy.html / terms.html)
+  final String? privacyUrl;
+  final String? termsUrl;
+
+  /// e.g. "© {year} Acme Homes. All rights reserved."
+  final String? copyright;
+
   final bool isActive;
   final Map<String, dynamic> features;
   final Map<String, dynamic> fees;
@@ -28,6 +40,11 @@ class PartnerModel {
     this.supportPhone,
     this.website,
     this.domain,
+    this.playStoreUrl,
+    this.appStoreUrl,
+    this.privacyUrl,
+    this.termsUrl,
+    this.copyright,
     this.isActive = true,
     this.features = const {},
     this.fees = const {},
@@ -36,6 +53,11 @@ class PartnerModel {
   });
 
   factory PartnerModel.fromMap(Map<String, dynamic> map, [String? id]) {
+    DateTime parseDt(dynamic v) {
+      if (v is DateTime) return v;
+      return DateTime.tryParse(v?.toString() ?? '') ?? DateTime.now();
+    }
+
     return PartnerModel(
       id: id ?? map['id'] as String? ?? '',
       slug: map['slug'] as String? ?? '',
@@ -48,11 +70,16 @@ class PartnerModel {
       supportPhone: map['supportPhone'] as String?,
       website: map['website'] as String?,
       domain: map['domain'] as String?,
+      playStoreUrl: map['playStoreUrl'] as String?,
+      appStoreUrl: map['appStoreUrl'] as String?,
+      privacyUrl: map['privacyUrl'] as String?,
+      termsUrl: map['termsUrl'] as String?,
+      copyright: map['copyright'] as String?,
       isActive: map['isActive'] as bool? ?? true,
       features: map['features'] != null ? Map<String, dynamic>.from(map['features'] as Map) : {},
       fees: map['fees'] != null ? Map<String, dynamic>.from(map['fees'] as Map) : {},
-      createdAt: DateTime.parse(map['createdAt'] as String),
-      updatedAt: DateTime.parse(map['updatedAt'] as String),
+      createdAt: parseDt(map['createdAt']),
+      updatedAt: parseDt(map['updatedAt']),
     );
   }
 
@@ -68,6 +95,11 @@ class PartnerModel {
     'supportPhone': supportPhone,
     'website': website,
     'domain': domain,
+    'playStoreUrl': playStoreUrl,
+    'appStoreUrl': appStoreUrl,
+    'privacyUrl': privacyUrl,
+    'termsUrl': termsUrl,
+    'copyright': copyright,
     'isActive': isActive,
     'features': features,
     'fees': fees,
@@ -87,6 +119,11 @@ class PartnerModel {
     String? supportPhone,
     String? website,
     String? domain,
+    String? playStoreUrl,
+    String? appStoreUrl,
+    String? privacyUrl,
+    String? termsUrl,
+    String? copyright,
     bool? isActive,
     Map<String, dynamic>? features,
     Map<String, dynamic>? fees,
@@ -105,6 +142,11 @@ class PartnerModel {
       supportPhone: supportPhone ?? this.supportPhone,
       website: website ?? this.website,
       domain: domain ?? this.domain,
+      playStoreUrl: playStoreUrl ?? this.playStoreUrl,
+      appStoreUrl: appStoreUrl ?? this.appStoreUrl,
+      privacyUrl: privacyUrl ?? this.privacyUrl,
+      termsUrl: termsUrl ?? this.termsUrl,
+      copyright: copyright ?? this.copyright,
       isActive: isActive ?? this.isActive,
       features: features ?? this.features,
       fees: fees ?? this.fees,
@@ -113,7 +155,7 @@ class PartnerModel {
     );
   }
 
-  /// Used by web + mobile branding
+  /// Public branding payload (web + mobile) — no internal fees/domain secrets
   Map<String, dynamic> toPublicMap() => {
     'id': id,
     'slug': slug,
@@ -125,6 +167,11 @@ class PartnerModel {
     'supportEmail': supportEmail,
     'supportPhone': supportPhone,
     'website': website,
+    'playStoreUrl': playStoreUrl,
+    'appStoreUrl': appStoreUrl,
+    'privacyUrl': privacyUrl,
+    'termsUrl': termsUrl,
+    'copyright': copyright,
     'features': features,
     'isActive': isActive,
   };

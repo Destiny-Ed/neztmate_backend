@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Applications · NeztMate Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/styles.css" />
+</head>
+<body class="admin-body">
+  <div class="admin-shell">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="admin-main">
+      <header class="admin-top">
+        <div><strong>Applications</strong> <span class="muted" id="partner-label"></span></div>
+        <button type="button" class="theme-toggle" id="theme-toggle">🌙</button>
+      </header>
+      <div class="admin-content">
+        <h1 class="page-title">Lease applications</h1>
+        <p class="page-sub">Inbound tenancy applications for your properties.</p>
+        <div id="error" class="alert alert-error" style="display:none"></div>
+        <div class="toolbar"><button class="btn btn-ghost btn-sm" id="refresh">Refresh</button></div>
+        <div class="panel"><div class="table-wrap">
+          <table class="table">
+            <thead><tr><th>ID</th><th>Tenant</th><th>Unit</th><th>Status</th><th>Applied</th></tr></thead>
+            <tbody id="tbody"><tr><td colspan="5" class="empty-state">Loading…</td></tr></tbody>
+          </table>
+        </div></div>
+      </div>
+    </div>
+  </div>
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/admin-shell.js"></script>
+  <script src="../js/admin.js"></script>
+  <script>
+    if (!AdminGuard.requireAuth()) throw 0;
+    AdminShell.mount('applications.html');
+    async function load() {
+      const data = await AdminGuard.api(() => NeztMateApi.listApplications(), { applications: [] });
+      const list = data.applications || data || [];
+      const tb = document.getElementById('tbody');
+      if (!list.length) { tb.innerHTML = '<tr><td colspan="5" class="empty-state">No applications</td></tr>'; return; }
+      tb.innerHTML = list.map((a) => '<tr><td><code style="font-size:.75rem">'+AdminGuard.esc(String(a.id||'').slice(0,10))+'</code></td><td>'+AdminGuard.esc(a.tenant?.fullName||a.tenantId||'—')+'</td><td>'+AdminGuard.esc(a.unit?.unitNumber||a.unitId||'—')+'</td><td>'+AdminGuard.badge(a.status)+'</td><td>'+(a.appliedAt?new Date(a.appliedAt).toLocaleString():'—')+'</td></tr>').join('');
+    }
+    document.getElementById('refresh').onclick = load;
+    load();
+  </script>
+</body>
+</html>

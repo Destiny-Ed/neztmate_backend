@@ -9,82 +9,150 @@
 </head>
 <body class="admin-body">
   <div class="admin-shell">
-    <aside class="sidebar">
-      <a class="logo" href="index.html">Nezt<span>Mate</span></a>
-      <nav>
-        <a href="index.html">Dashboard</a>
-        <a class="active" href="partner-requests.html">Partner requests</a>
-        <a href="properties.html">Properties</a>
-        <a href="payments.html">Payments</a>
-        <a href="notifications.html">Notifications</a>
-        <a href="#" id="logout-link">Sign out</a>
-      </nav>
-      <div class="side-foot" id="side-user">Signed in</div>
-    </aside>
+    <aside class="sidebar" id="sidebar"></aside>
     <div class="admin-main">
-      <header class="admin-top"><strong>Partner requests</strong></header>
+      <header class="admin-top">
+        <div><strong>Partner requests</strong> <span class="muted" id="partner-label"></span></div>
+        <div style="display:flex;gap:.5rem">
+          <button type="button" class="theme-toggle" id="theme-toggle">🌙</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="refresh">Refresh</button>
+        </div>
+      </header>
       <div class="admin-content">
-        <h1 class="page-title">Become-a-partner inbox</h1>
-        <p class="page-sub">
-          Loads from <code>GET /partners/requests</code> when available; otherwise shows requests
-          saved in this browser from the public form (until the API is deployed).
-        </p>
+        <h1 class="page-title">Inbound partner requests</h1>
+        <p class="page-sub">Approve creates the partner workspace and optional admin credentials.</p>
         <div id="error" class="alert alert-error" style="display:none"></div>
+        <div id="info" class="alert alert-ok" style="display:none"></div>
+        <div class="toolbar">
+          <select id="filter-status" class="search" style="max-width:180px">
+            <option value="">All statuses</option>
+            <option value="pending">Pending</option>
+            <option value="contacted">Contacted</option>
+            <option value="approved">Approved</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
         <div class="panel">
-          <div class="panel-head"><h3>Requests</h3></div>
           <div class="table-wrap">
-            <table class="data">
+            <table class="table">
               <thead>
                 <tr>
-                  <th>Company</th>
-                  <th>Contact</th>
-                  <th>Slug</th>
-                  <th>Cities</th>
-                  <th>Size</th>
-                  <th>Message</th>
-                  <th>When</th>
+                  <th>Company</th><th>Contact</th><th>Slug</th><th>Status</th><th>Submitted</th><th></th>
                 </tr>
               </thead>
-              <tbody id="tbody"><tr><td colspan="7" class="empty-state">Loading…</td></tr></tbody>
+              <tbody id="tbody"><tr><td colspan="6" class="empty-state">Loading…</td></tr></tbody>
             </table>
           </div>
         </div>
       </div>
     </div>
   </div>
+
+  <div id="approve-modal" class="modal-backdrop hidden">
+    <div class="modal">
+      <div class="modal-head"><h3>Approve request</h3><button type="button" class="btn btn-ghost btn-sm" data-close>×</button></div>
+      <div class="modal-body">
+        <p class="muted" id="approve-summary" style="margin-top:0"></p>
+        <div class="field"><label>Admin full name</label><input id="ap-name" /></div>
+        <div class="field"><label>Admin email</label><input id="ap-email" type="email" /></div>
+        <div class="field"><label>Temporary password</label><input id="ap-password" type="text" minlength="8" placeholder="Min 8 chars" /></div>
+        <p class="muted" style="font-size:.8rem">Leave password empty to approve partner only without creating a login.</p>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-ghost btn-sm" data-close>Cancel</button>
+        <button type="button" class="btn btn-primary btn-sm" id="confirm-approve">Approve</button>
+      </div>
+    </div>
+  </div>
+
   <script src="../js/config.js"></script>
   <script src="../js/api.js"></script>
+  <script src="../js/admin-shell.js"></script>
   <script src="../js/admin.js"></script>
   <script>
-    AdminGuard.requireAuth();
-    (async () => {
-      const tbody = document.getElementById('tbody');
-      const errEl = document.getElementById('error');
-      let list = [];
-      try {
-        const data = await NeztMateApi.listPartnerRequests();
-        list = data.requests || data || [];
-      } catch (e) {
-        list = JSON.parse(localStorage.getItem('neztmate_partner_requests') || '[]');
-        if (e.status && e.status !== 404) {
-          errEl.style.display = 'block';
-          errEl.textContent = e.message + ' — showing local fallback if any.';
-        }
-      }
-      if (!list.length) {
-        tbody.innerHTML = '<tr><td colspan="7" class="empty-state">No partner requests yet</td></tr>';
+    if (!AdminGuard.requireAuth()) throw 0;
+    AdminShell.mount('partner-requests.html');
+    let rows = [];
+    let currentId = null;
+
+    async function load() {
+      AdminGuard.clearAlerts();
+      const status = document.getElementById('filter-status').value;
+      const data = await AdminGuard.api(
+        () => NeztMateApi.listPartnerRequests(status ? { status } : {}),
+        { requests: [] }
+      );
+      rows = data.requests || data || [];
+      const tb = document.getElementById('tbody');
+      if (!rows.length) {
+        tb.innerHTML = '<tr><td colspan="6" class="empty-state">No requests</td></tr>';
         return;
       }
-      tbody.innerHTML = list.map((r) => `<tr>
-        <td>${r.companyName || '—'}</td>
-        <td>${r.contactName || ''}<br/><span class="muted">${r.email || ''}</span><br/>${r.phone || ''}</td>
-        <td><code>${r.proposedSlug || '—'}</code></td>
-        <td>${r.cities || '—'}</td>
-        <td>${r.portfolioSize || '—'}</td>
-        <td style="max-width:220px">${r.message || '—'}</td>
-        <td>${r.createdAt ? new Date(r.createdAt).toLocaleString() : '—'}</td>
-      </tr>`).join('');
-    })();
+      tb.innerHTML = rows.map((r) => `
+        <tr>
+          <td><strong>${AdminGuard.esc(r.companyName)}</strong><br/><span class="muted" style="font-size:.8rem">${AdminGuard.esc(r.cities || '')}</span></td>
+          <td>${AdminGuard.esc(r.contactName)}<br/><span class="muted" style="font-size:.8rem">${AdminGuard.esc(r.email)}</span></td>
+          <td><code>${AdminGuard.esc(r.proposedSlug)}</code></td>
+          <td>${AdminGuard.badge(r.status)}</td>
+          <td>${r.createdAt ? new Date(r.createdAt).toLocaleDateString() : '—'}</td>
+          <td class="actions">
+            ${String(r.status).toLowerCase() === 'pending' ? `
+              <button class="btn btn-primary btn-sm" data-approve="${AdminGuard.esc(r.id)}">Approve</button>
+              <button class="btn btn-ghost btn-sm" data-reject="${AdminGuard.esc(r.id)}">Reject</button>
+            ` : '—'}
+          </td>
+        </tr>`).join('');
+    }
+
+    document.getElementById('tbody').onclick = async (e) => {
+      const approve = e.target.closest('[data-approve]');
+      const reject = e.target.closest('[data-reject]');
+      if (approve) {
+        currentId = approve.getAttribute('data-approve');
+        const r = rows.find((x) => x.id === currentId);
+        document.getElementById('approve-summary').textContent =
+          (r?.companyName || '') + ' → slug ' + (r?.proposedSlug || '');
+        document.getElementById('ap-name').value = r?.contactName || '';
+        document.getElementById('ap-email').value = r?.email || '';
+        document.getElementById('ap-password').value = '';
+        AdminGuard.openModal('approve-modal');
+      }
+      if (reject) {
+        const id = reject.getAttribute('data-reject');
+        if (!confirm('Reject this partner request?')) return;
+        try {
+          await NeztMateApi.updatePartnerRequestStatus(id, { status: 'rejected' });
+          AdminGuard.showOk('Request rejected');
+          load();
+        } catch (err) {
+          AdminGuard.showError(err.message);
+        }
+      }
+    };
+
+    document.getElementById('confirm-approve').onclick = async () => {
+      if (!currentId) return;
+      const body = {
+        adminFullName: document.getElementById('ap-name').value.trim(),
+        adminEmail: document.getElementById('ap-email').value.trim(),
+        adminPassword: document.getElementById('ap-password').value,
+      };
+      try {
+        await NeztMateApi.approvePartnerRequest(currentId, body);
+        AdminGuard.closeModal('approve-modal');
+        AdminGuard.showOk('Partner approved' + (body.adminPassword ? ' and admin credentials created.' : '.'));
+        load();
+      } catch (err) {
+        AdminGuard.showError(err.message);
+      }
+    };
+
+    document.querySelectorAll('[data-close]').forEach((b) => {
+      b.onclick = () => AdminGuard.closeModal('approve-modal');
+    });
+    document.getElementById('filter-status').onchange = load;
+    document.getElementById('refresh').onclick = load;
+    load();
   </script>
 </body>
 </html>

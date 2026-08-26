@@ -6,78 +6,73 @@
   <title>Analytics · NeztMate Admin</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../css/styles.css" />
-  <style>
-    .chart-bars { display:flex; align-items:flex-end; gap:8px; height:140px; padding:1rem 1.1rem 0; }
-    .chart-bars .bar-wrap { flex:1; display:flex; flex-direction:column; align-items:center; gap:6px; min-width:0; }
-    .chart-bars .bar { width:100%; max-width:36px; border-radius:8px 8px 4px 4px; background:linear-gradient(180deg,var(--teal),var(--teal-dark)); min-height:4px; }
-    .chart-bars .bar-label { font-size:.65rem; color:var(--muted); text-align:center; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:100%; }
-    .split-2 { display:grid; grid-template-columns:1fr 1fr; gap:1rem; }
-    @media (max-width:900px){ .split-2{ grid-template-columns:1fr; } }
-    .metric-list { list-style:none; margin:0; padding:0; }
-    .metric-list li { display:flex; justify-content:space-between; gap:1rem; padding:.65rem 1.1rem; border-bottom:1px solid var(--line); font-size:.9rem; }
-    .metric-list li:last-child { border-bottom:none; }
-    .metric-list span { color:var(--muted); }
-  </style>
 </head>
 <body class="admin-body">
   <div class="admin-shell">
-    <aside class="sidebar">
-      <a class="logo" href="index.html">Nezt<span>Mate</span></a>
-      <div class="nav-section">Workspace</div>
-      <nav>
-        <a href="index.html">Dashboard</a>
-        <a class="active" href="analytics.html">Analytics</a>
-        <a href="properties.html" data-partner-only>Properties</a>
-        <a href="payments.html" data-partner-only>Payments</a>
-        <a href="notifications.html">Notifications</a>
-        <a href="branding.html" data-partner-only>Branding</a>
-        <a href="settings.html" data-partner-only>Partner settings</a>
-      </nav>
-      <div class="nav-section" data-platform-only>Platform</div>
-      <nav data-platform-only>
-        <a href="partners-list.html">All partners</a>
-        <a href="partner-requests.html">Partner requests</a>
-        <a href="partner-create.html">Create partner</a>
-      </nav>
-      <nav style="margin-top:auto"><a href="#" id="logout-link">Sign out</a></nav>
-      <div class="side-foot"><span id="side-user">Signed in</span><br/><span id="role-badge" class="badge-soft" style="margin-top:.35rem;display:inline-block">Admin</span></div>
-    </aside>
+    <aside class="sidebar" id="sidebar"></aside>
     <div class="admin-main">
       <header class="admin-top">
         <div><strong>Analytics</strong> <span class="muted" id="partner-label"></span></div>
-        <button type="button" class="btn btn-ghost btn-sm" id="refresh-btn">Refresh</button>
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <button type="button" class="theme-toggle" id="theme-toggle">🌙</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="refresh-btn">Refresh</button>
+        </div>
       </header>
       <div class="admin-content">
         <h1 class="page-title" id="page-title">Analysis</h1>
-        <p class="page-sub" id="page-sub">Operational snapshot for your workspace.</p>
+        <p class="page-sub" id="page-sub">Operational snapshot</p>
         <div id="error" class="alert alert-error" style="display:none"></div>
         <div id="info" class="alert alert-ok" style="display:none"></div>
-
         <div class="kpi-grid" id="kpi-grid"></div>
-
-        <div class="split-2">
-          <div class="panel">
-            <div class="panel-head"><h3 id="chart-title">Activity</h3></div>
-            <div class="chart-bars" id="chart-bars"><div class="empty-state" style="width:100%">No chart data</div></div>
-          </div>
-          <div class="panel">
-            <div class="panel-head"><h3>Breakdown</h3></div>
-            <ul class="metric-list" id="breakdown-list">
-              <li><span>Loading…</span><strong>—</strong></li>
-            </ul>
-          </div>
-        </div>
-
-        <div class="panel" style="margin-top:1rem">
-          <div class="panel-head"><h3>What this view covers</h3></div>
-          <div style="padding:1rem 1.1rem;color:var(--muted);font-size:.92rem" id="help-text"></div>
+        <div class="panel">
+          <div class="panel-head"><h3>Breakdown</h3></div>
+          <div class="panel-body" id="breakdown">Loading…</div>
         </div>
       </div>
     </div>
   </div>
   <script src="../js/config.js"></script>
   <script src="../js/api.js"></script>
+  <script src="../js/admin-shell.js"></script>
   <script src="../js/admin.js"></script>
-  <script src="../js/admin-analytics.js"></script>
+  <script>
+    if (!AdminGuard.requireAuth()) throw 0;
+    AdminShell.mount('analytics.html');
+    async function load() {
+      AdminGuard.clearAlerts();
+      var isP = AdminGuard.isPlatform();
+      document.getElementById('page-title').textContent = isP ? 'Platform analysis' : 'Partner analysis';
+      var grid = document.getElementById('kpi-grid');
+      if (isP) {
+        var a = await AdminGuard.api(function(){ return NeztMateApi.getPlatformAnalytics(); }, {});
+        var partners = await AdminGuard.api(function(){ return NeztMateApi.listPartners(); }, { partners: [] });
+        var list = partners.partners || partners || [];
+        grid.innerHTML = [
+          ['Partners', list.length],
+          ['Active partners', a.activePartners ?? list.filter(function(p){return p.isActive!==false}).length],
+          ['Users', a.totalUsers ?? '—'],
+          ['Properties', a.totalProperties ?? '—'],
+          ['Active leases', a.activeLeases ?? '—'],
+          ['GMV', AdminGuard.money(a.totalPaymentsVolume)]
+        ].map(function(x){ return '<div class="kpi"><label>'+x[0]+'</label><strong>'+x[1]+'</strong></div>'; }).join('');
+        document.getElementById('breakdown').textContent = 'Pending partner requests: ' + (a.pendingPartnerRequests ?? '—') + '. Active subscriptions: ' + (a.activeSubscriptions ?? '—');
+      } else {
+        var pa = await AdminGuard.api(function(){ return NeztMateApi.getPartnerAnalytics(); }, {});
+        var s = await AdminGuard.api(function(){ return NeztMateApi.getPaymentSummary(); }, {});
+        var sum = s.summary || s || {};
+        grid.innerHTML = [
+          ['Properties', pa.totalProperties ?? '—'],
+          ['Units', pa.totalUnits ?? '—'],
+          ['Active leases', pa.activeLeases ?? '—'],
+          ['Pending apps', pa.pendingApplications ?? '—'],
+          ['Received', AdminGuard.money(sum.totalReceived ?? pa.totalReceived)],
+          ['Withdrawable', AdminGuard.money(sum.withdrawableAmount ?? pa.withdrawableAmount)]
+        ].map(function(x){ return '<div class="kpi"><label>'+x[0]+'</label><strong>'+x[1]+'</strong></div>'; }).join('');
+        document.getElementById('breakdown').textContent = 'Open maintenance: ' + (pa.openMaintenance ?? '—') + '. Plan: ' + (pa.subscriptionPlan || 'free');
+      }
+    }
+    document.getElementById('refresh-btn').onclick = load;
+    load();
+  </script>
 </body>
 </html>

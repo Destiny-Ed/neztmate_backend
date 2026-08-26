@@ -1,20 +1,23 @@
 /** Apply partner branding across the document */
 window.NeztMateTheme = {
-  apply(partner) {
+  apply(partner, options) {
     if (!partner) return;
+    const opts = options || {};
     const root = document.documentElement;
     const primary = partner.primaryColor || partner.primary_color || '#0d9488';
     const secondary = partner.secondaryColor || partner.secondary_color || primary;
     const name = partner.name || partner.displayName || 'NeztMate';
     const tagline = partner.tagline || partner.description || '';
     const logoUrl = partner.logoUrl || partner.logo_url || null;
-    const supportEmail = partner.supportEmail || partner.support_email || 'hello@neztmate.com';
+    const supportEmail = partner.supportEmail || partner.support_email || 'support@neztmate.com';
+    const isPartnerHosted =
+      opts.isPartnerHosted === true ||
+      (partner.slug && String(partner.slug).toLowerCase() !== 'neztmate');
 
     root.style.setProperty('--teal', primary);
     root.style.setProperty('--teal-dark', secondary);
     root.style.setProperty('--teal-soft', this._soft(primary));
 
-    // Meta theme-color
     let meta = document.querySelector('meta[name="theme-color"]');
     if (!meta) {
       meta = document.createElement('meta');
@@ -27,7 +30,6 @@ window.NeztMateTheme = {
       el.textContent = name;
     });
     document.querySelectorAll('[data-brand-name-html]').forEach((el) => {
-      // Split last word as accent when possible
       const parts = String(name).trim().split(/\s+/);
       if (parts.length > 1) {
         const last = parts.pop();
@@ -60,9 +62,13 @@ window.NeztMateTheme = {
 
     document.title = name + ' — ' + (tagline || 'Property app');
     const pill = document.getElementById('partner-pill');
-    if (pill && partner.slug && partner.slug !== 'neztmate') {
-      pill.textContent = name;
-      pill.classList.add('show');
+    if (pill) {
+      if (isPartnerHosted) {
+        pill.textContent = name;
+        pill.classList.add('show');
+      } else {
+        pill.classList.remove('show');
+      }
     }
   },
 
@@ -76,7 +82,7 @@ window.NeztMateTheme = {
       const b = n & 255;
       return 'rgba(' + r + ',' + g + ',' + b + ',0.14)';
     } catch {
-      return '#ccfbf1';
+      return 'rgba(13, 148, 136, 0.14)';
     }
   },
 };

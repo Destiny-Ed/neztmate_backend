@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Users · NeztMate Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/styles.css" />
+</head>
+<body class="admin-body">
+  <div class="admin-shell">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="admin-main">
+      <header class="admin-top">
+        <div><strong>Users</strong> <span class="muted" id="partner-label"></span></div>
+        <button type="button" class="theme-toggle" id="theme-toggle">🌙</button>
+      </header>
+      <div class="admin-content">
+        <h1 class="page-title">Users</h1>
+        <p class="page-sub">Directory (platform: all users; partner: workspace when API filters by partnerId).</p>
+        <div id="error" class="alert alert-error" style="display:none"></div>
+        <div class="toolbar">
+          <input class="search" id="q" placeholder="Search name or email…" />
+          <select id="role" class="search" style="max-width:160px">
+            <option value="">All roles</option>
+            <option>Tenant</option>
+            <option>Landowner</option>
+            <option>Manager</option>
+            <option>Artisan</option>
+            <option>platform_admin</option>
+          </select>
+          <button class="btn btn-ghost btn-sm" id="refresh">Refresh</button>
+        </div>
+        <div class="panel">
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr><th>Name</th><th>Email</th><th>Role</th><th>Partner</th><th>Verified</th></tr>
+              </thead>
+              <tbody id="tbody"><tr><td colspan="5" class="empty-state">Loading…</td></tr></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/admin-shell.js"></script>
+  <script src="../js/admin.js"></script>
+  <script>
+    if (!AdminGuard.requireAuth()) throw 0;
+    AdminShell.mount('users.html');
+    let all = [];
+    async function load() {
+      const params = {};
+      if (!AdminGuard.isPlatform()) {
+        const u = NeztMateApi.getUser() || {};
+        if (u.partnerId) params.partnerId = u.partnerId;
+      }
+      const data = await AdminGuard.api(() => NeztMateApi.listUsers(params), { users: [] });
+      all = data.users || data || [];
+      if (!Array.isArray(all)) all = [];
+      render();
+    }
+    function render() {
+      const q = document.getElementById('q').value.toLowerCase();
+      const role = document.getElementById('role').value;
+      const list = all.filter((u) => {
+        if (role && String(u.role) !== role) return false;
+        if (!q) return true;
+        return [u.fullName, u.email, u.role].join(' ').toLowerCase().includes(q);
+      });
+      const tb = document.getElementById('tbody');
+      if (!list.length) {
+        tb.innerHTML = '<tr><td colspan="5" class="empty-state">No users found</td></tr>';
+        return;
+      }
+      tb.innerHTML = list
+        .map(
+          (u) => `<tr>
+        <td><strong>${AdminGuard.esc(u.fullName || '—')}</strong></td>
+        <td>${AdminGuard.esc(u.email)}</td>
+        <td>${AdminGuard.badge(u.role)}</td>
+        <td>${AdminGuard.esc(u.partnerId || '—')}</td>
+        <td>${u.verifiedIdentity ? AdminGuard.badge('verified') : AdminGuard.badge('unverified')}</td>
+      </tr>`
+        )
+        .join('');
+    }
+    document.getElementById('q').oninput = render;
+    document.getElementById('role').onchange = render;
+    document.getElementById('refresh').onclick = load;
+    load();
+  </script>
+</body>
+</html>

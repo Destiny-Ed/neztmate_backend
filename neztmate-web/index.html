@@ -10,6 +10,14 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/styles.css" />
+  <script>
+    (function () {
+      try {
+        var t = localStorage.getItem('neztmate_theme') || 'light';
+        document.documentElement.setAttribute('data-theme', t);
+      } catch (e) {}
+    })();
+  </script>
 </head>
 <body>
   <header class="site-header">
@@ -21,10 +29,11 @@
         <li><a href="#owners">Owners</a></li>
         <li><a href="#artisans">Artisans</a></li>
         <li><a href="#download">Download</a></li>
-        <li><a href="#partners-showcase">Partners</a></li>
-        <li><a href="partners.html">Become a partner</a></li>
+        <li data-platform-only><a href="#partners-showcase">Partners</a></li>
+        <li data-platform-only><a href="partners.html">Become a partner</a></li>
       </ul>
       <div class="nav-actions">
+        <button type="button" class="theme-toggle" id="theme-toggle" title="Theme">🌙</button>
         <a class="btn btn-ghost btn-sm" href="#download">Get the app</a>
         <a class="btn btn-primary btn-sm" href="#download">Download</a>
       </div>
@@ -176,7 +185,7 @@
     </section>
 
     
-    <section id="partners-showcase" class="alt">
+    <section id="partners-showcase" class="alt" data-platform-only>
       <div class="container">
         <div class="section-head">
           <h2>Our current partners</h2>
@@ -215,7 +224,7 @@
       </div>
     </section>
 
-    <section>
+    <section data-platform-only>
       <div class="container">
         <div class="cta-band">
           <div>
@@ -231,26 +240,31 @@
   <footer class="site-footer">
     <div class="container footer-grid">
       <div>
-        <div class="logo" data-brand-name-html>Nezt<span>Mate</span></div>
-        <p style="margin:.65rem 0 0;max-width:22rem" data-brand-tagline>Find, rent, and manage homes with clearer workflows.</p>
+        <a class="logo" href="index.html" data-brand-name-html>Nezt<span>Mate</span></a>
+        <p style="margin:.6rem 0 0" data-brand-tagline>Find, rent, and manage homes with clearer workflows.</p>
+        <p class="powered-by" id="powered-by" style="display:none;margin-top:.85rem;font-size:.85rem">
+          Powered by <a href="https://neztmate.com" target="_blank" rel="noopener">NeztMate</a>
+        </p>
       </div>
       <div>
         <h4>Product</h4>
-        <a href="#tenants">Tenants</a>
-        <a href="#owners">Owners & managers</a>
-        <a href="#artisans">Artisans</a>
         <a href="#download">Download</a>
+        <a href="#tenants">For tenants</a>
+        <a href="#owners">For owners</a>
+        <a data-platform-only href="partners.html">Become a partner</a>
       </div>
       <div>
-        <h4>Company</h4>
-        <a href="partners.html">Become a partner</a>
-        <a href="privacy.html">Privacy Policy</a>
-        <a href="terms.html">Terms of Use</a>
-        <a href="mailto:support@neztmate.com">support@neztmate.com</a>
+        <h4>Legal &amp; contact</h4>
+        <a id="footer-privacy" href="privacy.html">Privacy Policy</a>
+        <a id="footer-terms" href="terms.html">Terms of Use</a>
+        <a data-brand-support href="mailto:support@neztmate.com">support@neztmate.com</a>
       </div>
     </div>
-    <div class="container" style="margin-top:1.6rem;padding-top:1rem;border-top:1px solid var(--line)">
-      © <span id="year"></span> <span data-brand-name>NeztMate</span>. All rights reserved.
+    <div class="container footer-bottom">
+      <span id="copyright-line">© <span id="year"></span> <span data-brand-name>NeztMate</span>. All rights reserved.</span>
+      <span class="powered-by" id="powered-by-bottom" style="display:none">
+        Powered by <a href="https://neztmate.com" target="_blank" rel="noopener">NeztMate</a>
+      </span>
     </div>
   </footer>
 
@@ -258,5 +272,23 @@
   <script src="js/theme.js"></script>
   <script src="js/api.js"></script>
   <script src="js/landing.js"></script>
+
+  <script>
+    (function(){
+      var t = localStorage.getItem('neztmate_theme') || 'light';
+      document.documentElement.setAttribute('data-theme', t);
+      var btn = document.getElementById('theme-toggle');
+      if (!btn) return;
+      function sync(){ var cur = document.documentElement.getAttribute('data-theme')||'light'; btn.textContent = cur==='dark'?'☀️':'🌙'; }
+      sync();
+      btn.onclick = function(){
+        var next = (document.documentElement.getAttribute('data-theme')||'light')==='dark'?'light':'dark';
+        document.documentElement.setAttribute('data-theme', next);
+        localStorage.setItem('neztmate_theme', next);
+        sync();
+      };
+    })();
+  </script>
+
 </body>
 </html>

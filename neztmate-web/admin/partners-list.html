@@ -3,33 +3,33 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Partners · Platform Admin</title>
+  <title>Partners · NeztMate Admin</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../css/styles.css" />
 </head>
 <body class="admin-body">
   <div class="admin-shell">
-    <aside class="sidebar">
-      <a class="logo" href="index.html">Nezt<span>Mate</span></a>
-      <nav>
-        <a href="index.html">Dashboard</a>
-        <a class="active" href="partners-list.html">All partners</a>
-        <a href="partner-requests.html">Partner requests</a>
-        <a href="partner-create.html">Create partner</a>
-        <a href="#" id="logout-link">Sign out</a>
-      </nav>
-      <div class="side-foot" id="side-user">Signed in</div>
-    </aside>
+    <aside class="sidebar" id="sidebar"></aside>
     <div class="admin-main">
-      <header class="admin-top"><strong>All partners</strong></header>
+      <header class="admin-top">
+        <div><strong>Partners</strong> <span class="muted" id="partner-label"></span></div>
+        <div style="display:flex;gap:.5rem">
+          <button type="button" class="theme-toggle" id="theme-toggle">🌙</button>
+          <a class="btn btn-primary btn-sm" href="partner-create.html">Create</a>
+        </div>
+      </header>
       <div class="admin-content">
-        <h1 class="page-title">Partners</h1>
-        <p class="page-sub">Platform-only · GET /partners/</p>
+        <h1 class="page-title">All partners</h1>
+        <p class="page-sub">Activate, suspend, or reset partner admin passwords.</p>
         <div id="error" class="alert alert-error" style="display:none"></div>
+        <div id="info" class="alert alert-ok" style="display:none"></div>
+        <div class="toolbar">
+          <input class="search" id="q" placeholder="Search name or slug…" />
+        </div>
         <div class="panel">
           <div class="table-wrap">
-            <table class="data">
-              <thead><tr><th>Name</th><th>Slug</th><th>Status</th><th>Primary</th><th></th></tr></thead>
+            <table class="table">
+              <thead><tr><th>Partner</th><th>Slug</th><th>Status</th><th>Support</th><th></th></tr></thead>
               <tbody id="tbody"><tr><td colspan="5" class="empty-state">Loading…</td></tr></tbody>
             </table>
           </div>
@@ -37,33 +37,112 @@
       </div>
     </div>
   </div>
+
+  <div id="reset-modal" class="modal-backdrop hidden">
+    <div class="modal">
+      <div class="modal-head"><h3>Reset partner admin password</h3><button type="button" class="btn btn-ghost btn-sm" data-close>×</button></div>
+      <div class="modal-body">
+        <p class="muted" id="reset-label"></p>
+        <div class="field"><label>Admin email (optional filter)</label><input id="reset-email" type="email" /></div>
+        <div class="field"><label>New temporary password</label><input id="reset-password" type="text" minlength="8" required /></div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-ghost btn-sm" data-close>Cancel</button>
+        <button type="button" class="btn btn-primary btn-sm" id="confirm-reset">Reset password</button>
+      </div>
+    </div>
+  </div>
+
   <script src="../js/config.js"></script>
   <script src="../js/api.js"></script>
+  <script src="../js/admin-shell.js"></script>
   <script src="../js/admin.js"></script>
   <script>
-    AdminGuard.requireAuth();
-    (async () => {
-      const tbody = document.getElementById('tbody');
-      try {
-        const data = await NeztMateApi.listPartners();
-        const list = data.partners || data || [];
-        if (!list.length) {
-          tbody.innerHTML = '<tr><td colspan="5" class="empty-state">No partners</td></tr>';
-          return;
-        }
-        tbody.innerHTML = list.map((p) => `<tr>
-          <td>${p.name || '—'}</td>
-          <td><code>${p.slug || '—'}</code></td>
-          <td><span class="badge-soft">${p.status || 'active'}</span></td>
-          <td><span style="display:inline-block;width:14px;height:14px;border-radius:4px;background:${p.primaryColor||'#0d9488'}"></span> ${p.primaryColor||''}</td>
-          <td><a href="../index.html?partner=${encodeURIComponent(p.slug||'')}">Preview</a></td>
-        </tr>`).join('');
-      } catch (e) {
-        document.getElementById('error').style.display = 'block';
-        document.getElementById('error').textContent = e.message;
-        tbody.innerHTML = '<tr><td colspan="5" class="empty-state">Failed to load</td></tr>';
+    if (!AdminGuard.requireAuth()) throw 0;
+    AdminShell.mount('partners-list.html');
+    let all = [];
+    let resetPartnerId = null;
+
+    async function load() {
+      const data = await AdminGuard.api(() => NeztMateApi.listPartners({ activeOnly: 'false' }), { partners: [] });
+      all = data.partners || data || [];
+      render();
+    }
+
+    function render() {
+      const q = document.getElementById('q').value.trim().toLowerCase();
+      const list = all.filter((p) => {
+        if (!q) return true;
+        return [p.name, p.slug, p.id].join(' ').toLowerCase().includes(q);
+      });
+      const tb = document.getElementById('tbody');
+      if (!list.length) {
+        tb.innerHTML = '<tr><td colspan="5" class="empty-state">No partners</td></tr>';
+        return;
       }
-    })();
+      tb.innerHTML = list.map((p) => `
+        <tr>
+          <td>
+            <strong>${AdminGuard.esc(p.name)}</strong>
+            ${p.tagline ? '<br/><span class="muted" style="font-size:.8rem">' + AdminGuard.esc(p.tagline) + '</span>' : ''}
+          </td>
+          <td><code>${AdminGuard.esc(p.slug)}</code></td>
+          <td>${AdminGuard.badge(p.isActive === false ? 'inactive' : 'active')}</td>
+          <td>${AdminGuard.esc(p.supportEmail || '—')}</td>
+          <td class="actions">
+            <button class="btn btn-ghost btn-sm" data-toggle="${AdminGuard.esc(p.id)}" data-active="${p.isActive !== false}">
+              ${p.isActive === false ? 'Activate' : 'Suspend'}
+            </button>
+            <button class="btn btn-ghost btn-sm" data-reset="${AdminGuard.esc(p.id)}" data-name="${AdminGuard.esc(p.name)}">Reset password</button>
+          </td>
+        </tr>`).join('');
+    }
+
+    document.getElementById('tbody').onclick = async (e) => {
+      const tog = e.target.closest('[data-toggle]');
+      const rst = e.target.closest('[data-reset]');
+      if (tog) {
+        const id = tog.getAttribute('data-toggle');
+        const currentlyActive = tog.getAttribute('data-active') === 'true';
+        try {
+          await NeztMateApi.setPartnerStatus(id, { isActive: !currentlyActive });
+          AdminGuard.showOk(currentlyActive ? 'Partner suspended' : 'Partner activated');
+          load();
+        } catch (err) {
+          AdminGuard.showError(err.message);
+        }
+      }
+      if (rst) {
+        resetPartnerId = rst.getAttribute('data-reset');
+        document.getElementById('reset-label').textContent = 'Partner: ' + rst.getAttribute('data-name');
+        document.getElementById('reset-password').value = '';
+        AdminGuard.openModal('reset-modal');
+      }
+    };
+
+    document.getElementById('confirm-reset').onclick = async () => {
+      const password = document.getElementById('reset-password').value;
+      if (!password || password.length < 8) {
+        AdminGuard.showError('Password must be at least 8 characters');
+        return;
+      }
+      try {
+        await NeztMateApi.resetPartnerAdminPassword(resetPartnerId, {
+          newPassword: password,
+          adminEmail: document.getElementById('reset-email').value.trim() || undefined,
+        });
+        AdminGuard.closeModal('reset-modal');
+        AdminGuard.showOk('Password reset. Share the new password securely.');
+      } catch (err) {
+        AdminGuard.showError(err.message);
+      }
+    };
+
+    document.querySelectorAll('[data-close]').forEach((b) => {
+      b.onclick = () => AdminGuard.closeModal('reset-modal');
+    });
+    document.getElementById('q').oninput = render;
+    load();
   </script>
 </body>
 </html>

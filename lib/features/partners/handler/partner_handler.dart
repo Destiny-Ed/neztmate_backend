@@ -216,13 +216,33 @@ class PartnerHandler {
         return _json({'message': 'name cannot be empty'}, status: 400);
       }
 
+      // Optional URL / text fields: null or empty string clears override → site uses defaults
+      String? opt(String key) {
+        if (!body.containsKey(key)) return null; // omit → keep existing via copyWith below
+        final v = body[key];
+        if (v == null) return '';
+        return v.toString().trim();
+      }
+
+      String? nextOptional(String key, String? current) {
+        if (!body.containsKey(key)) return current;
+        final v = opt(key);
+        if (v == null || v.isEmpty) return null; // clear
+        return v;
+      }
+
       partner = partner.copyWith(
         name: name ?? partner.name,
-        tagline: body['tagline'] as String? ?? partner.tagline,
+        tagline: nextOptional('tagline', partner.tagline),
         primaryColor: primary,
-        secondaryColor: secondary,
-        logoUrl: body['logoUrl'] as String? ?? partner.logoUrl,
-        supportEmail: body['supportEmail'] as String? ?? partner.supportEmail,
+        secondaryColor: (secondary == null || secondary.isEmpty) ? null : secondary,
+        logoUrl: nextOptional('logoUrl', partner.logoUrl),
+        supportEmail: nextOptional('supportEmail', partner.supportEmail),
+        playStoreUrl: nextOptional('playStoreUrl', partner.playStoreUrl),
+        appStoreUrl: nextOptional('appStoreUrl', partner.appStoreUrl),
+        privacyUrl: nextOptional('privacyUrl', partner.privacyUrl),
+        termsUrl: nextOptional('termsUrl', partner.termsUrl),
+        copyright: nextOptional('copyright', partner.copyright),
         updatedAt: DateTime.now(),
       );
 

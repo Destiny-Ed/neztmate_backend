@@ -3,64 +3,89 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Create partner · Platform Admin</title>
+  <title>Create partner · NeztMate Admin</title>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="../css/styles.css" />
 </head>
 <body class="admin-body">
   <div class="admin-shell">
-    <aside class="sidebar">
-      <a class="logo" href="index.html">Nezt<span>Mate</span></a>
-      <nav>
-        <a href="partners-list.html">All partners</a>
-        <a class="active" href="partner-create.html">Create partner</a>
-        <a href="#" id="logout-link">Sign out</a>
-      </nav>
-      <div class="side-foot" id="side-user">Signed in</div>
-    </aside>
+    <aside class="sidebar" id="sidebar"></aside>
     <div class="admin-main">
-      <header class="admin-top"><strong>Create partner</strong></header>
+      <header class="admin-top">
+        <div><strong>Create partner</strong> <span class="muted" id="partner-label"></span></div>
+        <button type="button" class="theme-toggle" id="theme-toggle">🌙</button>
+      </header>
       <div class="admin-content">
-        <h1 class="page-title">New partner</h1>
-        <div id="alert" class="alert" style="display:none"></div>
-        <div class="form-card" style="max-width:560px;box-shadow:none">
-          <form id="form">
-            <div class="field"><label>Name *</label><input id="name" required /></div>
-            <div class="field"><label>Slug *</label><input id="slug" required pattern="[a-z0-9-]{3,40}" placeholder="acme-homes" /></div>
-            <div class="field"><label>Tagline</label><input id="tagline" /></div>
-            <div class="field"><label>Primary color</label><input id="primaryColor" type="color" value="#0d9488" style="height:44px" /></div>
-            <div class="field"><label>Support email</label><input id="supportEmail" type="email" /></div>
-            <button class="btn btn-primary" type="submit">Create</button>
-          </form>
+        <h1 class="page-title">New partner workspace</h1>
+        <p class="page-sub">Creates the partner record and an admin login (email + temporary password).</p>
+        <div id="error" class="alert alert-error" style="display:none"></div>
+        <div id="info" class="alert alert-ok" style="display:none"></div>
+        <div class="panel" style="max-width:640px">
+          <div class="panel-body">
+            <form id="form">
+              <h3 style="margin:0 0 1rem;font-size:1rem">Partner profile</h3>
+              <div class="field-row">
+                <div class="field"><label>Slug *</label><input name="slug" required pattern="[a-z0-9-]{3,40}" placeholder="acme-homes" /></div>
+                <div class="field"><label>Display name *</label><input name="name" required placeholder="Acme Homes" /></div>
+              </div>
+              <div class="field"><label>Tagline</label><input name="tagline" placeholder="Homes managed with clarity" /></div>
+              <div class="field-row">
+                <div class="field"><label>Primary color</label><input name="primaryColor" value="#0d9488" /></div>
+                <div class="field"><label>Secondary color</label><input name="secondaryColor" value="#0f766e" /></div>
+              </div>
+              <div class="field-row">
+                <div class="field"><label>Support email</label><input name="supportEmail" type="email" /></div>
+                <div class="field"><label>Support phone</label><input name="supportPhone" /></div>
+              </div>
+              <div class="field"><label>Logo URL</label><input name="logoUrl" placeholder="https://..." /></div>
+              <hr style="border:none;border-top:1px solid var(--line);margin:1.25rem 0" />
+              <h3 style="margin:0 0 1rem;font-size:1rem">Partner admin credentials</h3>
+              <p class="muted" style="font-size:.85rem;margin:-.5rem 0 1rem">Admin can sign in on Partner admin tab with this email and password, then change password later.</p>
+              <div class="field"><label>Admin full name *</label><input name="adminFullName" required /></div>
+              <div class="field"><label>Admin email *</label><input name="adminEmail" type="email" required /></div>
+              <div class="field"><label>Temporary password *</label><input name="adminPassword" type="text" required minlength="8" placeholder="Min 8 characters" /></div>
+              <button class="btn btn-primary" type="submit" id="submit">Create partner &amp; admin</button>
+            </form>
+          </div>
         </div>
       </div>
     </div>
   </div>
   <script src="../js/config.js"></script>
   <script src="../js/api.js"></script>
+  <script src="../js/admin-shell.js"></script>
   <script src="../js/admin.js"></script>
   <script>
-    AdminGuard.requireAuth();
+    if (!AdminGuard.requireAuth()) throw 0;
+    AdminShell.mount('partner-create.html');
+    if (!AdminGuard.isPlatform()) {
+      document.getElementById('error').style.display = 'block';
+      document.getElementById('error').textContent = 'Platform admin only.';
+      document.getElementById('form').style.display = 'none';
+    }
     document.getElementById('form').onsubmit = async (e) => {
       e.preventDefault();
-      const alertEl = document.getElementById('alert');
+      AdminGuard.clearAlerts();
+      const fd = new FormData(e.target);
+      const body = Object.fromEntries(fd.entries());
+      body.slug = String(body.slug).trim().toLowerCase();
+      body.isActive = true;
+      const btn = document.getElementById('submit');
+      btn.disabled = true;
+      btn.textContent = 'Creating…';
       try {
-        await NeztMateApi.createPartner({
-          name: document.getElementById('name').value.trim(),
-          slug: document.getElementById('slug').value.trim().toLowerCase(),
-          tagline: document.getElementById('tagline').value.trim(),
-          primaryColor: document.getElementById('primaryColor').value,
-          supportEmail: document.getElementById('supportEmail').value.trim(),
-          status: 'active',
-        });
-        alertEl.className = 'alert alert-ok';
-        alertEl.style.display = 'block';
-        alertEl.textContent = 'Partner created';
-        setTimeout(() => (location.href = 'partners-list.html'), 800);
+        const res = await NeztMateApi.createPartnerWithAdmin(body);
+        AdminGuard.showOk(
+          (res.message || 'Partner created.') +
+            (res.adminEmail ? ' Admin: ' + res.adminEmail : '') +
+            ' Share the temporary password securely.'
+        );
+        e.target.reset();
       } catch (err) {
-        alertEl.className = 'alert alert-error';
-        alertEl.style.display = 'block';
-        alertEl.textContent = err.message;
+        AdminGuard.showError(err.message || 'Failed to create partner');
+      } finally {
+        btn.disabled = false;
+        btn.textContent = 'Create partner & admin';
       }
     };
   </script>

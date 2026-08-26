@@ -9,137 +9,115 @@
 </head>
 <body class="admin-body">
   <div class="admin-shell">
-    <aside class="sidebar">
-      <a class="logo" href="index.html">Nezt<span>Mate</span></a>
-      <div class="nav-section">Workspace</div>
-      <nav>
-        <a class="active" href="index.html">Dashboard</a>
-        <a href="analytics.html">Analytics</a>
-        <a href="properties.html" data-partner-only>Properties</a>
-        <a href="payments.html" data-partner-only>Payments</a>
-        <a href="notifications.html">Notifications</a>
-        <a href="branding.html" data-partner-only>Branding</a>
-        <a href="settings.html" data-partner-only>Partner settings</a>
-      </nav>
-      <div class="nav-section" data-platform-only>Platform</div>
-      <nav data-platform-only>
-        <a href="partners-list.html">All partners</a>
-        <a href="partner-requests.html">Partner requests</a>
-        <a href="partner-create.html">Create partner</a>
-      </nav>
-      <nav style="margin-top:auto">
-        <a href="#" id="logout-link">Sign out</a>
-      </nav>
-      <div class="side-foot"><span id="side-user">Signed in</span><br/><span id="role-badge" class="badge-soft" style="margin-top:.35rem;display:inline-block">Admin</span></div>
-    </aside>
+    <aside class="sidebar" id="sidebar"></aside>
     <div class="admin-main">
       <header class="admin-top">
-        <div><strong>Overview</strong> <span class="muted" id="partner-label"></span></div>
+        <div><strong>Dashboard</strong> <span class="muted" id="partner-label"></span></div>
+        <div style="display:flex;gap:.5rem;align-items:center">
+          <button type="button" class="theme-toggle" id="theme-toggle" title="Theme">🌙</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="refresh-btn">Refresh</button>
+        </div>
       </header>
       <div class="admin-content">
-        <h1 class="page-title">Dashboard</h1>
-        <p class="page-sub">API-connected · role-aware</p>
+        <h1 class="page-title" id="page-title">Overview</h1>
+        <p class="page-sub" id="page-sub">Workspace snapshot</p>
         <div id="error" class="alert alert-error" style="display:none"></div>
-        <div class="kpi-grid" data-partner-only>
-          <div class="kpi"><label>Subscription</label><strong id="kpi-plan">—</strong></div>
-          <div class="kpi"><label>Received</label><strong id="kpi-received">—</strong></div>
-          <div class="kpi"><label>Paid</label><strong id="kpi-paid">—</strong></div>
-          <div class="kpi"><label>Withdrawable</label><strong id="kpi-withdraw">—</strong></div>
+        <div id="info" class="alert alert-ok" style="display:none"></div>
+        <div class="kpi-grid" id="kpi-grid"></div>
+        <div class="panel">
+          <div class="panel-head"><h3>Quick actions</h3></div>
+          <div class="panel-body actions" id="quick-actions"></div>
         </div>
-        <div class="panel" data-platform-only>
-          <div class="panel-head"><h3>Platform quick actions</h3></div>
-          <div style="padding:1.1rem;display:flex;flex-wrap:wrap;gap:.6rem">
-            <a class="btn btn-primary btn-sm" href="partners-list.html">Manage partners</a>
-            <a class="btn btn-ghost btn-sm" href="partner-requests.html">Review requests</a>
-            <a class="btn btn-ghost btn-sm" href="partner-create.html">Create partner</a>
-          </div>
+        <div class="panel">
+          <div class="panel-head"><h3>Recent signals</h3></div>
+          <div class="panel-body" id="signals"><div class="empty-state">Loading…</div></div>
         </div>
-        <div class="panel" data-partner-only>
-          <div class="panel-head"><h3>Recent payments</h3><a class="btn btn-ghost btn-sm" href="payments.html">View all</a></div>
-          <div class="table-wrap">
-            <table class="data">
-              <thead><tr><th>Type</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
-              <tbody id="payments-body"><tr><td colspan="4" class="empty-state">Loading…</td></tr></tbody>
-            </table>
-          </div>
-        
-        <div class="split-note" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;margin-top:1rem">
-          <div class="panel" data-partner-only>
-            <div class="panel-head"><h3>Partner analysis</h3><a class="btn btn-ghost btn-sm" href="analytics.html">Open</a></div>
-            <div style="padding:1rem 1.1rem;font-size:.9rem;color:var(--muted)" id="dash-partner-insight">
-              Loading workspace signals…
-            </div>
-          </div>
-          <div class="panel" data-platform-only>
-            <div class="panel-head"><h3>Platform analysis</h3><a class="btn btn-ghost btn-sm" href="analytics.html">Open</a></div>
-            <div style="padding:1rem 1.1rem;font-size:.9rem;color:var(--muted)" id="dash-platform-insight">
-              Loading network signals…
-            </div>
-          </div>
-        </div>
-
       </div>
     </div>
   </div>
   <script src="../js/config.js"></script>
   <script src="../js/api.js"></script>
+  <script src="../js/admin-shell.js"></script>
   <script src="../js/admin.js"></script>
   <script>
-    AdminGuard.requireAuth();
-    (async () => {
-      if (NeztMateApi.isPlatformAdmin()) return;
-      const errEl = document.getElementById('error');
-      try {
-        const sub = await NeztMateApi.getMySubscription().catch(() => null);
-        document.getElementById('kpi-plan').textContent = String(sub?.subscription?.planId || sub?.status || 'free');
-        const summaryRes = await NeztMateApi.getPaymentSummary().catch(() => null);
-        const s = summaryRes?.summary || summaryRes || {};
-        document.getElementById('kpi-received').textContent = AdminGuard.money(s.totalReceived);
-        document.getElementById('kpi-paid').textContent = AdminGuard.money(s.totalPaid);
-        document.getElementById('kpi-withdraw').textContent = AdminGuard.money(s.withdrawableAmount);
-        const payRes = await NeztMateApi.getMyPayments().catch(() => ({ payments: [] }));
-        const payments = (payRes.payments || []).slice(0, 8);
-        const tbody = document.getElementById('payments-body');
-        tbody.innerHTML = payments.length
-          ? payments.map((p) => `<tr><td>${p.type||'—'}</td><td>${AdminGuard.money(Number(p.amount))}</td><td><span class="badge-soft">${p.status||'—'}</span></td><td>${p.createdAt?new Date(p.createdAt).toLocaleDateString():'—'}</td></tr>`).join('')
-          : '<tr><td colspan="4" class="empty-state">No payments yet</td></tr>';
-      } catch (e) {
-        errEl.style.display = 'block';
-        errEl.textContent = e.message || 'Failed to load';
-        if (e.status === 401 || e.status === 403) setTimeout(() => AdminGuard.logout(), 1200);
+    if (!AdminGuard.requireAuth()) throw new Error('auth');
+    AdminShell.mount('index.html');
+
+    async function load() {
+      AdminGuard.clearAlerts();
+      const isP = AdminGuard.isPlatform();
+      document.getElementById('page-title').textContent = isP ? 'Platform overview' : 'Partner overview';
+      document.getElementById('page-sub').textContent = isP
+        ? 'Partners, requests, and network health'
+        : 'Properties, money, and operations in your workspace';
+
+      const qa = document.getElementById('quick-actions');
+      if (isP) {
+        qa.innerHTML = `
+          <a class="btn btn-primary btn-sm" href="partner-create.html">Create partner</a>
+          <a class="btn btn-ghost btn-sm" href="partner-requests.html">Review requests</a>
+          <a class="btn btn-ghost btn-sm" href="partners-list.html">All partners</a>
+          <a class="btn btn-ghost btn-sm" href="users.html">Users</a>
+          <a class="btn btn-ghost btn-sm" href="analytics.html">Analytics</a>`;
+      } else {
+        qa.innerHTML = `
+          <a class="btn btn-primary btn-sm" href="properties.html">Properties</a>
+          <a class="btn btn-ghost btn-sm" href="units.html">Units</a>
+          <a class="btn btn-ghost btn-sm" href="leases.html">Leases</a>
+          <a class="btn btn-ghost btn-sm" href="payments.html">Payments</a>
+          <a class="btn btn-ghost btn-sm" href="branding.html">Branding</a>
+          <a class="btn btn-ghost btn-sm" href="settings.html">Settings</a>`;
       }
 
-      // Mini analysis cards
-      try {
-        if (NeztMateApi.isPlatformAdmin()) {
-          const el = document.getElementById('dash-platform-insight');
-          if (el) {
-            const data = await NeztMateApi.listPartners().catch(() => ({ partners: [] }));
-            const partners = data.partners || data || [];
-            const active = partners.filter((p) => p.isActive !== false).length;
-            const req = await NeztMateApi.listPartnerRequests().catch(() => ({ requests: [] }));
-            const requests = req.requests || req || [];
-            const pending = requests.filter((r) => String(r.status||'').toLowerCase()==='pending').length;
-            el.innerHTML = '<strong style="color:var(--ink)">' + partners.length + '</strong> partners (' + active + ' active)<br/>' +
-              '<strong style="color:var(--ink)">' + pending + '</strong> pending partner requests<br/>' +
-              '<a href="analytics.html">Full platform analytics →</a>';
-          }
-        } else {
-          const el = document.getElementById('dash-partner-insight');
-          if (el) {
-            const props = await NeztMateApi.getMyProperties().catch(() => ({ properties: [] }));
-            const list = props.properties || props || [];
-            const summary = await NeztMateApi.getPaymentSummary().catch(() => null);
-            const s = summary?.summary || summary || {};
-            const money = (n) => typeof n === 'number' ? '₦' + n.toLocaleString('en-NG',{maximumFractionDigits:0}) : '—';
-            el.innerHTML = '<strong style="color:var(--ink)">' + (Array.isArray(list)?list.length:0) + '</strong> properties<br/>' +
-              'Received ' + money(s.totalReceived) + ' · Withdrawable ' + money(s.withdrawableAmount) + '<br/>' +
-              '<a href="analytics.html">Full partner analytics →</a>';
-          }
-        }
-      } catch (_) {}
+      const grid = document.getElementById('kpi-grid');
+      grid.innerHTML = '<div class="kpi"><label>Loading</label><strong>…</strong></div>';
 
-    })();
+      if (isP) {
+        const partners = await AdminGuard.api(() => NeztMateApi.listPartners(), { partners: [] });
+        const list = partners.partners || partners || [];
+        const active = list.filter((p) => p.isActive !== false).length;
+        const reqs = await AdminGuard.api(() => NeztMateApi.listPartnerRequests(), { requests: [] });
+        const requests = reqs.requests || reqs || [];
+        const pending = requests.filter((r) => String(r.status || '').toLowerCase() === 'pending').length;
+        const analytics = await AdminGuard.api(() => NeztMateApi.getPlatformAnalytics(), {});
+        grid.innerHTML = [
+          kpi('Partners', list.length, active + ' active'),
+          kpi('Pending requests', pending, requests.length + ' total'),
+          kpi('Users', analytics.totalUsers ?? '—', 'Network'),
+          kpi('Properties', analytics.totalProperties ?? '—', 'All workspaces'),
+          kpi('Active leases', analytics.activeLeases ?? '—', ''),
+          kpi('GMV', AdminGuard.money(analytics.totalPaymentsVolume), 'Paid volume'),
+        ].join('');
+        document.getElementById('signals').innerHTML =
+          pending > 0
+            ? '<p><strong>' + pending + '</strong> partner request(s) awaiting review. <a href="partner-requests.html">Open queue →</a></p>'
+            : '<p class="muted">No pending partner requests.</p>';
+      } else {
+        const props = await AdminGuard.api(() => NeztMateApi.getMyProperties(), { properties: [] });
+        const properties = props.properties || props || [];
+        const summary = await AdminGuard.api(() => NeztMateApi.getPaymentSummary(), {});
+        const s = summary.summary || summary || {};
+        const analytics = await AdminGuard.api(() => NeztMateApi.getPartnerAnalytics(), {});
+        grid.innerHTML = [
+          kpi('Properties', Array.isArray(properties) ? properties.length : 0, 'Your portfolio'),
+          kpi('Units', analytics.totalUnits ?? '—', ''),
+          kpi('Active leases', analytics.activeLeases ?? '—', ''),
+          kpi('Pending apps', analytics.pendingApplications ?? '—', ''),
+          kpi('Received', AdminGuard.money(s.totalReceived ?? analytics.totalReceived), ''),
+          kpi('Withdrawable', AdminGuard.money(s.withdrawableAmount ?? analytics.withdrawableAmount), ''),
+        ].join('');
+        document.getElementById('signals').innerHTML =
+          '<p class="muted">Use the sidebar to manage properties, units, leases, and payments. Branding updates the public site theme for your slug.</p>';
+      }
+    }
+
+    function kpi(label, value, sub) {
+      return '<div class="kpi"><label>' + label + '</label><strong>' + value + '</strong>' +
+        (sub ? '<div class="muted" style="font-size:.75rem;margin-top:.2rem">' + sub + '</div>' : '') + '</div>';
+    }
+
+    document.getElementById('refresh-btn').onclick = load;
+    load();
   </script>
 </body>
 </html>

@@ -1,103 +1,59 @@
 <!DOCTYPE html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1" />
-    <title>Payments · NeztMate Admin</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com" />
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-    <link
-      href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap"
-      rel="stylesheet"
-    />
-    <link rel="stylesheet" href="../css/styles.css" />
-  </head>
-  <body class="admin-body">
-    <div class="admin-shell">
-      <aside class="sidebar">
-        <a class="logo" href="index.html">Nezt<span>Mate</span></a>
-        <nav>
-          <a href="index.html">Dashboard</a>
-        <a href="partner-requests.html">Partner requests</a>
-          <a href="properties.html">Properties</a>
-          <a class="active" href="payments.html">Payments</a>
-          <a href="notifications.html">Notifications</a>
-          <a href="#" id="logout-link">Sign out</a>
-        </nav>
-        <div class="side-foot" id="side-user">Signed in</div>
-      </aside>
-      <div class="admin-main">
-        <header class="admin-top">
-          <strong>Payments</strong>
-          <a class="btn btn-ghost btn-sm" href="../index.html">View site</a>
-        </header>
-        <div class="admin-content">
-          <h1 class="page-title">Payments</h1>
-          <p class="page-sub">History for the signed-in user (partner-scoped).</p>
-          <div id="error" class="alert alert-error" style="display: none"></div>
-          <div class="panel">
-            <div class="panel-head"><h3>All payments</h3></div>
-            <div class="table-wrap">
-              <table class="data">
-                <thead>
-                  <tr>
-                    <th>Ref</th>
-                    <th>Type</th>
-                    <th>Amount</th>
-                    <th>Status</th>
-                    <th>Created</th>
-                  </tr>
-                </thead>
-                <tbody id="tbody">
-                  <tr>
-                    <td colspan="5" class="empty-state">Loading…</td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-          </div>
-        </div>
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Payments · NeztMate Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/styles.css" />
+</head>
+<body class="admin-body">
+  <div class="admin-shell">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="admin-main">
+      <header class="admin-top">
+        <div><strong>Payments</strong> <span class="muted" id="partner-label"></span></div>
+        <button type="button" class="theme-toggle" id="theme-toggle">🌙</button>
+      </header>
+      <div class="admin-content">
+        <h1 class="page-title">Payments</h1>
+        <p class="page-sub">History and summary for this workspace.</p>
+        <div id="error" class="alert alert-error" style="display:none"></div>
+        <div class="kpi-grid" id="kpi"></div>
+        <div class="panel"><div class="table-wrap">
+          <table class="table">
+            <thead><tr><th>Ref</th><th>Type</th><th>Amount</th><th>Status</th><th>Date</th></tr></thead>
+            <tbody id="tbody"><tr><td colspan="5" class="empty-state">Loading…</td></tr></tbody>
+          </table>
+        </div></div>
       </div>
     </div>
-    <script src="../js/config.js"></script>
+  </div>
+  <script src="../js/config.js"></script>
   <script src="../js/api.js"></script>
-    <script src="../js/admin.js"></script>
-    <script>
-      AdminGuard.requireAuth();
-      const money = (n) =>
-        typeof n === 'number'
-          ? '₦' + n.toLocaleString('en-NG', { maximumFractionDigits: 0 })
-          : '—';
-      (async () => {
-        const tbody = document.getElementById('tbody');
-        const errEl = document.getElementById('error');
-        try {
-          const data = await NeztMateApi.getMyPayments();
-          const list = data.payments || [];
-          if (!list.length) {
-            tbody.innerHTML =
-              '<tr><td colspan="5" class="empty-state">No payments</td></tr>';
-            return;
-          }
-          tbody.innerHTML = list
-            .map((p) => {
-              const date = p.createdAt ? new Date(p.createdAt).toLocaleString() : '—';
-              return `<tr>
-                <td>${p.transactionRef || p.id || '—'}</td>
-                <td>${p.type || '—'}</td>
-                <td>${money(Number(p.amount))}</td>
-                <td><span class="badge-soft">${p.status || '—'}</span></td>
-                <td>${date}</td>
-              </tr>`;
-            })
-            .join('');
-        } catch (e) {
-          errEl.style.display = 'block';
-          errEl.textContent = e.message || 'Failed to load payments';
-          tbody.innerHTML =
-            '<tr><td colspan="5" class="empty-state">Could not load</td></tr>';
-        }
-      })();
-    </script>
-  </body>
+  <script src="../js/admin-shell.js"></script>
+  <script src="../js/admin.js"></script>
+  <script>
+    if (!AdminGuard.requireAuth()) throw 0;
+    AdminShell.mount('payments.html');
+    async function load() {
+      const summary = await AdminGuard.api(() => NeztMateApi.getPaymentSummary(), {});
+      const s = summary.summary || summary || {};
+      document.getElementById('kpi').innerHTML = [
+        ['Received', AdminGuard.money(s.totalReceived)],
+        ['Withdrawn', AdminGuard.money(s.totalWithdrawn)],
+        ['Withdrawable', AdminGuard.money(s.withdrawableAmount)],
+        ['Pending', s.pendingPayments ?? '—']
+      ].map(function(x){ return '<div class="kpi"><label>'+x[0]+'</label><strong>'+x[1]+'</strong></div>'; }).join('');
+      const data = await AdminGuard.api(() => NeztMateApi.getMyPayments(), { payments: [] });
+      const list = data.payments || data || [];
+      const tb = document.getElementById('tbody');
+      if (!list.length) { tb.innerHTML = '<tr><td colspan="5" class="empty-state">No payments</td></tr>'; return; }
+      tb.innerHTML = list.map(function(p){
+        return '<tr><td><code style="font-size:.75rem">'+AdminGuard.esc(p.transactionRef||p.id||'')+'</code></td><td>'+AdminGuard.esc(p.type||'—')+'</td><td>'+AdminGuard.money(p.amount)+'</td><td>'+AdminGuard.badge(p.status)+'</td><td>'+(p.createdAt?new Date(p.createdAt).toLocaleString():'—')+'</td></tr>';
+      }).join('');
+    }
+    load();
+  </script>
+</body>
 </html>

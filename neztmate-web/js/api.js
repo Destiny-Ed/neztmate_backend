@@ -185,6 +185,98 @@ const Api = {
     return this.request('/notifications');
   },
   
+  
+  // ── Platform: partners + credentials ──
+  createPartnerWithAdmin(body) {
+    return this.request('/partners/with-admin', { method: 'POST', body });
+  },
+  approvePartnerRequest(id, body) {
+    return this.request('/partners/requests/' + encodeURIComponent(id) + '/approve', {
+      method: 'POST',
+      body,
+    });
+  },
+  updatePartnerRequestStatus(id, body) {
+    return this.request('/partners/requests/' + encodeURIComponent(id), {
+      method: 'PATCH',
+      body,
+    });
+  },
+  resetPartnerAdminPassword(partnerId, body) {
+    return this.request('/partners/' + encodeURIComponent(partnerId) + '/admin/reset-password', {
+      method: 'POST',
+      body,
+    });
+  },
+  changeMyPassword(body) {
+    return this.request('/auth/change-password', { method: 'POST', body });
+  },
+  // ── Ops lists ──
+  listUsers(params = {}) {
+    const q = new URLSearchParams(params).toString();
+    return this.request('/users' + (q ? '?' + q : ''));
+  },
+  listLeases(params = {}) {
+    const q = new URLSearchParams(params).toString();
+    return this.request('/leases' + (q ? '?' + q : '')).catch(() =>
+      this.request('/leases/me')
+    );
+  },
+  listAllUnits(params = {}) {
+    const q = new URLSearchParams(params).toString();
+    return this.request('/units/my' + (q ? '?' + q : '')).catch(() =>
+      this.request('/units/available')
+    );
+  },
+  listApplications(params = {}) {
+    const q = new URLSearchParams(params).toString();
+    return this.request('/applications/me' + (q ? '?' + q : ''));
+  },
+  getPaymentSummary(params = {}) {
+    const q = new URLSearchParams(params).toString();
+    return this.request('/payments/summary' + (q ? '?' + q : ''));
+  },
+  getMyPayments() {
+    return this.request('/payments/my_payments').catch(() =>
+      this.request('/payments/me')
+    );
+  },
+  getMyProperties() {
+    return this.request('/properties');
+  },
+  getNotifications() {
+    return this.request('/notifications');
+  },
+  getHistory() {
+    return this.request('/history/me');
+  },
+  listPartners(params = {}) {
+    const q = new URLSearchParams(params).toString();
+    return this.request('/partners/' + (q ? '?' + q : ''));
+  },
+  listPartnerRequests(params = {}) {
+    const q = new URLSearchParams(params).toString();
+    return this.request('/partners/requests' + (q ? '?' + q : ''));
+  },
+  createPartner(body) {
+    return this.request('/partners/', { method: 'POST', body });
+  },
+  updatePartner(id, body) {
+    return this.request('/partners/' + encodeURIComponent(id), { method: 'PATCH', body });
+  },
+  setPartnerStatus(id, body) {
+    return this.request('/partners/' + encodeURIComponent(id) + '/status', {
+      method: 'PATCH',
+      body,
+    });
+  },
+  updateMyPartner(body) {
+    return this.request('/partners/me', { method: 'PATCH', body });
+  },
+  updateMyBranding(body) {
+    return this.request('/partners/me/branding', { method: 'PATCH', body });
+  },
+
   getPartnerAnalytics() {
     return this.request('/partners/me/analytics');
   },
