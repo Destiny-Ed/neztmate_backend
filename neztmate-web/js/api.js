@@ -256,7 +256,7 @@ const Api = {
   },
   listPartnerRequests(params = {}) {
     const q = new URLSearchParams(params).toString();
-    return this.request('/partners/requests' + (q ? '?' + q : ''));
+    return this.request('/partners/all-requests' + (q ? '?' + q : ''));
   },
   createPartner(body) {
     return this.request('/partners/', { method: 'POST', body });
@@ -282,9 +282,7 @@ const Api = {
   },
 
   getPlatformAnalytics() {
-    return this.request('/platform/analytics').catch(() =>
-      this.request('/partners/analytics/platform')
-    );
+    return this.request('/platform/analytics');
   },
 
   getHistory() {

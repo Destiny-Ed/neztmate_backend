@@ -10,18 +10,18 @@ window.NeztMateConfig = {
   // Authorized JS origins: http://127.0.0.1:5500, https://your-domain.com
   // Firebase web config (same project as Flutter — required for platform Google login)
   firebase: {
-    apiKey: window.NEZTMATE_FIREBASE_API_KEY || localStorage.getItem('neztmate_firebase_api_key') || 'YOUR_FIREBASE_WEB_API_KEY',
+    apiKey: window.NEZTMATE_FIREBASE_API_KEY || localStorage.getItem('neztmate_firebase_api_key') || 'AIzaSyB_Hj70xvWpxnKwBJW8suTqEL8m3A9hF2I',
     authDomain: window.NEZTMATE_FIREBASE_AUTH_DOMAIN || 'next-mate.firebaseapp.com',
     projectId: window.NEZTMATE_FIREBASE_PROJECT_ID || 'next-mate',
-    appId: window.NEZTMATE_FIREBASE_APP_ID || localStorage.getItem('neztmate_firebase_app_id') || 'YOUR_FIREBASE_APP_ID',
-    messagingSenderId: window.NEZTMATE_FIREBASE_MESSAGING_SENDER_ID || '',
+    appId: window.NEZTMATE_FIREBASE_APP_ID || localStorage.getItem('neztmate_firebase_app_id') || '1:803085696518:web:619bc0f246c1ca20f8cd87',
+    messagingSenderId: window.NEZTMATE_FIREBASE_MESSAGING_SENDER_ID || '803085696518',
   },
 
   // Optional: GIS client id (not used for platform admin Firebase login)
   googleClientId:
     window.NEZTMATE_GOOGLE_CLIENT_ID ||
     localStorage.getItem('neztmate_google_client_id') ||
-    'YOUR_GOOGLE_WEB_CLIENT_ID.apps.googleusercontent.com',
+    '803085696518-ua8hbea5hhu80r67b28e4ae66mhvs64e.apps.googleusercontent.com',
 
 
   platformHomeUrl: 'https://neztmate.com',
@@ -29,7 +29,7 @@ window.NeztMateConfig = {
   defaultTermsUrl: 'terms.html',
   defaultSupportEmail: 'support@neztmate.com',
 
-  playStoreUrl: 'https://play.google.com/store/apps/details?id=com.neztmate.app',
+  playStoreUrl: 'https://play.google.com/store/apps/details?id=com.nextmate.app',
   appStoreUrl: 'https://apps.apple.com/app/neztmate/id0000000000',
 
   samplePartners: {

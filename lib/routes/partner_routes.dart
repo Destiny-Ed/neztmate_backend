@@ -30,7 +30,7 @@ Router partnerProtectedRoutes(PartnerHandler handler) {
   router.post('/', handler.createPartner);
   router.post('/with-admin', handler.createPartnerWithAdmin);
 
-  router.get('/requests', handler.listPartnerRequests);
+  router.get('/all-requests', handler.listPartnerRequests);
   router.patch('/requests/<id>', handler.updatePartnerRequest);
   router.post('/requests/<id>/approve', handler.approvePartnerRequest);
 
@@ -43,6 +43,6 @@ Router partnerProtectedRoutes(PartnerHandler handler) {
 
 Router platformRoutes(PartnerHandler handler) {
   final router = Router();
-  router.get('/analytics', handler.getPlatformAnalytics);
+  router.get('/analytics', handler.getPlatformAnalytics); //Platform admin only
   return router;
 }
