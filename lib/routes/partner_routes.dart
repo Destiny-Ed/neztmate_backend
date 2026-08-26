@@ -1,4 +1,7 @@
+import 'dart:convert';
+
 import 'package:neztmate_backend/features/partners/handler/partner_handler.dart';
+import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
 /// Public — no auth
@@ -8,7 +11,14 @@ Router partnerPublicRoutes(PartnerHandler handler) {
   router.get('/config', handler.getPublicConfig); // ?slug=
   router.get('/public', handler.listPublicPartners); // landing page
   router.post('/requests', handler.submitPartnerRequest);
-  router.get('/<id>', handler.getPartnerById);
+  router.get('/<id>', (Request req) async {
+    final id = req.params['id']!;
+    const reserved = {'config', 'public', 'requests', 'all-requests', 'me'};
+    if (reserved.contains(id)) {
+      return Response.notFound(jsonEncode({'message': 'Not found'}));
+    }
+    return handler.getPartnerById(req);
+  });
 
   return router;
 }
