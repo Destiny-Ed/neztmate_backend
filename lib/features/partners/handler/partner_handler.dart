@@ -547,8 +547,24 @@ class PartnerHandler {
   /// GET /platform/analytics
   Future<Response> getPlatformAnalytics(Request request) async {
     try {
-      if (!_isPlatformAdmin(request)) {
-        return _json({'message': 'Platform admin only'}, status: 403);
+      final role = (request.context['role'] as String?)?.toLowerCase().trim() ?? '';
+      final isPlatform =
+          request.context['isPlatformAdmin'] == true || role == 'platform_admin' || role == 'super_admin';
+
+      print(
+        'platform analytics role=${request.context['role']} '
+        'keys=${request.context.keys.toList()}',
+      );
+
+      if (!isPlatform) {
+        return Response(
+          403,
+          body: jsonEncode({
+            'message': 'Platform admin only',
+            'debugRole': request.context['role'], // remove after fix
+          }),
+          headers: {'Content-Type': 'application/json'},
+        );
       }
 
       final analytics = await partnerRepository.getPlatformAnalytics();

@@ -40,7 +40,7 @@ Router partnerProtectedRoutes(PartnerHandler handler) {
   router.post('/', handler.createPartner);
   router.post('/with-admin', handler.createPartnerWithAdmin);
 
-  router.get('/all-requests', handler.listPartnerRequests);
+  router.get('/requests', handler.listPartnerRequests);
   router.patch('/requests/<id>', handler.updatePartnerRequest);
   router.post('/requests/<id>/approve', handler.approvePartnerRequest);
 

@@ -199,9 +199,20 @@
       const refreshToken = data.refreshToken || data.refresh_token;
       let user = data.user || {};
       if (data.role) user.role = data.role;
-      if (isPlatformAdmin) {
+      // Prefer role from JWT after session would be set — use response only
+      const role = String(user.role || data.role || '').toLowerCase();
+      const serverSaysPlatform = role === 'platform_admin' || role === 'super_admin';
+      if (isPlatformAdmin && !serverSaysPlatform) {
+        throw new Error(
+          'This account is not a platform admin. Server role: ' + (user.role || data.role || 'unknown') +
+          '. Ask an existing platform admin to grant platform_admin, or use Partner admin login.'
+        );
+      }
+      if (serverSaysPlatform) {
         user.role = user.role || 'platform_admin';
         user.isPlatformAdmin = true;
+      } else {
+        user.isPlatformAdmin = false;
       }
       if (!accessToken) throw new Error(data.message || 'No access token');
       NeztMateApi.setSession({ accessToken, refreshToken, user });
@@ -297,9 +308,20 @@
         const refreshToken = data.refreshToken || data.refresh_token;
         let user = data.user || { email: document.getElementById('email').value.trim() };
         if (data.role) user.role = data.role;
-        if (isPlatform) {
+        if (data.user && data.user.role) user.role = data.user.role;
+        const role = String(user.role || '').toLowerCase();
+        const serverSaysPlatform = role === 'platform_admin' || role === 'super_admin';
+        if (isPlatform && !serverSaysPlatform) {
+          throw new Error(
+            'This account is not a platform admin (role: ' + (user.role || 'missing') + '). ' +
+            'Use Partner admin if this is a workspace login, or grant platform_admin on the user record.'
+          );
+        }
+        if (serverSaysPlatform) {
           user.role = user.role || 'platform_admin';
           user.isPlatformAdmin = true;
+        } else {
+          user.isPlatformAdmin = false;
         }
         if (!isPlatform && !user.partnerId) {
           user.partnerId = document.getElementById('partnerId').value.trim();

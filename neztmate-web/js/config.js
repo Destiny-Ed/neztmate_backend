@@ -29,7 +29,7 @@ window.NeztMateConfig = {
   defaultTermsUrl: 'terms.html',
   defaultSupportEmail: 'support@neztmate.com',
 
-  playStoreUrl: 'https://play.google.com/store/apps/details?id=com.nextmate.app',
+  playStoreUrl: 'https://play.google.com/store/apps/details?id=com.neztmate.app',
   appStoreUrl: 'https://apps.apple.com/app/neztmate/id0000000000',
 
   samplePartners: {

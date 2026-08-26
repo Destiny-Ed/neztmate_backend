@@ -31,10 +31,34 @@ const Api = {
     }
   },
 
+  /** Decode JWT payload (no verify — server already issued it) */
+  getTokenPayload() {
+    try {
+      const token = this.getToken();
+      if (!token) return null;
+      const part = token.split('.')[1];
+      if (!part) return null;
+      const json = atob(part.replace(/-/g, '+').replace(/_/g, '/'));
+      return JSON.parse(json);
+    } catch {
+      return null;
+    }
+  },
+
+  /**
+   * Prefer role from JWT (source of truth), then user object from login response.
+   * Never trust a stale isPlatformAdmin flag alone.
+   */
   isPlatformAdmin() {
+    const payload = this.getTokenPayload() || {};
+    const tokenRole = String(payload.role || '').toLowerCase();
+    if (tokenRole === 'platform_admin' || tokenRole === 'super_admin') return true;
+
     const u = this.getUser() || {};
-    const role = (u.role || '').toLowerCase();
-    return role === 'platform_admin' || role === 'super_admin' || u.isPlatformAdmin === true;
+    const role = String(u.role || '').toLowerCase();
+    if (role === 'platform_admin' || role === 'super_admin') return true;
+
+    return false;
   },
 
   async request(path, { method = 'GET', body, auth = true, headers = {} } = {}) {
@@ -256,7 +280,7 @@ const Api = {
   },
   listPartnerRequests(params = {}) {
     const q = new URLSearchParams(params).toString();
-    return this.request('/partners/all-requests' + (q ? '?' + q : ''));
+    return this.request('/partners/requests' + (q ? '?' + q : ''));
   },
   createPartner(body) {
     return this.request('/partners/', { method: 'POST', body });
