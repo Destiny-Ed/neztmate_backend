@@ -6,10 +6,27 @@ window.NeztMateConfig = {
 
   defaultPartnerSlug: 'neztmate',
 
+   // Google OAuth Web Client ID (Google Cloud Console → APIs & Services → Credentials)
+  // Authorized JS origins: http://127.0.0.1:5500, https://your-domain.com
+  // Firebase web config (same project as Flutter — required for platform Google login)
+  firebase: {
+    apiKey: window.NEZTMATE_FIREBASE_API_KEY || localStorage.getItem('neztmate_firebase_api_key') || 'AIzaSyB_Hj70xvWpxnKwBJW8suTqEL8m3A9hF2I',
+    authDomain: window.NEZTMATE_FIREBASE_AUTH_DOMAIN || 'next-mate.firebaseapp.com',
+    projectId: window.NEZTMATE_FIREBASE_PROJECT_ID || 'next-mate',
+    appId: window.NEZTMATE_FIREBASE_APP_ID || localStorage.getItem('neztmate_firebase_app_id') || '1:803085696518:web:619bc0f246c1ca20f8cd87',
+    messagingSenderId: window.NEZTMATE_FIREBASE_MESSAGING_SENDER_ID || '803085696518',
+  },
+
+  //Optional: Google OAuth Web Client ID (Google Cloud Console → APIs & Services → Credentials)
+  // Authorized JS origins: http://127.0.0.1:5500, https://your-domain.com
+  googleClientId:
+    window.NEZTMATE_GOOGLE_CLIENT_ID ||
+    localStorage.getItem('neztmate_google_client_id') ||
+    '803085696518-ua8hbea5hhu80r67b28e4ae66mhvs64e.apps.googleusercontent.com',
+
+
   playStoreUrl: 'https://play.google.com/store/apps/details?id=com.neztmate.app',
   appStoreUrl: 'https://apps.apple.com/app/neztmate/id0000000000',
-
-  googleClientId: '803085696518-ua8hbea5hhu80r67b28e4ae66mhvs64e.apps.googleusercontent.com',
 
   samplePartners: {
     neztmate: {

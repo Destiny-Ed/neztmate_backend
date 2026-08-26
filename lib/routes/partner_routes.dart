@@ -28,11 +28,12 @@ Router partnerProtectedRoutes(PartnerHandler handler) {
   // Platform admin
   router.get('/', handler.listPartners);
   router.post('/', handler.createPartner);
-  router.patch('/<id>', handler.updatePartner);
-  router.patch('/<id>/status', handler.setPartnerStatus);
 
   router.get('/requests', handler.listPartnerRequests);
   router.patch('/requests/<id>', handler.updatePartnerRequest);
+
+  router.patch('/<id>', handler.updatePartner);
+  router.patch('/<id>/status', handler.setPartnerStatus);
 
   return router;
 }

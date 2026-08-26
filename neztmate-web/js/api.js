@@ -98,6 +98,24 @@ const Api = {
    * - everyone else: partnerId required
    * - fcmToken required by API (web sends a web placeholder)
    */
+  
+  /**
+   * Platform admin only — Google ID token from GIS.
+   * Backend verifies token, checks allowlist / role platform_admin, returns JWT.
+   */
+  platformGoogleLogin({ idToken, fcmToken }) {
+    return this.request('/auth/platform/google', {
+      method: 'POST',
+      auth: false,
+      body: {
+        idToken,
+        fcmToken: fcmToken || 'web-admin-google-' + Date.now(),
+        platform: 'web',
+        loginAs: 'platform_admin',
+      },
+    });
+  },
+
   login({ email, password, partnerId, fcmToken, isPlatformAdmin }) {
     const body = {
       email,

@@ -1,17 +1,77 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Admin login · NeztMate</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap"
+    rel="stylesheet" />
   <link rel="stylesheet" href="../css/styles.css" />
+  <style>
+    .or-divider {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+      margin: 1.1rem 0;
+      color: var(--muted);
+      font-size: 0.8rem;
+      font-weight: 600;
+    }
+
+    .or-divider::before,
+    .or-divider::after {
+      content: "";
+      flex: 1;
+      height: 1px;
+      background: var(--line);
+    }
+
+    #google-section {
+      display: none;
+      text-align: center;
+    }
+
+    #google-section.show {
+      display: block;
+    }
+
+    .google-btn {
+      width: 100%;
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      gap: 0.55rem;
+      border: 1px solid var(--line);
+      background: #fff;
+      border-radius: 999px;
+      padding: 0.75rem 1rem;
+      font-weight: 700;
+      font-family: inherit;
+      cursor: pointer;
+      font-size: 0.92rem;
+    }
+
+    .google-btn:hover {
+      border-color: #4285f4;
+    }
+
+    .google-btn:disabled {
+      opacity: 0.55;
+      cursor: not-allowed;
+    }
+  </style>
+  <!-- Firebase Auth (same project as Flutter) → Firebase ID token with aud = projectId -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
 </head>
+
 <body class="admin-body">
   <div class="auth-page">
     <div class="auth-card">
       <a class="logo" href="../index.html">Nezt<span>Mate</span></a>
-      <h1 style="margin-top:1rem">Admin sign in</h1>
+      <h1 style="margin-top: 1rem">Admin sign in</h1>
       <p class="sub">Operators only. Public site has no admin link — use <code>/admin</code>.</p>
 
       <div class="tabs" role="tablist">
@@ -19,7 +79,29 @@
         <button type="button" id="tab-platform">Platform admin</button>
       </div>
 
-      <div id="alert" class="alert alert-error" style="display:none"></div>
+      <div id="alert" class="alert alert-error" style="display: none"></div>
+
+      <!-- Google via Firebase — platform admin only -->
+      <div id="google-section">
+        <p class="muted" style="font-size: 0.85rem; margin: 0 0 0.85rem">
+          Platform operators can continue with Google. Uses the same Firebase project as the app
+          (<code>platform_admin</code> accounts only).
+        </p>
+        <button type="button" class="google-btn" id="google-signin-btn">
+          <svg width="18" height="18" viewBox="0 0 48 48" aria-hidden="true">
+            <path fill="#FFC107"
+              d="M43.6 20.5H42V20H24v8h11.3C33.7 32.9 29.3 36 24 36c-6.6 0-12-5.4-12-12s5.4-12 12-12c3 0 5.8 1.1 7.9 3l5.7-5.7C34.2 6.1 29.4 4 24 4 12.9 4 4 12.9 4 24s8.9 20 20 20 20-8.9 20-20c0-1.3-.1-2.5-.4-3.5z" />
+            <path fill="#FF3D00"
+              d="M6.3 14.7l6.6 4.8C14.7 16 19 12 24 12c3 0 5.8 1.1 7.9 3l5.7-5.7C34.2 6.1 29.4 4 24 4 16.1 4 9.2 8.5 6.3 14.7z" />
+            <path fill="#4CAF50"
+              d="M24 44c5.2 0 9.9-2 13.4-5.2l-6.2-5.2C29.2 35.2 26.7 36 24 36c-5.3 0-9.7-3.1-11.3-7.5l-6.5 5C9.1 39.4 16 44 24 44z" />
+            <path fill="#1976D2"
+              d="M43.6 20.5H42V20H24v8h11.3c-1.1 3.2-3.5 5.7-6.5 7.1l.1.1 6.2 5.2C36.9 39.2 44 34 44 24c0-1.3-.1-2.5-.4-3.5z" />
+          </svg>
+          Continue with Google
+        </button>
+        <div class="or-divider">or email</div>
+      </div>
 
       <form id="login-form">
         <div class="field">
@@ -34,20 +116,140 @@
           <label for="partnerId">Partner ID</label>
           <input id="partnerId" value="neztmate" placeholder="neztmate" />
         </div>
-        <p class="muted" style="font-size:.8rem;margin:-.4rem 0 1rem" id="login-hint">
+        <p class="muted" style="font-size: 0.8rem; margin: -0.4rem 0 1rem" id="login-hint">
           Partner admins must include partnerId. A web FCM token is sent automatically.
         </p>
-        <button class="btn btn-primary" style="width:100%" type="submit" id="submit-btn">Sign in</button>
+        <button class="btn btn-primary" style="width: 100%" type="submit" id="submit-btn">Sign in</button>
       </form>
     </div>
   </div>
+
   <script src="../js/config.js"></script>
   <script src="../js/api.js"></script>
   <script>
     let isPlatform = false;
+    let firebaseReady = false;
+
     const partnerField = document.getElementById('partner-field');
     const partnerInput = document.getElementById('partnerId');
     const hint = document.getElementById('login-hint');
+    const googleSection = document.getElementById('google-section');
+    const alertEl = document.getElementById('alert');
+    const googleBtn = document.getElementById('google-signin-btn');
+
+    function showAlert(msg) {
+      alertEl.style.display = 'block';
+      alertEl.className = 'alert alert-error';
+      alertEl.textContent = msg;
+    }
+
+    function hideAlert() {
+      alertEl.style.display = 'none';
+    }
+
+    /**
+     * Firebase web config — same project as Flutter (next-mate).
+     * Override via NeztMateConfig.firebase or localStorage JSON key neztmate_firebase.
+     */
+    function getFirebaseConfig() {
+      const fromConfig = window.NeztMateConfig && window.NeztMateConfig.firebase;
+      if (fromConfig && fromConfig.apiKey && fromConfig.projectId) return fromConfig;
+
+      try {
+        const stored = localStorage.getItem('neztmate_firebase');
+        if (stored) return JSON.parse(stored);
+      } catch (_) { }
+
+      // Defaults — replace with your Firebase web app config if not set in config.js
+      return {
+        apiKey: (window.NeztMateConfig && window.NeztMateConfig.firebaseApiKey) || '',
+        authDomain: (window.NeztMateConfig && window.NeztMateConfig.firebaseAuthDomain) || 'next-mate.firebaseapp.com',
+        projectId: (window.NeztMateConfig && window.NeztMateConfig.firebaseProjectId) || 'next-mate',
+        appId: (window.NeztMateConfig && window.NeztMateConfig.firebaseAppId) || '',
+        messagingSenderId: (window.NeztMateConfig && window.NeztMateConfig.firebaseMessagingSenderId) || '',
+      };
+    }
+
+    function initFirebase() {
+      if (firebaseReady) return true;
+
+      const cfg = getFirebaseConfig();
+      if (!cfg.apiKey || !cfg.projectId) {
+        showAlert(
+          'Firebase web config missing. Set NeztMateConfig.firebase in config.js (apiKey, projectId, authDomain, appId).'
+        );
+        return false;
+      }
+
+      try {
+        if (!firebase.apps.length) {
+          firebase.initializeApp(cfg);
+        }
+        firebaseReady = true;
+        return true;
+      } catch (e) {
+        showAlert('Firebase init failed: ' + (e.message || e));
+        return false;
+      }
+    }
+
+    function finishLogin(data, { isPlatformAdmin }) {
+      const accessToken = data.accessToken || data.access_token;
+      const refreshToken = data.refreshToken || data.refresh_token;
+      let user = data.user || {};
+      if (data.role) user.role = data.role;
+      if (isPlatformAdmin) {
+        user.role = user.role || 'platform_admin';
+        user.isPlatformAdmin = true;
+      }
+      if (!accessToken) throw new Error(data.message || 'No access token');
+      NeztMateApi.setSession({ accessToken, refreshToken, user });
+      location.href = 'index.html';
+    }
+
+    /**
+     * Firebase Google popup → Firebase ID token (aud = projectId, e.g. next-mate)
+     * Backend: firebaseAuth.verifyIdToken(idToken) works.
+     */
+    async function signInWithGoogleFirebase() {
+      hideAlert();
+      if (!initFirebase()) return;
+
+      googleBtn.disabled = true;
+      const prev = googleBtn.innerHTML;
+      googleBtn.textContent = 'Signing in with Google…';
+
+      try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
+
+        const result = await firebase.auth().signInWithPopup(provider);
+        if (!result.user) throw new Error('No Firebase user returned');
+
+        // This is a Firebase ID token — NOT a raw Google OAuth token
+        const idToken = await result.user.getIdToken(/* forceRefresh */ true);
+
+        const data = await NeztMateApi.platformGoogleLogin({
+          idToken,
+          fcmToken: 'web-admin-google-' + Date.now(),
+        });
+
+        finishLogin(data, { isPlatformAdmin: true });
+      } catch (err) {
+        // User closed popup
+        if (err && (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request')) {
+          showAlert('Google sign-in was cancelled.');
+        } else if (err && err.code === 'auth/unauthorized-domain') {
+          showAlert(
+            'This domain is not authorized in Firebase Console → Authentication → Settings → Authorized domains.'
+          );
+        } else {
+          showAlert(err.message || 'Google sign-in failed');
+        }
+        googleBtn.disabled = false;
+        googleBtn.innerHTML = prev;
+      }
+    }
 
     document.getElementById('tab-partner').onclick = () => {
       isPlatform = false;
@@ -55,22 +257,30 @@
       document.getElementById('tab-platform').classList.remove('active');
       partnerField.style.display = '';
       partnerInput.required = true;
+      googleSection.classList.remove('show');
       hint.textContent = 'Partner admins must include partnerId. A web FCM token is sent automatically.';
+      hideAlert();
     };
+
     document.getElementById('tab-platform').onclick = () => {
       isPlatform = true;
       document.getElementById('tab-platform').classList.add('active');
       document.getElementById('tab-partner').classList.remove('active');
       partnerField.style.display = 'none';
       partnerInput.required = false;
-      hint.textContent = 'Platform admins sign in without partnerId. JWT role must be platform_admin.';
+      googleSection.classList.add('show');
+      hint.textContent =
+        'Platform admins: Google (Firebase) or email/password. No partnerId required.';
+      hideAlert();
+      initFirebase();
     };
+
+    googleBtn.addEventListener('click', signInWithGoogleFirebase);
 
     document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
-      const alertEl = document.getElementById('alert');
       const btn = document.getElementById('submit-btn');
-      alertEl.style.display = 'none';
+      hideAlert();
       btn.disabled = true;
       btn.textContent = 'Signing in…';
       try {
@@ -81,12 +291,15 @@
           isPlatformAdmin: isPlatform,
           fcmToken: 'web-admin-' + Date.now(),
         });
+
         const accessToken = data.accessToken || data.access_token;
         const refreshToken = data.refreshToken || data.refresh_token;
         let user = data.user || { email: document.getElementById('email').value.trim() };
-        // Prefer role from token response
         if (data.role) user.role = data.role;
-        if (isPlatform) user.role = user.role || 'platform_admin';
+        if (isPlatform) {
+          user.role = user.role || 'platform_admin';
+          user.isPlatformAdmin = true;
+        }
         if (!isPlatform && !user.partnerId) {
           user.partnerId = document.getElementById('partnerId').value.trim();
         }
@@ -94,12 +307,12 @@
         NeztMateApi.setSession({ accessToken, refreshToken, user });
         location.href = 'index.html';
       } catch (err) {
-        alertEl.style.display = 'block';
-        alertEl.textContent = err.message || 'Login failed';
+        showAlert(err.message || 'Login failed');
         btn.disabled = false;
         btn.textContent = 'Sign in';
       }
     });
   </script>
 </body>
+
 </html>
