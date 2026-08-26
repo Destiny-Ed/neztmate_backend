@@ -10,5 +10,7 @@ Router authRoutes(AuthHandler handler) {
 
   router.post('/platform/google', handler.platformGoogleLogin);
 
+  router.post('/change-password', handler.changePassword);
+
   return router;
 }

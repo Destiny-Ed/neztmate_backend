@@ -1,15 +1,21 @@
 import 'dart:convert';
 import 'package:neztmate_backend/core/error.dart';
+import 'package:neztmate_backend/core/services/auth/password_service.dart';
+import 'package:neztmate_backend/features/auth_user/models/user_model.dart';
+import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
 import 'package:neztmate_backend/features/partners/model/partner_model.dart';
 import 'package:neztmate_backend/features/partners/model/partner_request_model.dart';
 import 'package:neztmate_backend/features/partners/repository/partner_repository.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
+import 'package:uuid/uuid.dart';
 
 class PartnerHandler {
   final PartnerRepository partnerRepository;
+  final UserRepository userRepository;
+  final PasswordService passwordService;
 
-  PartnerHandler(this.partnerRepository);
+  PartnerHandler(this.partnerRepository, this.userRepository, this.passwordService);
 
   static const defaultPartnerSlug = 'neztmate';
   static final _slugRe = RegExp(r'^[a-z0-9-]{3,40}$');
@@ -536,6 +542,297 @@ class PartnerHandler {
     } catch (e, s) {
       print('getPlatformAnalytics: $e\n$s');
       return Response.internalServerError(body: jsonEncode({'message': 'Failed to load platform analytics'}));
+    }
+  }
+
+  /// GET /partners/public
+  Future<Response> listPublicPartners(Request request) async {
+    try {
+      final partners = await partnerRepository.listPartners(activeOnly: true);
+      return Response.ok(
+        jsonEncode({'partners': partners.map((p) => p.toPublicMap()).toList()}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, s) {
+      print('listPublicPartners: $e\n$s');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to list partners'}));
+    }
+  }
+
+  /// POST /partners/with-admin  (platform only)
+  Future<Response> createPartnerWithAdmin(Request request) async {
+    try {
+      if (!_isPlatformAdmin(request)) {
+        return Response(403, body: jsonEncode({'message': 'Platform admin only'}));
+      }
+
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+
+      final slug = (body['slug'] as String?)?.trim().toLowerCase() ?? '';
+      final name = (body['name'] as String?)?.trim() ?? '';
+      final adminEmail = (body['adminEmail'] as String?)?.trim().toLowerCase() ?? '';
+      final adminPassword = (body['adminPassword'] as String?) ?? '';
+      final adminFullName = (body['adminFullName'] as String?)?.trim() ?? '';
+
+      if (slug.isEmpty || name.isEmpty) {
+        return Response(400, body: jsonEncode({'message': 'slug and name are required'}));
+      }
+      if (!RegExp(r'^[a-z0-9-]{3,40}$').hasMatch(slug)) {
+        return Response(400, body: jsonEncode({'message': 'Invalid slug'}));
+      }
+      if (adminEmail.isEmpty || adminPassword.length < 8 || adminFullName.isEmpty) {
+        return Response(
+          400,
+          body: jsonEncode({'message': 'adminFullName, adminEmail and adminPassword (min 8) are required'}),
+        );
+      }
+
+      // Unique slug
+      final existing = await partnerRepository.getPartnerBySlug(slug);
+
+      // Unique admin email
+      try {
+        await userRepository.getUserByEmail(adminEmail);
+        return Response(409, body: jsonEncode({'message': 'Admin email already registered'}));
+      } on NotFoundException {
+        // ok
+      } catch (_) {
+        // if getUserByEmail returns null instead of throw:
+      }
+
+      final partner = await partnerRepository.createPartner(
+        PartnerModel(
+          id: '',
+          slug: slug,
+          name: name,
+          tagline: body['tagline'] as String?,
+          primaryColor: body['primaryColor'] as String? ?? '#0d9488',
+          secondaryColor: body['secondaryColor'] as String? ?? '#0f766e',
+          logoUrl: body['logoUrl'] as String?,
+          supportEmail: body['supportEmail'] as String?,
+          supportPhone: body['supportPhone'] as String?,
+          website: body['websiteUrl'] as String?,
+          isActive: true,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+      );
+
+      final adminId = const Uuid().v4();
+      final admin = User(
+        id: adminId,
+        email: adminEmail,
+        fullName: adminFullName,
+        role: 'partner_admin',
+        passwordHash: passwordService.hash(adminPassword),
+        partnerId: partner.id.isNotEmpty ? partner.id : slug,
+        verifiedIdentity: false,
+        verifiedEmployment: false,
+        roles: ['partner_admin'],
+        rating: 0,
+        createdAt: DateTime.now(),
+        lastLogin: DateTime.now(),
+        authProvider: 'email',
+        fcmToken: '',
+        platform: 'web',
+        country: 'NG',
+        primaryRole: 'partner_admin',
+      );
+
+      await userRepository.createUser(admin);
+
+      return Response.ok(
+        jsonEncode({
+          'message': 'Partner and admin created. Share the temporary password securely.',
+          'partner': partner.toMap(),
+          'adminEmail': adminEmail,
+          'adminId': adminId,
+        }),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, s) {
+      print('createPartnerWithAdmin: $e\n$s');
+      return Response.internalServerError(
+        body: jsonEncode({'message': 'Failed to create partner with admin'}),
+      );
+    }
+  }
+
+  /// POST /partners/requests/<id>/approve
+  Future<Response> approvePartnerRequest(Request request) async {
+    try {
+      if (!_isPlatformAdmin(request)) {
+        return Response(403, body: jsonEncode({'message': 'Platform admin only'}));
+      }
+
+      final id = request.params['id'];
+      if (id == null || id.isEmpty) {
+        return Response(400, body: jsonEncode({'message': 'Request id required'}));
+      }
+
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>? ?? {};
+      final req = await partnerRepository.getPartnerRequestById(id);
+
+      if (req.status.toLowerCase() == 'approved') {
+        return Response(400, body: jsonEncode({'message': 'Request already approved'}));
+      }
+
+      final slug = (req.proposedSlug).trim().toLowerCase();
+      final existing = await partnerRepository.getPartnerBySlug(slug);
+      if (existing.id.isNotEmpty) {
+        return Response(409, body: jsonEncode({'message': 'Slug already taken: $slug'}));
+      }
+      final partner = await partnerRepository.createPartner(
+        PartnerModel(
+          id: '',
+          slug: slug,
+          name: req.companyName,
+          tagline: null,
+          primaryColor: '#0d9488',
+          secondaryColor: '#0f766e',
+          supportEmail: req.email,
+          website: req.website,
+          supportPhone: req.phone,
+          isActive: true,
+          createdAt: DateTime.now(),
+          updatedAt: DateTime.now(),
+        ),
+      );
+
+      String? adminEmail;
+      String? adminId;
+
+      final password = (body['adminPassword'] as String?) ?? '';
+      final email = ((body['adminEmail'] as String?) ?? req.email).trim().toLowerCase();
+      final fullName = ((body['adminFullName'] as String?) ?? req.contactName).trim();
+
+      if (password.isNotEmpty) {
+        if (password.length < 8) {
+          return Response(400, body: jsonEncode({'message': 'adminPassword min 8 characters'}));
+        }
+        adminEmail = email;
+        adminId = const Uuid().v4();
+        await userRepository.createUser(
+          User(
+            id: adminId,
+            email: email,
+            fullName: fullName,
+            role: 'partner_admin',
+            passwordHash: passwordService.hash(password),
+            partnerId: partner.id.isNotEmpty ? partner.id : slug,
+            verifiedIdentity: false,
+            verifiedEmployment: false,
+            rating: 0,
+            createdAt: DateTime.now(),
+            lastLogin: DateTime.now(),
+            authProvider: 'email',
+            fcmToken: '',
+            platform: 'web',
+            country: 'NG',
+            primaryRole: 'partner_admin',
+            roles: ['partner_admin'],
+          ),
+        );
+      }
+
+      final now = DateTime.now();
+      final reviewerId = request.context['userId'] as String?;
+
+      await partnerRepository.updatePartnerRequest(
+        req.copyWith(
+          id: id,
+          status: 'approved',
+          partnerId: partner.id,
+          notes: body['notes'] as String? ?? req.notes,
+          reviewedBy: reviewerId,
+          reviewedAt: now,
+          updatedAt: now,
+        ),
+      );
+
+      return Response.ok(
+        jsonEncode({
+          'message': adminId != null
+              ? 'Partner approved and admin credentials created'
+              : 'Partner approved (no admin login created)',
+          'partner': partner.toMap(),
+          'adminEmail': adminEmail,
+          'adminId': adminId,
+        }),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, s) {
+      print('approvePartnerRequest: $e\n$s');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to approve request'}));
+    }
+  }
+
+  /// POST /partners/<id>/admin/reset-password
+  Future<Response> resetPartnerAdminPassword(Request request) async {
+    try {
+      if (!_isPlatformAdmin(request)) {
+        return Response(403, body: jsonEncode({'message': 'Platform admin only'}));
+      }
+
+      final partnerId = request.params['id'];
+      if (partnerId == null || partnerId.isEmpty) {
+        return Response(400, body: jsonEncode({'message': 'Partner id required'}));
+      }
+
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final newPassword = (body['newPassword'] as String?) ?? '';
+      final adminEmail = (body['adminEmail'] as String?)?.trim().toLowerCase();
+
+      if (newPassword.length < 8) {
+        return Response(400, body: jsonEncode({'message': 'newPassword must be at least 8 characters'}));
+      }
+
+      // Ensure partner exists
+      PartnerModel partner;
+      try {
+        partner = await partnerRepository.getPartnerById(partnerId);
+      } catch (_) {
+        partner = await partnerRepository.getPartnerBySlug(partnerId);
+      }
+
+      final scopeId = partner.id.isNotEmpty ? partner.id : partner.slug;
+
+      User? target;
+      if (adminEmail != null && adminEmail.isNotEmpty) {
+        target = await userRepository.getUserByEmail(adminEmail);
+        if (target.id.isEmpty || target.partnerId != scopeId && target.partnerId != partner.slug) {
+          return Response(404, body: jsonEncode({'message': 'Admin user not found for this partner'}));
+        }
+      } else {
+        // First user with this partnerId (prefer Landowner)
+        final users = await userRepository.listUsers(partnerId: scopeId, limit: 50);
+        target = users.cast<User?>().firstWhere(
+          (u) => u!.role.toLowerCase() == 'landowner' || u.role.toLowerCase() == 'partner_admin',
+          orElse: () => users.isNotEmpty ? users.first : null,
+        );
+        if (target == null) {
+          // try slug as partnerId
+          final users2 = await userRepository.listUsers(partnerId: partner.slug, limit: 50);
+          if (users2.isEmpty) {
+            return Response(404, body: jsonEncode({'message': 'No admin user linked to this partner'}));
+          }
+          target = users2.first;
+        }
+      }
+
+      await userRepository.updateUser(target.copyWith(passwordHash: passwordService.hash(newPassword)));
+
+      return Response.ok(
+        jsonEncode({
+          'message': 'Password reset successfully',
+          'adminEmail': target.email,
+          'adminId': target.id,
+        }),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, s) {
+      print('resetPartnerAdminPassword: $e\n$s');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to reset password'}));
     }
   }
 

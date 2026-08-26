@@ -11,6 +11,9 @@ class PartnerRequestModel {
   final String message;
   final String status; // pending | contacted | approved | rejected
   final String? notes;
+  final String? partnerId; // set when approved
+  final String? reviewedBy;
+  final DateTime? reviewedAt;
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -27,11 +30,20 @@ class PartnerRequestModel {
     required this.message,
     this.status = 'pending',
     this.notes,
+    this.partnerId,
+    this.reviewedBy,
+    this.reviewedAt,
     required this.createdAt,
     required this.updatedAt,
   });
 
   factory PartnerRequestModel.fromMap(Map<String, dynamic> map, [String? id]) {
+    DateTime? parseDt(dynamic v) {
+      if (v == null) return null;
+      if (v is DateTime) return v;
+      return DateTime.tryParse(v.toString());
+    }
+
     return PartnerRequestModel(
       id: id ?? map['id'] as String? ?? '',
       companyName: map['companyName'] as String? ?? '',
@@ -45,8 +57,11 @@ class PartnerRequestModel {
       message: map['message'] as String? ?? '',
       status: map['status'] as String? ?? 'pending',
       notes: map['notes'] as String?,
-      createdAt: DateTime.parse(map['createdAt'] as String),
-      updatedAt: DateTime.parse(map['updatedAt'] as String),
+      partnerId: map['partnerId'] as String?,
+      reviewedBy: map['reviewedBy'] as String?,
+      reviewedAt: parseDt(map['reviewedAt']),
+      createdAt: parseDt(map['createdAt']) ?? DateTime.now(),
+      updatedAt: parseDt(map['updatedAt']) ?? DateTime.now(),
     );
   }
 
@@ -63,6 +78,9 @@ class PartnerRequestModel {
     'message': message,
     'status': status,
     'notes': notes,
+    'partnerId': partnerId,
+    'reviewedBy': reviewedBy,
+    'reviewedAt': reviewedAt?.toIso8601String(),
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt.toIso8601String(),
   };
@@ -80,6 +98,9 @@ class PartnerRequestModel {
     String? message,
     String? status,
     String? notes,
+    String? partnerId,
+    String? reviewedBy,
+    DateTime? reviewedAt,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -96,6 +117,9 @@ class PartnerRequestModel {
       message: message ?? this.message,
       status: status ?? this.status,
       notes: notes ?? this.notes,
+      partnerId: partnerId ?? this.partnerId,
+      reviewedBy: reviewedBy ?? this.reviewedBy,
+      reviewedAt: reviewedAt ?? this.reviewedAt,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );

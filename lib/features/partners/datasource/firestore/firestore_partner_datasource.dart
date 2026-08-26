@@ -111,9 +111,8 @@ class FirestorePartnerDataSource implements PartnerRemoteDataSource {
 
   @override
   Future<PartnerRequestModel> updatePartnerRequest(PartnerRequestModel request) async {
-    final updated = request.copyWith(updatedAt: DateTime.now());
-    await _requests.doc(request.id).set(updated.toMap());
-    return updated;
+    await _requests.doc(request.id).update(request.toMap());
+    return request;
   }
 
   @override

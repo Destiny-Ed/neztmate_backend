@@ -61,4 +61,8 @@ class UserRepositoryImpl implements UserRepository {
 
     await dataSource.updateUser(updatedUser);
   }
+
+  @override
+  Future<List<User>> listUsers({String? partnerId, String? role, int limit = 100}) =>
+      dataSource.listUsers(partnerId: partnerId, limit: limit, role: role);
 }

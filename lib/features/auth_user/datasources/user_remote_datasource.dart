@@ -11,4 +11,6 @@ abstract class UserRemoteDataSource {
   Future<UserStatsModel> getUserStats(String userId, String role);
 
   Future<User?> getUserByVerificationId(String verificationId);
+
+  Future<List<User>> listUsers({String? partnerId, String? role, int limit = 100});
 }

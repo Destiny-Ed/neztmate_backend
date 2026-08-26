@@ -346,6 +346,56 @@ class UserHandler {
     }
   }
 
+  /// GET /users?partnerId=&role=&limit=
+  Future<Response> listUsers(Request request) async {
+    try {
+      final callerId = request.context['userId'] as String?;
+      final callerRole = (request.context['role'] as String?)?.toLowerCase() ?? '';
+      final callerPartnerId = request.context['partnerId'] as String?;
+      final isPlatform = callerRole == 'platform_admin' || callerRole == 'super_admin';
+
+      if (callerId == null) {
+        return Response(401, body: jsonEncode({'message': 'Unauthorized'}));
+      }
+
+      // Only platform or partner-side operators
+      final allowedPartnerRoles = ['landowner', 'manager', 'partner_admin', 'admin'];
+      if (!isPlatform && !allowedPartnerRoles.contains(callerRole)) {
+        return Response(403, body: jsonEncode({'message': 'Forbidden'}));
+      }
+
+      final qp = request.url.queryParameters;
+      String? partnerId = qp['partnerId']?.trim();
+      final roleFilter = qp['role']?.trim();
+      final limit = int.tryParse(qp['limit'] ?? '100') ?? 100;
+
+      if (!isPlatform) {
+        // Partner admin can only see their workspace
+        if (callerPartnerId == null || callerPartnerId.isEmpty) {
+          return Response(403, body: jsonEncode({'message': 'Partner context required'}));
+        }
+        partnerId = callerPartnerId;
+      }
+
+      final users = await userRepository.listUsers(
+        partnerId: partnerId,
+        role: roleFilter,
+        limit: limit.clamp(1, 500),
+      );
+
+      // Never expose password hashes
+      final safe = users.map((u) => _safeUserMap(u)).toList();
+
+      return Response.ok(
+        jsonEncode({'users': safe, 'count': safe.length}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, s) {
+      print('listUsers: $e\n$s');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to list users'}));
+    }
+  }
+
   // Helpers
   Map<String, dynamic> _safeUserMap(User user) => {
     'id': user.id,
@@ -367,6 +417,7 @@ class UserHandler {
     'artisanReputation': user.artisanReputation,
     'paymentOnTimeRate': user.paymentOnTimeRate,
     'badges': user.badges,
+    'partnerId': user.partnerId,
     'createdAt': user.createdAt.toIso8601String(),
     'lastLogin': user.lastLogin.toIso8601String(),
     'lastReviewedAt': user.lastReviewedAt?.toIso8601String(),

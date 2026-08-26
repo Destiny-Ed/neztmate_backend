@@ -15,5 +15,8 @@ Router userRoutes(UserHandler handler) {
   router.patch('/me/switch-role', handler.switchRole);
   router.patch('/update-fcm-token', handler.updateFcmToken);
 
+  //  platform or partner admin
+  router.get('/', handler.listUsers); // ?partnerId=&role=&limit=
+
   return router;
 }

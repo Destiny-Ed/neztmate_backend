@@ -179,7 +179,13 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
     () => FirestorePartnerDataSource(injector<FirebaseService>().firestore),
   );
   injector.registerLazySingleton<PartnerRepository>(() => PartnerRepositoryImpl(injector()));
-  injector.registerLazySingleton(() => PartnerHandler(injector()));
+  injector.registerLazySingleton(
+    () => PartnerHandler(
+      injector<PartnerRepository>(),
+      injector<UserRepository>(),
+      injector<PasswordService>(),
+    ),
+  );
 
   //auth
   injector.registerLazySingleton<AuthRepository>(

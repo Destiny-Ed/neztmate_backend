@@ -6,6 +6,7 @@ Router partnerPublicRoutes(PartnerHandler handler) {
   final router = Router();
 
   router.get('/config', handler.getPublicConfig); // ?slug=
+  router.get('/public', handler.listPublicPartners); // landing page
   router.post('/requests', handler.submitPartnerRequest);
   router.get('/<id>', handler.getPartnerById);
 
@@ -16,24 +17,26 @@ Router partnerPublicRoutes(PartnerHandler handler) {
 Router partnerProtectedRoutes(PartnerHandler handler) {
   final router = Router();
 
-  // Partner admin (JWT partnerId)
+  // ── Partner admin (JWT partnerId) ──
   router.get('/me', handler.getMyPartner);
   router.patch('/me', handler.updateMyPartner);
   router.patch('/me/branding', handler.updateMyBranding);
   router.get('/me/notifications', handler.getMyPartnerNotifications);
   router.post('/me/notifications', handler.sendPartnerNotification);
-
   router.get('/me/analytics', handler.getMyPartnerAnalytics);
 
-  // Platform admin
+  // ── Platform admin ──
   router.get('/', handler.listPartners);
   router.post('/', handler.createPartner);
+  router.post('/with-admin', handler.createPartnerWithAdmin);
 
   router.get('/requests', handler.listPartnerRequests);
   router.patch('/requests/<id>', handler.updatePartnerRequest);
+  router.post('/requests/<id>/approve', handler.approvePartnerRequest);
 
   router.patch('/<id>', handler.updatePartner);
   router.patch('/<id>/status', handler.setPartnerStatus);
+  router.post('/<id>/admin/reset-password', handler.resetPartnerAdminPassword);
 
   return router;
 }

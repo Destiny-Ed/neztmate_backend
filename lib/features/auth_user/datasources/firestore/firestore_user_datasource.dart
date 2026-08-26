@@ -225,4 +225,22 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
     final doc = snap.docs.first;
     return User.fromMap(doc.data() as Map<String, dynamic>);
   }
+
+  @override
+  Future<List<User>> listUsers({String? partnerId, String? role, int limit = 100}) async {
+    Query query = firestore.collection('users');
+
+    if (partnerId != null && partnerId.isNotEmpty) {
+      query = query.where('partnerId', WhereFilter.equal, partnerId);
+    }
+    if (role != null && role.isNotEmpty) {
+      query = query.where('role', WhereFilter.equal, role);
+    }
+
+    final snap = await query.limit(limit).get();
+    return snap.docs.map((d) {
+      final data = d.data() as Map<String, dynamic>;
+      return User.fromMap({...data, 'id': data['id'] ?? d.id});
+    }).toList();
+  }
 }
