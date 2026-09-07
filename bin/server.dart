@@ -19,6 +19,7 @@ import 'package:neztmate_backend/features/invites/handler/invite_handler.dart';
 import 'package:neztmate_backend/features/invites/repository/invite_repo.dart';
 import 'package:neztmate_backend/features/leases/handler/lease_handler.dart';
 import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
+import 'package:neztmate_backend/features/location/handler/location_handler.dart';
 import 'package:neztmate_backend/features/maintenance/handler/maintenance_handler.dart';
 import 'package:neztmate_backend/features/messages/handler/messages_handler.dart';
 import 'package:neztmate_backend/features/notifications/handler/handler.dart';
@@ -43,6 +44,7 @@ import 'package:neztmate_backend/routes/docs.dart';
 import 'package:neztmate_backend/routes/history_routes.dart';
 import 'package:neztmate_backend/routes/invites_route.dart';
 import 'package:neztmate_backend/routes/lease_routes.dart';
+import 'package:neztmate_backend/routes/location_routes.dart';
 import 'package:neztmate_backend/routes/maintenance_routes.dart';
 import 'package:neztmate_backend/routes/message_routes.dart';
 import 'package:neztmate_backend/routes/notifications_routes.dart';
@@ -245,6 +247,11 @@ void main() async {
     '/platform/',
     Pipeline().addMiddleware(authMiddleWare).addHandler(platformRoutes(injector<PartnerHandler>()).call),
   );
+
+  router.mount('/locations/', locationRoutes(LocationHandler()).call);
+  // GET /locations/states
+  // GET /locations/cities?state=Lagos
+
   //  SWAGGER UI SETUP
 
   final swaggerHandler = SwaggerUI(

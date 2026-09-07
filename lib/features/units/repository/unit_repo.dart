@@ -14,17 +14,26 @@ abstract class UnitRepository {
     String? propertyId,
     int? minBedrooms,
     double? maxRent,
+    String? propertyType,
+    int limit = 40,
   });
-
-  Future<void> updateUnit(UnitModel unit);
-  Future<void> deleteUnit(String id);
 
   Future<List<AvailableUnitResponse>> getAvailableUnitsWithProperty({
     required String partnerId,
     String? propertyId,
     int? minBedrooms,
     double? maxRent,
+    String? state,
+    String? city,
+    double? lat,
+    double? lng,
+    double radiusKm = 25,
+    String? propertyType,
+    int limit = 40,
   });
+
+  Future<void> updateUnit(UnitModel unit);
+  Future<void> deleteUnit(String id);
 
   Future<List<OwnerUnitResponse>> getMyUnitsWithOccupants(String userId, String role, {String? partnerId});
 

@@ -68,25 +68,31 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
     String? propertyId,
     int? minBedrooms,
     double? maxRent,
+    int limit = 120,
   }) async {
+    // Equality filters only → fewer composite index issues
     var query = _units
         .where('partnerId', WhereFilter.equal, partnerId)
         .where('status', WhereFilter.equal, 'vacant')
         .where('isListedForRent', WhereFilter.equal, true);
 
-    if (propertyId != null) {
+    if (propertyId != null && propertyId.isNotEmpty) {
       query = query.where('propertyId', WhereFilter.equal, propertyId);
     }
+
+    final snap = await query.limit(limit.clamp(1, 300)).get();
+
+    var units = snap.docs.map((d) => UnitModel.fromMap(d.data() as Map<String, dynamic>)).toList();
+
+    // Range filters in memory (avoids multi-inequality index requirements)
     if (minBedrooms != null) {
-      query = query.where('bedrooms', WhereFilter.greaterThanOrEqual, minBedrooms);
+      units = units.where((u) => (u.bedrooms ?? 0) >= minBedrooms).toList();
     }
-    // Use yearlyRent to match UnitModel (not monthlyRent)
     if (maxRent != null) {
-      query = query.where('monthlyRent', WhereFilter.lessThanOrEqual, maxRent);
+      units = units.where((u) => u.monthlyRent <= maxRent).toList();
     }
 
-    final snap = await query.get();
-    return snap.docs.map((d) => UnitModel.fromMap(d.data() as Map<String, dynamic>)).toList();
+    return units;
   }
 
   @override

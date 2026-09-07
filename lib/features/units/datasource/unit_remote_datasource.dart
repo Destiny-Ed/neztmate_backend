@@ -7,11 +7,14 @@ abstract class UnitRemoteDataSource {
   Future<List<UnitModel>> getUnitsByProperty(String propertyId);
   Future<List<UnitModel>> getAvailableUnitsByProperty(String propertyId);
 
+  /// Unit-level filters only.
+  /// Location (state/city/lat/lng) is applied in UnitRepository after loading property.
   Future<List<UnitModel>> getAvailableUnits({
     required String partnerId,
     String? propertyId,
     int? minBedrooms,
     double? maxRent,
+    int limit = 120,
   });
 
   Future<void> updateUnit(UnitModel unit);

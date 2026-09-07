@@ -43,38 +43,74 @@ class UnitHandler {
   }
 
   /// GET /units/available
-  /// Optional query params: ?propertyId=xxx&minBedrooms=2&maxRent=500000
+  /// Query: propertyId, minBedrooms, maxRent, state, city, lat, lng, radiusKm, propertyType
   Future<Response> getAvailableUnits(Request request) async {
     try {
-      final role = request.context['role'] as String?;
+      final role = (request.context['role'] as String?)?.toLowerCase();
       final partnerId = request.context['partnerId'] as String?;
       final userId = request.context['userId'] as String?;
 
       if (partnerId == null || userId == null) {
-        return badRequest("PartnerId or userId is required");
+        return badRequest('PartnerId and userId are required');
       }
 
-      if (role == 'tenant' || role == null) {
-        final int applicationFee = await getCurrentApplicationFee();
+      final q = request.url.queryParameters;
+      final propertyId = q['propertyId'];
+      final minBedrooms = int.tryParse(q['minBedrooms'] ?? '');
+      final maxRent = double.tryParse(q['maxRent'] ?? '');
+      final state = q['state'];
+      final city = q['city'];
+      final lat = double.tryParse(q['lat'] ?? '');
+      final lng = double.tryParse(q['lng'] ?? '');
+      final radiusKm = double.tryParse(q['radiusKm'] ?? '25') ?? 25;
+      final propertyType = q['propertyType'];
 
-        // Tenant sees unit + property
-        final unitsWithProperty = await unitRepository.getAvailableUnitsWithProperty(partnerId: partnerId);
-        print(" Fetched ${unitsWithProperty.length} available units with property info");
+      if (role == 'tenant' || role == null) {
+        final applicationFee = await getCurrentApplicationFee();
+
+        final unitsWithProperty = await unitRepository.getAvailableUnitsWithProperty(
+          partnerId: partnerId,
+          propertyId: propertyId,
+          minBedrooms: minBedrooms,
+          maxRent: maxRent,
+          state: state,
+          city: city,
+          lat: lat,
+          lng: lng,
+          radiusKm: radiusKm,
+          propertyType: propertyType,
+        );
+
         return Response.ok(
           jsonEncode({
             'units': unitsWithProperty
                 .map((u) => {...u.toMap(), 'unitApplicationFee': applicationFee})
                 .toList(),
+            'filters': {
+              'state': state,
+              'city': city,
+              'lat': lat,
+              'lng': lng,
+              'radiusKm': radiusKm,
+              'minBedrooms': minBedrooms,
+              'maxRent': maxRent,
+              'propertyType': propertyType,
+            },
+            'count': unitsWithProperty.length,
           }),
+          headers: {'Content-Type': 'application/json'},
         );
-      } else {
-        // Landowner/Manager sees unit + occupants + history
-        final ownerUnits = await unitRepository.getMyUnitsWithOccupants(userId, role, partnerId: partnerId);
-        return Response.ok(jsonEncode({'units': ownerUnits.map((u) => u.toMap()).toList()}));
       }
+
+      // Landowner / manager: own units with occupants
+      final ownerUnits = await unitRepository.getMyUnitsWithOccupants(userId, role, partnerId: partnerId);
+      return Response.ok(
+        jsonEncode({'units': ownerUnits.map((u) => u.toMap()).toList()}),
+        headers: {'Content-Type': 'application/json'},
+      );
     } catch (e, s) {
-      print("Error fetching available units: $e --- $s");
-      return Response.internalServerError();
+      print('Error fetching available units: $e --- $s');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to load available units'}));
     }
   }
 

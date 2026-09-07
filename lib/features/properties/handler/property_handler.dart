@@ -223,61 +223,68 @@ class PropertyHandler {
   Future<Response> createProperty(Request request) async {
     try {
       final role = request.context['role'] as String?;
-      final subscriptionPlan = request.context['subscriptionPlan'] as String;
+      final subscriptionPlan = (request.context['subscriptionPlan'] as String?) ?? 'free';
       final partnerId = request.context['partnerId'] as String?;
+      final landownerId = request.context['userId'] as String?;
+
       if (role != 'landowner') {
         return Response(403, body: jsonEncode({'message': 'Only landowners can create properties'}));
       }
-
-      final landownerId = request.context['userId'] as String?;
-      if (landownerId == null || partnerId == null) {
-        return Response(400, body: jsonEncode({'message': 'Landowner ID and parnerId are required'}));
+      if (landownerId == null || partnerId == null || partnerId.isEmpty) {
+        return Response(400, body: jsonEncode({'message': 'Landowner ID and partnerId are required'}));
       }
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
 
-      if (body['name'] == null) {
-        return badRequest("Property name is required");
+      final name = (body['name'] as String?)?.trim() ?? '';
+      final address = (body['address'] as String?)?.trim() ?? '';
+      final type = (body['type'] as String?)?.trim() ?? 'Apartment';
+      final state = (body['state'] as String?)?.trim();
+      final city = (body['city'] as String?)?.trim();
+      final lga = (body['lga'] as String?)?.trim();
+      final latitude = (body['latitude'] as num?)?.toDouble();
+      final longitude = (body['longitude'] as num?)?.toDouble();
+
+      if (name.isEmpty) return badRequest('Property name is required');
+      if (address.isEmpty) return badRequest('Property address is required');
+      if (state == null || state.isEmpty) return badRequest('State is required');
+      if (city == null || city.isEmpty) return badRequest('City is required');
+
+      if (body['documents'] == null) return badRequest('Property documents are required');
+      if (body['photoUrls'] == null) return badRequest('Photo URLs are required');
+
+      final photos = (body['photoUrls'] as List<dynamic>).cast<String>();
+      final documents = (body['documents'] as List<dynamic>)
+          .map((e) => Map<String, dynamic>.from(e as Map))
+          .toList();
+
+      if (photos.isEmpty) return badRequest('At least one photo is required');
+      if (documents.isEmpty) return badRequest('At least one ownership document is required');
+
+      final totalUnits = body['totalUnits'];
+      if (totalUnits is! int || totalUnits < 1) {
+        return badRequest('totalUnits must be an integer >= 1');
       }
-      if (body['address'] == null) {
-        return badRequest("Property address is required");
-      }
-      if (body['documents'] == null) {
-        return badRequest("Property documents is required");
-      }
 
-      if (body['photoUrls'] == null) {
-        return badRequest("Photo Urls is required");
+      if (latitude != null && (latitude < -90 || latitude > 90)) {
+        return badRequest('Invalid latitude');
       }
-
-      final photos = body['photoUrls'] as List<dynamic>;
-
-      if (photos.isEmpty) {
-        return badRequest("Photos is required");
+      if (longitude != null && (longitude < -180 || longitude > 180)) {
+        return badRequest('Invalid longitude');
+      }
+      if ((latitude == null) != (longitude == null)) {
+        return badRequest('Provide both latitude and longitude, or neither');
       }
 
-      final documents = body['documents'] as List<dynamic>;
-
-      if (documents.isEmpty) {
-        return badRequest("Property Documents is required");
-      }
-
-      if (body['totalUnits'] == null || body['totalUnits'].runtimeType != int) {
-        return badRequest("Total units must be an integer");
-      }
-
-      // ========== SUBSCRIPTION RESTRICTION ==========
-
-      final currentPropertyCount = await propertyRepository.countByOwner(landownerId);
-
+      // Subscription limit
+      final currentPropertyCount = await propertyRepository.countByOwner(landownerId, partnerId: partnerId);
       final maxProperties = _getMaxProperties(subscriptionPlan);
-
       if (currentPropertyCount >= maxProperties) {
         return Response(
           403,
           body: jsonEncode({
             'message':
-                'You have reached the maximum number of properties allowed on the $subscriptionPlan plan ($maxProperties). Please upgrade your subscription.',
+                'You have reached the maximum number of properties allowed on the $subscriptionPlan plan ($maxProperties). Please upgrade.',
             'currentCount': currentPropertyCount,
             'maxAllowed': maxProperties,
             'plan': subscriptionPlan,
@@ -286,28 +293,52 @@ class PropertyHandler {
           headers: {'Content-Type': 'application/json'},
         );
       }
-      //
 
-      body['createdAt'] = DateTime.now().toIso8601String();
-      body['updatedAt'] = DateTime.now().toIso8601String();
-      body['id'] = Uuid().v4();
-      final property = PropertyModel.fromMap(body);
-
-      //Check if payout account is linked for the landowner
-
-      final payoutAccounts = await paymentRepository.getDefaultPayoutAccount(landownerId);
-      if (payoutAccounts == null) {
+      // Optional: require payout account
+      final payout = await paymentRepository.getDefaultPayoutAccount(landownerId);
+      if (payout == null) {
         return Response(
           400,
           body: jsonEncode({'message': 'Please link a payout account before creating a property'}),
         );
       }
 
-      final created = await propertyRepository.createProperty(property.copyWith(partnerId: partnerId));
-      return Response.ok(jsonEncode({'message': 'Property created', 'property': created.toMap()}));
+      final now = DateTime.now();
+      final property = PropertyModel(
+        id: const Uuid().v4(),
+        name: name,
+        type: type,
+        address: address,
+        landownerId: landownerId,
+        partnerId: partnerId,
+        photoUrls: photos,
+        amenities: (body['amenities'] as List<dynamic>?)?.cast<String>(),
+        totalUnits: totalUnits,
+        occupancyRate: 0,
+        documents: documents,
+        rentPaymentMode: (body['rentPaymentMode'] as String?) ?? 'offline',
+        createdAt: now,
+        updatedAt: now,
+        state: state,
+        city: city,
+        lga: lga,
+        latitude: latitude,
+        longitude: longitude,
+        managerCommissionType: body['managerCommissionType'] as String?,
+        managerCommissionRate: (body['managerCommissionRate'] as num?)?.toDouble(),
+        managerFlatFeeAmount: (body['managerFlatFeeAmount'] as num?)?.toDouble(),
+        managerFlatFeePeriod: body['managerFlatFeePeriod'] as String?,
+      );
+
+      final created = await propertyRepository.createProperty(property);
+
+      return Response.ok(
+        jsonEncode({'message': 'Property created', 'property': created.toMap()}),
+        headers: {'Content-Type': 'application/json'},
+      );
     } catch (e, s) {
-      print("Error creating property : $e  $s");
-      return Response.internalServerError();
+      print('Error creating property: $e\n$s');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to create property'}));
     }
   }
 
@@ -315,77 +346,96 @@ class PropertyHandler {
   Future<Response> updateProperty(Request request) async {
     try {
       final propertyId = request.params['id'];
+      final userId = request.context['userId'] as String?;
+      final role = request.context['role'] as String?;
+
       if (propertyId == null || propertyId.isEmpty) {
         return Response(400, body: jsonEncode({'message': 'Property ID is required'}));
       }
+      if (userId == null) return _unauthorized();
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final existing = await propertyRepository.getPropertyById(propertyId);
 
-      // Basic validation
-      if (body['name'] == null || (body['name'] as String).trim().isEmpty) {
-        return badRequest('Property name is required');
-      }
-      if (body['address'] == null || (body['address'] as String).trim().isEmpty) {
-        return badRequest('Property address is required');
-      }
-      if (body['proofOfOwnershipUrl'] == null || (body['proofOfOwnershipUrl'] as String).trim().isEmpty) {
-        return badRequest('Proof of ownership URL is required');
+      // Authorization
+      final isOwner = existing.landownerId == userId;
+      final isManager = existing.managerId == userId && role == 'manager';
+      if (!isOwner && !isManager) {
+        return Response(403, body: jsonEncode({'message': 'Not allowed to update this property'}));
       }
 
-      // Get existing property first
-      final existingProperty = await propertyRepository.getPropertyById(propertyId);
+      final name = (body['name'] as String?)?.trim() ?? existing.name;
+      final address = (body['address'] as String?)?.trim() ?? existing.address;
+      if (name.isEmpty) return badRequest('Property name is required');
+      if (address.isEmpty) return badRequest('Property address is required');
 
-      // Prepare photo URLs safely
-      List<String> photoUrls = [];
+      List<String> photoUrls = existing.photoUrls ?? [];
       if (body['photoUrls'] != null) {
         photoUrls = (body['photoUrls'] as List<dynamic>).cast<String>();
       }
+      if (photoUrls.isEmpty) return badRequest('At least one photo URL is required');
 
-      if (photoUrls.isEmpty) {
-        return badRequest('At least one photo URL is required');
-      }
-
-      // Prepare photo URLs safely
-      List<Map<String, dynamic>> documents = [];
+      List<Map<String, dynamic>> documents = existing.documents;
       if (body['documents'] != null) {
-        documents = (body['documents'] as List<dynamic>).cast<Map<String, dynamic>>();
+        documents = (body['documents'] as List<dynamic>)
+            .map((e) => Map<String, dynamic>.from(e as Map))
+            .toList();
+      }
+      if (documents.isEmpty) return badRequest('At least one document is required');
+
+      final state = body.containsKey('state') ? (body['state'] as String?)?.trim() : existing.state;
+      final city = body.containsKey('city') ? (body['city'] as String?)?.trim() : existing.city;
+      final lga = body.containsKey('lga') ? (body['lga'] as String?)?.trim() : existing.lga;
+      final latitude = body.containsKey('latitude')
+          ? (body['latitude'] as num?)?.toDouble()
+          : existing.latitude;
+      final longitude = body.containsKey('longitude')
+          ? (body['longitude'] as num?)?.toDouble()
+          : existing.longitude;
+
+      if (state == null || state.isEmpty) return badRequest('State is required');
+      if (city == null || city.isEmpty) return badRequest('City is required');
+      if ((latitude == null) != (longitude == null)) {
+        return badRequest('Provide both latitude and longitude, or neither');
       }
 
-      if (documents.isEmpty) {
-        return badRequest('At least one document type is required');
-      }
-
-      // Create updated property using copyWith
-      final updatedProperty = existingProperty.copyWith(
-        name: body['name'] as String,
-        address: body['address'] as String,
+      final updated = existing.copyWith(
+        name: name,
+        type: (body['type'] as String?) ?? existing.type,
+        address: address,
         documents: documents,
         photoUrls: photoUrls,
-        totalUnits: body['totalUnits'] as int?,
-        amenities: body['amenities'] != null ? (body['amenities'] as List<dynamic>).cast<String>() : null,
+        totalUnits: body['totalUnits'] as int? ?? existing.totalUnits,
+        amenities: body['amenities'] != null
+            ? (body['amenities'] as List<dynamic>).cast<String>()
+            : existing.amenities,
+        rentPaymentMode: body['rentPaymentMode'] as String? ?? existing.rentPaymentMode,
+        state: state,
+        city: city,
+        lga: lga,
+        latitude: latitude,
+        longitude: longitude,
+        managerCommissionType: body['managerCommissionType'] as String? ?? existing.managerCommissionType,
+        managerCommissionRate: body['managerCommissionRate'] != null
+            ? (body['managerCommissionRate'] as num).toDouble()
+            : existing.managerCommissionRate,
+        managerFlatFeeAmount: body['managerFlatFeeAmount'] != null
+            ? (body['managerFlatFeeAmount'] as num).toDouble()
+            : existing.managerFlatFeeAmount,
+        managerFlatFeePeriod: body['managerFlatFeePeriod'] as String? ?? existing.managerFlatFeePeriod,
         updatedAt: DateTime.now(),
       );
 
-      print("Updating property: ${updatedProperty.toMap()}");
-
-      // Perform the update
-      await propertyRepository.updateProperty(updatedProperty);
+      await propertyRepository.updateProperty(updated);
 
       return Response.ok(
-        jsonEncode({'message': 'Property updated successfully', 'property': updatedProperty.toMap()}),
+        jsonEncode({'message': 'Property updated successfully', 'property': updated.toMap()}),
         headers: {'Content-Type': 'application/json'},
       );
+    } on NotFoundException catch (e) {
+      return Response(404, body: jsonEncode({'message': e.message}));
     } catch (e, stack) {
-      print("Error updating property: $e");
-      print("Stack trace: $stack");
-
-      if (e is NotFoundException) {
-        return Response(404, body: jsonEncode({'message': e.message}));
-      }
-      if (e is ValidationException) {
-        return Response(400, body: jsonEncode({'message': e.message}));
-      }
-
+      print('Error updating property: $e\n$stack');
       return Response.internalServerError(body: jsonEncode({'message': 'Failed to update property'}));
     }
   }

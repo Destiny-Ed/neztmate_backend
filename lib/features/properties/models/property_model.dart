@@ -21,6 +21,13 @@ class PropertyModel {
   final double? managerFlatFeeAmount;
   final String? managerFlatFeePeriod; // "yearly", "monthly"
 
+  // Location (for discovery / nearby search)
+  final String? state; // e.g. Lagos, Rivers
+  final String? city; // e.g. Ikeja, Port Harcourt
+  final String? lga; // optional local government area
+  final double? latitude;
+  final double? longitude;
+
   PropertyModel({
     required this.id,
     required this.name,
@@ -35,15 +42,18 @@ class PropertyModel {
     this.rentPaymentMode = 'offline',
     required this.createdAt,
     required this.updatedAt,
-
     this.artisanIds,
     required this.documents,
     this.partnerId = '',
-
     this.managerCommissionType,
     this.managerCommissionRate,
     this.managerFlatFeeAmount,
     this.managerFlatFeePeriod,
+    this.state,
+    this.city,
+    this.lga,
+    this.latitude,
+    this.longitude,
   });
 
   factory PropertyModel.fromMap(Map<String, dynamic> map) {
@@ -62,13 +72,17 @@ class PropertyModel {
       occupancyRate: (map['occupancyRate'] as num?)?.toDouble() ?? 0.0,
       createdAt: DateTime.parse(map['createdAt'] as String),
       updatedAt: DateTime.parse(map['updatedAt'] as String),
-      documents: (map['documents'] as List<dynamic>).cast<Map<String, dynamic>>(),
-
+      documents: (map['documents'] as List<dynamic>?)?.cast<Map<String, dynamic>>() ?? [],
       managerCommissionType: map['managerCommissionType'] as String?,
       managerCommissionRate: (map['managerCommissionRate'] as num?)?.toDouble(),
       managerFlatFeeAmount: (map['managerFlatFeeAmount'] as num?)?.toDouble(),
       managerFlatFeePeriod: map['managerFlatFeePeriod'] as String?,
       partnerId: map['partnerId'] as String? ?? '',
+      state: map['state'] as String?,
+      city: map['city'] as String?,
+      lga: map['lga'] as String?,
+      latitude: (map['latitude'] as num?)?.toDouble(),
+      longitude: (map['longitude'] as num?)?.toDouble(),
     );
   }
 
@@ -89,11 +103,15 @@ class PropertyModel {
     'updatedAt': updatedAt.toIso8601String(),
     'documents': documents,
     'partnerId': partnerId,
-
     'managerCommissionType': managerCommissionType,
     'managerCommissionRate': managerCommissionRate,
     'managerFlatFeeAmount': managerFlatFeeAmount,
     'managerFlatFeePeriod': managerFlatFeePeriod,
+    'state': state,
+    'city': city,
+    'lga': lga,
+    'latitude': latitude,
+    'longitude': longitude,
   };
 
   PropertyModel copyWith({
@@ -104,7 +122,6 @@ class PropertyModel {
     String? landownerId,
     String? managerId,
     String? rentPaymentMode,
-
     List<String>? photoUrls,
     List<String>? amenities,
     List<String>? artisanIds,
@@ -113,12 +130,16 @@ class PropertyModel {
     DateTime? createdAt,
     DateTime? updatedAt,
     List<Map<String, dynamic>>? documents,
-
     String? managerCommissionType,
     double? managerCommissionRate,
     double? managerFlatFeeAmount,
     String? managerFlatFeePeriod,
     String? partnerId,
+    String? state,
+    String? city,
+    String? lga,
+    double? latitude,
+    double? longitude,
   }) {
     return PropertyModel(
       id: id ?? this.id,
@@ -136,12 +157,16 @@ class PropertyModel {
       occupancyRate: occupancyRate ?? this.occupancyRate,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
-
       managerCommissionType: managerCommissionType ?? this.managerCommissionType,
       managerCommissionRate: managerCommissionRate ?? this.managerCommissionRate,
       managerFlatFeeAmount: managerFlatFeeAmount ?? this.managerFlatFeeAmount,
       managerFlatFeePeriod: managerFlatFeePeriod ?? this.managerFlatFeePeriod,
       partnerId: partnerId ?? this.partnerId,
+      state: state ?? this.state,
+      city: city ?? this.city,
+      lga: lga ?? this.lga,
+      latitude: latitude ?? this.latitude,
+      longitude: longitude ?? this.longitude,
     );
   }
 }
