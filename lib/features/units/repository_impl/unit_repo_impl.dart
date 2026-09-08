@@ -64,11 +64,17 @@ class UnitRepositoryImpl implements UnitRepository {
     String? partnerId,
   }) async {
     final r = role.toLowerCase();
-    if (!['landowner', 'manager'].contains(r)) {
-      throw ForbiddenException('Only Landowner or Manager can access occupant details');
+    if (!['landowner', 'manager', 'partner_admin'].contains(r)) {
+      throw ForbiddenException('Only Landowner, Manager, and Partner Admin can access occupant details');
     }
 
-    final List<PropertyModel> properties = r == 'landowner'
+    if (partnerId == null || partnerId.isEmpty) {
+      throw ForbiddenException('Partner ID is required to fetch units with occupants');
+    }
+
+    final List<PropertyModel> properties = r == 'partner_admin'
+        ? await propertyDataSource.getPropertiesByPartner(partnerId)
+        : r == 'landowner'
         ? await propertyDataSource.getPropertiesByLandowner(userId, partnerId: partnerId)
         : await propertyDataSource.getPropertiesByManager(userId, partnerId: partnerId);
 

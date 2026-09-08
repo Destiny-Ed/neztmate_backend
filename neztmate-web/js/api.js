@@ -274,7 +274,7 @@ const Api = {
     );
   },
   getMyProperties() {
-    return this.request('/properties');
+    return this.request('/properties').catch(() => this.request('/properties/all'));
   },
   getNotifications() {
     return this.request('/notifications');
