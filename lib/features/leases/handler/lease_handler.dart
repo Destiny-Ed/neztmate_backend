@@ -116,7 +116,14 @@ class LeaseHandler {
       final role = request.context['role'] as String?;
 
       if (userId == null || partnerId == null) return _unauthorized();
-      if (!['tenant', 'manager', 'landowner'].contains(role)) {
+      if (![
+        'tenant',
+        'manager',
+        'landowner',
+        'platform_admin',
+        'super_admin',
+        'partner_admin',
+      ].contains(role)) {
         return Response(403, body: jsonEncode({'message': 'You are not authorized to view leases'}));
       }
 
@@ -125,6 +132,8 @@ class LeaseHandler {
         leases = await leaseRepository.getLeasesByManager(userId, partnerId: partnerId);
       } else if (role == 'landowner') {
         leases = await leaseRepository.getLeasesByLandowner(userId, partnerId: partnerId);
+      } else if (role == 'platform_admin' || role == 'super_admin') {
+        leases = await leaseRepository.getAllActiveLeases(partnerId: partnerId);
       } else {
         leases = await leaseRepository.getLeasesByTenant(userId, partnerId: partnerId);
       }
