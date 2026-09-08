@@ -1,6 +1,3 @@
-/**
- * NeztMate Admin shell — role-aware, no auto-logout on API errors.
- */
 const AdminGuard = {
   requireAuth() {
     if (!window.NeztMateApi || !NeztMateApi.getToken()) {
@@ -166,6 +163,119 @@ const AdminGuard = {
       .replace(/</g, '&lt;')
       .replace(/>/g, '&gt;')
       .replace(/"/g, '&quot;');
+  },
+
+  /**
+   * Ensure a shared detail drawer exists on the page.
+   * Usage: AdminGuard.showDetail({ title, rows: [[label, value], ...], html? })
+   */
+  ensureDetailDrawer() {
+    if (document.getElementById('admin-detail-drawer')) return;
+
+    const css = document.createElement('style');
+    css.textContent = `
+      .admin-detail-backdrop {
+        position: fixed; inset: 0; z-index: 200;
+        background: rgba(15, 23, 42, .45);
+        display: flex; justify-content: flex-end;
+      }
+      .admin-detail-backdrop.hidden { display: none !important; }
+      .admin-detail-panel {
+        width: min(440px, 100vw); height: 100%;
+        background: var(--white, #fff); color: var(--ink, #0f172a);
+        border-left: 1px solid var(--line, #e2e8f0);
+        box-shadow: -12px 0 40px rgba(0,0,0,.12);
+        display: flex; flex-direction: column;
+        animation: adminDetailIn .2s ease;
+      }
+      @keyframes adminDetailIn { from { transform: translateX(24px); opacity: .6; } to { transform: none; opacity: 1; } }
+      .admin-detail-head {
+        display: flex; align-items: center; justify-content: space-between;
+        gap: 1rem; padding: 1rem 1.15rem; border-bottom: 1px solid var(--line, #e2e8f0);
+      }
+      .admin-detail-head h3 { margin: 0; font-size: 1.05rem; }
+      .admin-detail-body { padding: 1rem 1.15rem 2rem; overflow: auto; flex: 1; }
+      .admin-detail-row {
+        display: grid; grid-template-columns: 120px 1fr; gap: .5rem .75rem;
+        padding: .55rem 0; border-bottom: 1px solid var(--line, #eef2f7);
+        font-size: .9rem;
+      }
+      .admin-detail-row .lbl { color: var(--muted, #64748b); font-weight: 500; }
+      .admin-detail-row .val { word-break: break-word; }
+      .admin-detail-row .val code { font-size: .78rem; }
+      tr.row-click { cursor: pointer; }
+      tr.row-click:hover td { background: rgba(13, 148, 136, .06); }
+      html[data-theme="dark"] .admin-detail-panel { background: var(--white); }
+      html[data-theme="dark"] tr.row-click:hover td { background: rgba(45, 212, 191, .08); }
+    `;
+    document.head.appendChild(css);
+
+    const root = document.createElement('div');
+    root.id = 'admin-detail-drawer';
+    root.className = 'admin-detail-backdrop hidden';
+    root.innerHTML = `
+      <div class="admin-detail-panel" role="dialog" aria-modal="true">
+        <div class="admin-detail-head">
+          <h3 id="admin-detail-title">Details</h3>
+          <button type="button" class="btn btn-ghost btn-sm" id="admin-detail-close" aria-label="Close">×</button>
+        </div>
+        <div class="admin-detail-body" id="admin-detail-body"></div>
+      </div>`;
+    document.body.appendChild(root);
+
+    root.addEventListener('click', (e) => {
+      if (e.target === root) this.hideDetail();
+    });
+    document.getElementById('admin-detail-close').onclick = () => this.hideDetail();
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') this.hideDetail();
+    });
+  },
+
+  /** @param {{ title: string, rows?: Array<[string, any]>, html?: string }} opts */
+  showDetail({ title, rows = [], html = '' }) {
+    this.ensureDetailDrawer();
+    document.getElementById('admin-detail-title').textContent = title || 'Details';
+    const body = document.getElementById('admin-detail-body');
+
+    const rowHtml = rows
+      .map(([label, value]) => {
+        let v = value;
+        if (v == null || v === '') v = '—';
+        else if (typeof v === 'boolean') v = v ? 'Yes' : 'No';
+        else if (typeof v === 'object') v = '<code>' + this.esc(JSON.stringify(v, null, 2)) + '</code>';
+        else if (String(v).startsWith('http')) {
+          v = '<a href="' + this.esc(String(v)) + '" target="_blank" rel="noopener">' + this.esc(String(v)) + '</a>';
+        } else {
+          v = this.esc(String(v));
+        }
+        return (
+          '<div class="admin-detail-row"><div class="lbl">' +
+          this.esc(label) +
+          '</div><div class="val">' +
+          v +
+          '</div></div>'
+        );
+      })
+      .join('');
+
+    body.innerHTML = rowHtml + (html || '');
+    document.getElementById('admin-detail-drawer').classList.remove('hidden');
+  },
+
+  hideDetail() {
+    const el = document.getElementById('admin-detail-drawer');
+    if (el) el.classList.add('hidden');
+  },
+
+  /** Format ISO date for display */
+  fmtDate(v) {
+    if (!v) return '—';
+    try {
+      return new Date(v).toLocaleString();
+    } catch {
+      return String(v);
+    }
   },
 };
 

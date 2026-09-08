@@ -291,15 +291,20 @@ class SchedulerService {
         if (sub.partnerId != null && sub.partnerId.isNotEmpty) {
           try {
             final partner = await partnerRepository!.getPartnerById(sub.partnerId);
+
+            if (partner == null) {
+              print('Partner ${sub.partnerId} not found for subscription ${sub.id}');
+              continue;
+            }
             // Keep isActive true but mark billing state in fees/features if you store it
-            await partnerRepository!.updatePartner(
+            await partnerRepository?.updatePartner(
               partner.copyWith(
                 features: {...partner.features, 'subscriptionStatus': 'expired', 'billingPastDue': true},
                 updatedAt: DateTime.now(),
               ),
             );
 
-            await partnerRepository!.createPartnerNotification(
+            await partnerRepository?.createPartnerNotification(
               partnerId: partner.id,
               title: 'Partner subscription expired',
               body: 'Your partner plan has expired. Update billing to restore full limits.',

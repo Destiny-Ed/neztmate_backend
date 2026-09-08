@@ -13,10 +13,10 @@ class PartnerRepositoryImpl implements PartnerRepository {
   Future<PartnerModel> createPartner(PartnerModel partner) => dataSource.createPartner(partner);
 
   @override
-  Future<PartnerModel> getPartnerById(String id) => dataSource.getPartnerById(id);
+  Future<PartnerModel?> getPartnerById(String id) => dataSource.getPartnerById(id);
 
   @override
-  Future<PartnerModel> getPartnerBySlug(String slug) => dataSource.getPartnerBySlug(slug);
+  Future<PartnerModel?> getPartnerBySlug(String slug) => dataSource.getPartnerBySlug(slug);
 
   @override
   Future<List<PartnerModel>> listPartners({bool activeOnly = false}) =>

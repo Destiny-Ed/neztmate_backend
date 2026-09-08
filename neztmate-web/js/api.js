@@ -240,14 +240,20 @@ const Api = {
     return this.request('/users' + (q ? '?' + q : ''));
   },
   listLeases(params = {}) {
+    const q = new URLSearchParams(params).toString();
+    return this.request('/leases' + (q ? '?' + q : '')).catch(() =>
+      this.request('/leases/me')
+    );
+  },
+  /** Platform / partner admin lease directory */
+  listLeasesAdmin(params = {}) {
     const q = new URLSearchParams();
-    Object.entries(params).forEach(([k, v]) => {
+    Object.entries(params || {}).forEach(([k, v]) => {
       if (v !== undefined && v !== null && v !== '') q.set(k, v);
     });
     const qs = q.toString();
     return this.request('/leases/admin' + (qs ? '?' + qs : ''));
   },
-
   listAllUnits(params = {}) {
     const q = new URLSearchParams(params).toString();
     return this.request('/units/my' + (q ? '?' + q : '')).catch(() =>

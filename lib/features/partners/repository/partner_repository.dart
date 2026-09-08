@@ -4,8 +4,8 @@ import 'package:neztmate_backend/features/notifications/models/notification_mode
 
 abstract class PartnerRepository {
   Future<PartnerModel> createPartner(PartnerModel partner);
-  Future<PartnerModel> getPartnerById(String id);
-  Future<PartnerModel> getPartnerBySlug(String slug);
+  Future<PartnerModel?> getPartnerById(String id);
+  Future<PartnerModel?> getPartnerBySlug(String slug);
   Future<List<PartnerModel>> listPartners({bool activeOnly = false});
   Future<PartnerModel> updatePartner(PartnerModel partner);
 

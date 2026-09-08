@@ -1,12 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Leases · NeztMate Admin</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap"
+    rel="stylesheet" />
   <link rel="stylesheet" href="../css/styles.css" />
 </head>
+
 <body class="admin-body">
   <div class="admin-shell">
     <aside class="sidebar" id="sidebar"></aside>
@@ -17,19 +21,37 @@
       </header>
       <div class="admin-content">
         <h1 class="page-title">Leases</h1>
-        <p class="page-sub">Active, pending payment, and historical agreements.</p>
+        <p class="page-sub">Active, pending payment, and historical agreements. Click a row for full details.</p>
         <div id="error" class="alert alert-error" style="display:none"></div>
         <div class="toolbar">
           <input class="search" id="q" placeholder="Search…" />
+          <select id="status" class="search" style="max-width:160px">
+            <option value="">All statuses</option>
+            <option value="Active">Active</option>
+            <option value="Pending Payment">Pending Payment</option>
+            <option value="Inactive">Inactive</option>
+            <option value="Terminated">Terminated</option>
+          </select>
           <button class="btn btn-ghost btn-sm" id="refresh">Refresh</button>
         </div>
         <div class="panel">
           <div class="table-wrap">
             <table class="table">
               <thead>
-                <tr><th>Lease</th><th>Tenant</th><th>Unit</th><th>Period</th><th>Status</th><th>Rent</th></tr>
+                <tr>
+                  <th>Lease</th>
+                  <th>Tenant</th>
+                  <th>Unit / Property</th>
+                  <th>Period</th>
+                  <th>Status</th>
+                  <th>Rent</th>
+                </tr>
               </thead>
-              <tbody id="tbody"><tr><td colspan="6" class="empty-state">Loading…</td></tr></tbody>
+              <tbody id="tbody">
+                <tr>
+                  <td colspan="6" class="empty-state">Loading…</td>
+                </tr>
+              </tbody>
             </table>
           </div>
         </div>
@@ -44,12 +66,40 @@
     if (!AdminGuard.requireAuth()) throw 0;
     AdminShell.mount('leases.html');
     let all = [];
+
     async function load() {
-      const data = await AdminGuard.api(() => NeztMateApi.listLeases(), { leases: [] });
+      const params = {};
+      const st = document.getElementById('status').value;
+      if (st) params.status = st;
+      const data = await AdminGuard.api(
+        () =>
+          NeztMateApi.listLeasesAdmin
+            ? NeztMateApi.listLeasesAdmin(params)
+            : NeztMateApi.listLeases(params),
+        { leases: [] }
+      );
       all = data.leases || data || [];
       if (!Array.isArray(all)) all = [];
       render();
     }
+
+    function tenantLabel(l) {
+      return (
+        l.tenant?.fullName ||
+        l.tenantName ||
+        (l.tenantId ? String(l.tenantId).slice(0, 8) + '…' : '—')
+      );
+    }
+
+    function unitLabel(l) {
+      const u = l.unit?.unitNumber || l.unitNumber;
+      const p = l.property?.name || l.propertyName;
+      if (u && p) return u + ' · ' + p;
+      if (u) return String(u);
+      if (p) return String(p);
+      return l.unitId ? String(l.unitId).slice(0, 8) + '…' : '—';
+    }
+
     function render() {
       const q = document.getElementById('q').value.toLowerCase();
       const list = all.filter((l) => !q || JSON.stringify(l).toLowerCase().includes(q));
@@ -59,21 +109,67 @@
         return;
       }
       tb.innerHTML = list
-        .map(
-          (l) => `<tr>
-        <td><code style="font-size:.75rem">${AdminGuard.esc(String(l.id || '').slice(0, 10))}</code></td>
-        <td>${AdminGuard.esc(l.tenantId ? String(l.tenantId).slice(0, 8) : '—')}</td>
-        <td>${AdminGuard.esc(l.unitId ? String(l.unitId).slice(0, 8) : '—')}</td>
-        <td style="font-size:.8rem">${l.startDate ? new Date(l.startDate).toLocaleDateString() : '—'} → ${l.endDate ? new Date(l.endDate).toLocaleDateString() : '—'}</td>
-        <td>${AdminGuard.badge(l.status)}</td>
-        <td>${AdminGuard.money(l.monthlyRent ?? l.yearlyRent)}</td>
-      </tr>`
-        )
+        .map((l, i) => {
+          const id = l.id || '';
+          return `<tr class="row-click" data-idx="${i}">
+            <td><code style="font-size:.75rem">${AdminGuard.esc(String(id).slice(0, 10))}</code></td>
+            <td>${AdminGuard.esc(tenantLabel(l))}</td>
+            <td>${AdminGuard.esc(unitLabel(l))}</td>
+            <td style="font-size:.8rem">${l.startDate ? new Date(l.startDate).toLocaleDateString() : '—'} → ${l.endDate ? new Date(l.endDate).toLocaleDateString() : '—'}</td>
+            <td>${AdminGuard.badge(l.status)}</td>
+            <td>${AdminGuard.money(l.monthlyRent ?? l.yearlyRent)}</td>
+          </tr>`;
+        })
         .join('');
     }
+
+    function openLease(l) {
+      const t = l.tenant || {};
+      const p = l.property || {};
+      const u = l.unit || {};
+      AdminGuard.showDetail({
+        title: 'Lease ' + (l.id ? String(l.id).slice(0, 12) : ''),
+        rows: [
+          ['ID', l.id],
+          ['Status', l.status],
+          ['Partner', l.partnerId],
+          ['Start', AdminGuard.fmtDate(l.startDate)],
+          ['End', AdminGuard.fmtDate(l.endDate)],
+          ['Monthly rent', AdminGuard.money(l.monthlyRent ?? l.yearlyRent)],
+          ['Signed PDF', l.signedPdfUrl || l.signedAgreementPdfUrl],
+          ['Application', l.applicationId],
+          ['Tenant name', t.fullName || '—'],
+          ['Tenant email', t.email || '—'],
+          ['Tenant phone', t.phone || '—'],
+          ['Tenant ID', l.tenantId],
+          ['Property', p.name || '—'],
+          ['Address', p.address || '—'],
+          ['Property ID', l.propertyId],
+          ['Unit', u.unitNumber || '—'],
+          ['Unit ID', l.unitId],
+          ['Landowner', l.landownerId],
+          ['Manager', l.managerId],
+          ['Created', AdminGuard.fmtDate(l.createdAt)],
+          ['Updated', AdminGuard.fmtDate(l.updatedAt)],
+        ],
+      });
+    }
+
+    document.getElementById('tbody').onclick = (e) => {
+      const tr = e.target.closest('tr[data-idx]');
+      if (!tr) return;
+      const l = all.filter((x) => {
+        const q = document.getElementById('q').value.toLowerCase();
+        return !q || JSON.stringify(x).toLowerCase().includes(q);
+      })[Number(tr.getAttribute('data-idx'))];
+      if (l) openLease(l);
+    };
+
     document.getElementById('q').oninput = render;
+    document.getElementById('status').onchange = load;
     document.getElementById('refresh').onclick = load;
     load();
   </script>
 </body>
+
 </html>

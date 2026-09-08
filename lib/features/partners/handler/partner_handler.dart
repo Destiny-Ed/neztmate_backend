@@ -42,6 +42,9 @@ class PartnerHandler {
               .toLowerCase();
 
       final partner = await partnerRepository.getPartnerBySlug(slug);
+      if (partner == null) {
+        return _json({'message': 'Partner not found'}, status: 404);
+      }
       if (!partner.isActive) {
         return _json({'message': 'Partner is inactive'}, status: 403);
       }
@@ -127,6 +130,10 @@ class PartnerHandler {
       if (id == null || id.isEmpty) return _json({'message': 'id required'}, status: 400);
 
       final partner = await partnerRepository.getPartnerById(id);
+      if (partner == null) {
+        return _json({'message': 'Partner not found'}, status: 404);
+      }
+
       return _json({'partner': partner.toPublicMap()});
     } on NotFoundException catch (e) {
       return _json({'message': e.message}, status: 404);
@@ -145,11 +152,17 @@ class PartnerHandler {
         return _json({'message': 'partnerId missing from token'}, status: 403);
       }
 
-      PartnerModel partner;
-      try {
-        partner = await partnerRepository.getPartnerById(partnerId);
-      } on NotFoundException {
+      PartnerModel? partner;
+
+      final newPartner = await partnerRepository.getPartnerById(partnerId);
+      if (newPartner == null) {
         partner = await partnerRepository.getPartnerBySlug(partnerId);
+      } else {
+        partner = newPartner;
+      }
+
+      if (partner == null) {
+        return _json({'message': 'Partner not found'}, status: 404);
       }
 
       return _json({'partner': partner.toMap()});
@@ -171,6 +184,10 @@ class PartnerHandler {
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       var partner = await _resolvePartner(partnerId);
+
+      if (partner == null) {
+        return _json({'message': 'Partner not found'}, status: 404);
+      }
 
       partner = partner.copyWith(
         supportPhone: body['supportPhone'] as String? ?? partner.supportPhone,
@@ -200,6 +217,10 @@ class PartnerHandler {
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       var partner = await _resolvePartner(partnerId);
+
+      if (partner == null) {
+        return _json({'message': 'Partner not found'}, status: 404);
+      }
 
       final primary = body['primaryColor'] as String? ?? partner.primaryColor;
       final secondary = body['secondaryColor'] as String? ?? partner.secondaryColor;
@@ -387,6 +408,10 @@ class PartnerHandler {
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       var partner = await partnerRepository.getPartnerById(id);
 
+      if (partner == null) {
+        return _json({'message': 'Partner not found'}, status: 404);
+      }
+
       partner = partner.copyWith(
         name: (body['name'] as String?)?.trim() ?? partner.name,
         tagline: body['tagline'] as String? ?? partner.tagline,
@@ -432,6 +457,10 @@ class PartnerHandler {
       }
 
       var partner = await partnerRepository.getPartnerById(id);
+      if (partner == null) {
+        return _json({'message': 'Partner not found'}, status: 404);
+      }
+
       final active = isActive ?? (status != 'suspended' && status != 'inactive');
       partner = partner.copyWith(isActive: active, updatedAt: DateTime.now());
 
@@ -694,7 +723,7 @@ class PartnerHandler {
 
       final slug = (req.proposedSlug).trim().toLowerCase();
       final existing = await partnerRepository.getPartnerBySlug(slug);
-      if (existing.id.isNotEmpty) {
+      if (existing != null && existing.id.isNotEmpty) {
         return Response(409, body: jsonEncode({'message': 'Slug already taken: $slug'}));
       }
       final partner = await partnerRepository.createPartner(
@@ -803,11 +832,17 @@ class PartnerHandler {
       }
 
       // Ensure partner exists
-      PartnerModel partner;
-      try {
-        partner = await partnerRepository.getPartnerById(partnerId);
-      } catch (_) {
+      PartnerModel? partner;
+
+      final newPartner = await partnerRepository.getPartnerById(partnerId);
+      if (newPartner == null) {
         partner = await partnerRepository.getPartnerBySlug(partnerId);
+      } else {
+        partner = newPartner;
+      }
+
+      if (partner == null) {
+        return Response(404, body: jsonEncode({'message': 'Partner not found'}));
       }
 
       final scopeId = partner.id.isNotEmpty ? partner.id : partner.slug;
@@ -851,9 +886,10 @@ class PartnerHandler {
     }
   }
 
-  Future<PartnerModel> _resolvePartner(String partnerIdOrSlug) async {
+  Future<PartnerModel?> _resolvePartner(String partnerIdOrSlug) async {
     try {
-      return await partnerRepository.getPartnerById(partnerIdOrSlug);
+      final partner = await partnerRepository.getPartnerById(partnerIdOrSlug);
+      return partner;
     } on NotFoundException {
       return partnerRepository.getPartnerBySlug(partnerIdOrSlug);
     }

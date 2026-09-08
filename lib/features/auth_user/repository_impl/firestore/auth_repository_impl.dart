@@ -70,7 +70,7 @@ class AuthRepositoryImpl implements AuthRepository {
     }
 
     await userRepository.updateUser(user.copyWith(lastLogin: DateTime.now()));
-    return user;//smrVtroyFiVGJuAC3Hop4tfwUxx1
+    return user; //smrVtroyFiVGJuAC3Hop4tfwUxx1
   }
 
   @override
@@ -117,6 +117,10 @@ class AuthRepositoryImpl implements AuthRepository {
     }
 
     final partner = await partnerRepository.getPartnerBySlug(partnerSlug);
+
+    if (partner == null) {
+      throw NotFoundException('Partner', partnerSlug);
+    }
 
     final id = UuidV4().generate();
 

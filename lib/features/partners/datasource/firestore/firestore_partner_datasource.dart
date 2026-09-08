@@ -28,18 +28,18 @@ class FirestorePartnerDataSource implements PartnerRemoteDataSource {
   }
 
   @override
-  Future<PartnerModel> getPartnerById(String id) async {
+  Future<PartnerModel?> getPartnerById(String id) async {
     final doc = await _partners.doc(id).get();
-    if (!doc.exists) throw NotFoundException('Partner', id);
+    if (!doc.exists) return null;
     final partner = PartnerModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
     // if (!partner.isActive) throw unauthorized("Partner $id is inactive. Request blocked.");
     return partner;
   }
 
   @override
-  Future<PartnerModel> getPartnerBySlug(String slug) async {
+  Future<PartnerModel?> getPartnerBySlug(String slug) async {
     final snap = await _partners.where('slug', WhereFilter.equal, slug.trim().toLowerCase()).limit(1).get();
-    if (snap.docs.isEmpty) throw NotFoundException('Partner slug', slug);
+    if (snap.docs.isEmpty) return null;
     final doc = snap.docs.first;
     return PartnerModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
   }

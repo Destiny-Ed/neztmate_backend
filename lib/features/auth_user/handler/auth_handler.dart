@@ -64,6 +64,10 @@ class AuthHandler {
 
       final partner = await partnerRepository.getPartnerBySlug(partnerSlug);
 
+      if (partner == null) {
+        throw NotFoundException('Partner', partnerSlug);
+      }
+
       //resolve slug into partner Id
       final created = await authRepository.registerNewUser(request.copyWith(partnerSlug: partner.id));
 
