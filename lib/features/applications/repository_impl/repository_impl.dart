@@ -23,6 +23,19 @@ class ApplicationRepositoryImpl implements ApplicationRepository {
       dataSource.getApplicationsByUnit(unitId);
 
   @override
+  Future<List<ApplicationModel>> getApplicationsForAdmin({
+    String? partnerId,
+    String? status,
+    String? propertyId,
+    int limit = 50,
+  }) => dataSource.getApplicationsForAdmin(
+    partnerId: partnerId,
+    status: status,
+    propertyId: propertyId,
+    limit: limit,
+  );
+
+  @override
   Future<void> updateApplication(ApplicationModel application) => dataSource.updateApplication(application);
 
   @override

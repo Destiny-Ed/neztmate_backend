@@ -45,6 +45,34 @@ class FirestoreApplicationDataSource implements ApplicationRemoteDataSource {
   }
 
   @override
+  Future<List<ApplicationModel>> getApplicationsForAdmin({
+    String? partnerId,
+    String? status,
+    String? propertyId,
+    int limit = 50,
+  }) async {
+    Query query = _applications;
+
+    if (partnerId != null && partnerId.isNotEmpty) {
+      query = query.where('partnerId', WhereFilter.equal, partnerId);
+    }
+    if (status != null && status.isNotEmpty) {
+      query = query.where('status', WhereFilter.equal, status);
+    }
+    if (propertyId != null && propertyId.isNotEmpty) {
+      query = query.where('propertyId', WhereFilter.equal, propertyId);
+    }
+
+    query = query.orderBy('appliedAt', descending: true).limit(limit.clamp(1, 100));
+
+    final snap = await query.get();
+    return snap.docs.map((d) {
+      final data = d.data() as Map<String, dynamic>;
+      return ApplicationModel.fromMap(data);
+    }).toList();
+  }
+
+  @override
   Future<void> updateApplication(ApplicationModel application) async {
     final doc = await _applications.doc(application.id).get();
     if (!doc.exists) throw NotFoundException('Application', application.id);

@@ -12,6 +12,13 @@ abstract class ApplicationRepository {
     String? partnerId,
   });
 
+  Future<List<ApplicationModel>> getApplicationsForAdmin({
+    String? partnerId,
+    String? status,
+    String? propertyId,
+    int limit = 50,
+  });
+
   Future<List<ApplicationModel>> getApplicationsByUnit(String unitId);
 
   Future<void> updateApplication(ApplicationModel application);

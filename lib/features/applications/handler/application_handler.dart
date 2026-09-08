@@ -389,6 +389,105 @@ class ApplicationHandler {
     }
   }
 
+  /// GET /applications/admin
+  /// partner_admin → JWT partnerId
+  /// platform_admin → optional ?partnerId=
+  Future<Response> getApplicationsForAdmin(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = (request.context['role'] as String?)?.toLowerCase();
+      final jwtPartnerId = request.context['partnerId'] as String?;
+
+      if (userId == null || role == null) {
+        return Response(401, body: jsonEncode({'message': 'Unauthorized'}));
+      }
+
+      final isPlatform = role == 'platform_admin' || role == 'super_admin';
+      final isPartnerAdmin = role == 'partner_admin' || role == 'landowner' || role == 'manager';
+
+      if (!isPlatform && !isPartnerAdmin) {
+        return Response(403, body: jsonEncode({'message': 'Admin access required'}));
+      }
+
+      final q = request.url.queryParameters;
+      final status = q['status'];
+      final propertyId = q['propertyId'];
+      final limit = int.tryParse(q['limit'] ?? '50') ?? 50;
+
+      String? partnerId;
+      if (isPlatform) {
+        partnerId = q['partnerId'];
+      } else {
+        partnerId = jwtPartnerId;
+        if (partnerId == null || partnerId.isEmpty) {
+          return Response(400, body: jsonEncode({'message': 'partnerId missing from token'}));
+        }
+      }
+
+      final applications = await applicationRepository.getApplicationsForAdmin(
+        partnerId: partnerId,
+        status: status,
+        propertyId: propertyId,
+        limit: limit,
+      );
+
+      // Hide withdrawn for non-tenant admin views
+      final visible = applications.where((a) => a.status.toLowerCase() != 'withdrawn').toList();
+
+      final enriched = await Future.wait(
+        visible.map((app) async {
+          Map<String, dynamic>? tenant;
+          Map<String, dynamic>? property;
+          Map<String, dynamic>? unit;
+
+          try {
+            final t = await userRepository.getUserById(app.tenantId);
+            tenant = {
+              'id': t.id,
+              'fullName': t.fullName,
+              'email': t.email,
+              'phone': t.phone,
+              'profilePhotoUrl': t.profilePhotoUrl,
+              'verifiedIdentity': t.verifiedIdentity,
+              'rating': t.rating,
+            };
+          } catch (_) {}
+
+          try {
+            final p = await propertyRepository.getPropertyById(app.propertyId);
+            property = {'id': p.id, 'name': p.name, 'address': p.address, 'type': p.type};
+          } catch (_) {}
+
+          try {
+            final u = await unitRepository.getUnitById(app.unitId);
+            unit = {
+              'id': u.id,
+              'unitNumber': u.unitNumber,
+              'bedrooms': u.bedrooms,
+              'bathrooms': u.bathrooms,
+              'monthlyRent': u.monthlyRent,
+              'status': u.status,
+            };
+          } catch (_) {}
+
+          return {...app.toMap(), 'id': app.id, 'tenant': tenant, 'property': property, 'unit': unit};
+        }),
+      );
+
+      return Response.ok(
+        jsonEncode({
+          'applications': enriched,
+          'count': enriched.length,
+          'filters': {'partnerId': partnerId, 'status': status, 'propertyId': propertyId},
+        }),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, stack) {
+      print('getApplicationsForAdmin error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to load applications'}));
+    }
+  }
+
   /// GET /applications/unit/<unitId> - Manager/Landowner views applications for a unit
   Future<Response> getApplicationsByUnit(Request request) async {
     try {

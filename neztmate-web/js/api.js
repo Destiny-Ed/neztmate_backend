@@ -205,7 +205,9 @@ const Api = {
     return this.request('/properties').catch(() => this.request('/properties/all'));
   },
   getNotifications() {
-    return this.request('/notifications');
+
+    return this.request('/notifications').catch(() => this.request('/notifications/all'));
+
   },
 
 
@@ -260,9 +262,13 @@ const Api = {
       this.request('/units/available')
     );
   },
-  listApplications(params = {}) {
-    const q = new URLSearchParams(params).toString();
-    return this.request('/applications/me' + (q ? '?' + q : ''));
+  listApplicationsAdmin(params = {}) {
+    const q = new URLSearchParams();
+    Object.entries(params || {}).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') q.set(k, v);
+    });
+    const qs = q.toString();
+    return this.request('/applications/admin' + (qs ? '?' + qs : ''));
   },
   getPaymentSummary(params = {}) {
     const q = new URLSearchParams(params).toString();
@@ -277,7 +283,8 @@ const Api = {
     return this.request('/properties').catch(() => this.request('/properties/all'));
   },
   getNotifications() {
-    return this.request('/notifications');
+    return this.request('/notifications').catch(() => this.request('/notifications/all'));
+
   },
   getHistory() {
     return this.request('/history/me');
