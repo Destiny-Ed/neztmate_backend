@@ -227,6 +227,8 @@ void main() async {
     Pipeline().addMiddleware(authMiddleWare).addHandler(affiliateRoutes(injector<AffiliateHandler>()).call),
   );
 
+  router.get('/subscriptions/plans/public', injector<SubscriptionHandler>().getPublicPlans);
+
   // Subscription routes
   router.mount(
     '/subscriptions/',

@@ -4,6 +4,7 @@ import 'package:neztmate_backend/features/history/model/user_history_model.dart'
 import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
+import 'package:neztmate_backend/features/partners/repository/partner_repository.dart';
 import 'package:neztmate_backend/features/payments/models/payments.dart';
 import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
 import 'package:neztmate_backend/features/subscriptions/model/plan_subscription_model.dart';
@@ -20,6 +21,7 @@ class SubscriptionHandler {
   final NotificationRepository notificationRepository;
   final HistoryRepository historyRepository;
   final PaymentRepository paymentRepository;
+  final PartnerRepository partnerRepository;
 
   SubscriptionHandler(
     this.subscriptionRepository,
@@ -27,7 +29,9 @@ class SubscriptionHandler {
     this.notificationRepository,
     this.historyRepository,
     this.paymentRepository,
+    this.partnerRepository
   );
+
 
   final paystackService = PaystackService();
 
@@ -168,6 +172,27 @@ class SubscriptionHandler {
       print('Get plans error: $e\n$stack');
       return Response.internalServerError();
     }
+  }
+
+  /// GET /subscriptions/plans/public?slug=neztmate  OR  ?partnerId=
+  Future<Response> getPublicPlans(Request request) async {
+    final slug = request.url.queryParameters['slug'];
+    final partnerIdParam = request.url.queryParameters['partnerId'];
+
+    String? partnerId = partnerIdParam;
+    if ((partnerId == null || partnerId.isEmpty) && slug != null && slug.isNotEmpty) {
+      final partner = await partnerRepository.getPartnerBySlug(slug);
+      partnerId = partner?.id;
+    }
+    if (partnerId == null || partnerId.isEmpty) {
+      return Response(400, body: jsonEncode({'message': 'partnerId or slug required'}));
+    }
+
+    final plans = await subscriptionRepository.getAllPlans(partnerId: partnerId);
+    return Response.ok(
+      jsonEncode({'plans': plans.map((p) => p.toMap()).toList()}),
+      headers: {'Content-Type': 'application/json'},
+    );
   }
 
   /// GET /subscriptions/me - Get current subscription

@@ -191,9 +191,40 @@ const Api = {
     });
   },
 
-  // Product data
+  // ── Subscriptions (web-only billing; no IAP) ──
+  /** Public plans for pricing page. Backend: GET /subscriptions/plans/public?partnerId= or ?slug= */
+  getPublicPlans({ partnerId, slug } = {}) {
+    const q = new URLSearchParams();
+    if (partnerId) q.set('partnerId', partnerId);
+    if (slug) q.set('slug', slug);
+    const qs = q.toString();
+    return this.request('/subscriptions/plans/public' + (qs ? '?' + qs : ''), { auth: false }).catch(
+      () => {
+        // Fallback: authenticated plans if user already logged in on web
+        if (this.getToken()) return this.getSubscriptionPlans();
+        throw new Error('Plans unavailable');
+      }
+    );
+  },
+  getSubscriptionPlans() {
+    return this.request('/subscriptions/plans');
+  },
   getMySubscription() {
     return this.request('/subscriptions/me');
+  },
+  getSubscriptionHistory() {
+    return this.request('/subscriptions/history').catch(() =>
+      this.request('/subscriptions/me/history')
+    );
+  },
+  subscribeToPlan({ planId, billingCycle }) {
+    return this.request('/subscriptions/subscribe', {
+      method: 'POST',
+      body: { planId, billingCycle },
+    });
+  },
+  cancelSubscription() {
+    return this.request('/subscriptions/cancel', { method: 'POST', body: {} });
   },
   getPaymentSummary() {
     return this.request('/payments/summary');
@@ -205,9 +236,7 @@ const Api = {
     return this.request('/properties').catch(() => this.request('/properties/all'));
   },
   getNotifications() {
-
-    return this.request('/notifications').catch(() => this.request('/notifications/all'));
-
+    return this.request('/notifications');
   },
 
 
@@ -262,13 +291,9 @@ const Api = {
       this.request('/units/available')
     );
   },
-  listApplicationsAdmin(params = {}) {
-    const q = new URLSearchParams();
-    Object.entries(params || {}).forEach(([k, v]) => {
-      if (v !== undefined && v !== null && v !== '') q.set(k, v);
-    });
-    const qs = q.toString();
-    return this.request('/applications/admin' + (qs ? '?' + qs : ''));
+  listApplications(params = {}) {
+    const q = new URLSearchParams(params).toString();
+    return this.request('/applications/me' + (q ? '?' + q : ''));
   },
   getPaymentSummary(params = {}) {
     const q = new URLSearchParams(params).toString();
@@ -284,7 +309,6 @@ const Api = {
   },
   getNotifications() {
     return this.request('/notifications').catch(() => this.request('/notifications/all'));
-
   },
   getHistory() {
     return this.request('/history/me');

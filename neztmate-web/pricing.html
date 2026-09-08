@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Pricing · NeztMate</title>
+    <meta name="description"
+        content="NeztMate subscription plans for landowners and partners. Pay on the web — not through the app stores." />
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="css/styles.css" />
+</head>
+
+<body>
+    <header class="site-header">
+        <div class="container nav">
+            <a class="logo" href="index.html">Nezt<span>Mate</span></a>
+            <ul class="nav-links">
+                <li><a href="index.html">Home</a></li>
+                <li><a href="pricing.html">Pricing</a></li>
+                <li><a href="partners.html">Partners</a></li>
+                <li><a href="admin/login.html">Admin login</a></li>
+            </ul>
+        </div>
+    </header>
+
+    <main>
+        <section class="hero" style="padding-bottom:2rem">
+            <div class="container">
+                <span class="eyebrow">Billing on the web</span>
+                <h1>Simple plans for property teams</h1>
+                <p class="lead" style="max-width:36rem">
+                    Subscriptions are purchased on the website only (App Store / Play Store rules). The mobile app shows
+                    status; payment and upgrades happen here.
+                </p>
+                <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1rem">
+                    <button type="button" class="btn btn-ghost btn-sm" id="cycle-monthly">Monthly</button>
+                    <button type="button" class="btn btn-ghost btn-sm" id="cycle-yearly">Yearly</button>
+                </div>
+                <p class="muted" id="plans-status" style="margin-top:1rem">Loading plans…</p>
+            </div>
+        </section>
+
+        <section>
+            <div class="container">
+                <div class="grid-3" id="plans-grid">
+                    <div class="card empty-state" style="grid-column:1/-1">Loading…</div>
+                </div>
+
+                <div class="panel" style="margin-top:2rem">
+                    <h2 style="margin-top:0">Who pays where?</h2>
+                    <div class="grid-2" style="gap:1.25rem">
+                        <div>
+                            <h3>Landowners (main NeztMate app)</h3>
+                            <p class="muted">Subscribe on this site after signing in on web, or from Admin → Billing.
+                                Mobile profile only links here — no in-app purchase.</p>
+                        </div>
+                        <div>
+                            <h3>Partners (white-label)</h3>
+                            <p class="muted">Partner admins manage the workspace plan under <strong>Admin →
+                                    Billing</strong>. Paystack webhook activates access automatically.</p>
+                        </div>
+                    </div>
+                    <p style="margin-top:1rem">
+                        <a class="btn btn-primary" href="admin/login.html">Go to admin billing</a>
+                        <a class="btn btn-ghost" href="partners.html">Become a partner</a>
+                    </p>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        let plans = [];
+        let billingCycle = 'monthly';
+
+        function money(n) {
+            return '₦' + Number(n || 0).toLocaleString('en-NG', { maximumFractionDigits: 0 });
+        }
+
+        function priceOf(p) {
+            return billingCycle === 'yearly' ? Number(p.yearlyPrice || 0) : Number(p.monthlyPrice || 0);
+        }
+
+        function paint() {
+            const grid = document.getElementById('plans-grid');
+            if (!plans.length) {
+                grid.innerHTML =
+                    '<div class="card empty-state" style="grid-column:1/-1">Plans will appear once published. Partner / landowner billing is available after admin login.</div>';
+                return;
+            }
+            grid.innerHTML = plans
+                .map((p) => {
+                    const price = priceOf(p);
+                    const feats = [
+                        p.maxListings === -1 ? 'Unlimited listings' : 'Up to ' + (p.maxListings ?? '—') + ' listings',
+                        p.hasAnalytics ? 'Analytics' : null,
+                        p.hasAdvancedScreening ? 'Advanced screening' : null,
+                        p.hasPrioritySupport ? 'Priority support' : null,
+                    ].filter(Boolean);
+                    return `
+          <div class="card">
+            <h3 style="margin-top:0;text-transform:capitalize">${p.name || p.id}</h3>
+            <p style="font-size:1.5rem;font-weight:800;margin:.25rem 0">
+              ${price === 0 ? 'Free' : money(price)}
+              ${price > 0 ? '<span class="muted" style="font-size:.85rem;font-weight:500">/' + (billingCycle === 'yearly' ? 'year' : 'month') + '</span>' : ''}
+            </p>
+            <ul style="padding-left:1.1rem;font-size:.9rem">${feats.map((f) => '<li>' + f + '</li>').join('')}</ul>
+            <a class="btn btn-primary btn-sm" style="width:100%;margin-top:1rem;text-align:center" href="admin/login.html">Sign in to subscribe</a>
+          </div>`;
+                })
+                .join('');
+        }
+
+        async function load() {
+            const status = document.getElementById('plans-status');
+            const params = new URLSearchParams(location.search);
+            const slug = params.get('partner') || params.get('slug') || 'neztmate';
+            try {
+                const data = await NeztMateApi.getPublicPlans({ slug });
+                plans = data.plans || [];
+                if (!Array.isArray(plans)) plans = [];
+                plans.sort((a, b) => Number(a.monthlyPrice || 0) - Number(b.monthlyPrice || 0));
+                status.textContent = plans.length
+                    ? plans.length + ' plan' + (plans.length === 1 ? '' : 's') + ' · pay on the web after sign-in'
+                    : 'No public plans yet — use Admin → Billing after login.';
+                paint();
+            } catch (e) {
+                status.textContent = 'Could not load public plans. Sign in to Admin → Billing to view workspace plans.';
+                plans = [];
+                paint();
+            }
+        }
+
+        document.getElementById('cycle-monthly').onclick = () => {
+            billingCycle = 'monthly';
+            paint();
+        };
+        document.getElementById('cycle-yearly').onclick = () => {
+            billingCycle = 'yearly';
+            paint();
+        };
+        load();
+    </script>
+</body>
+
+</html>

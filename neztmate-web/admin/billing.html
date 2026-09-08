@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Billing · NeztMate Admin</title>
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="../css/styles.css" />
+</head>
+
+<body class="admin-body">
+    <div class="admin-shell">
+        <aside class="sidebar" id="sidebar"></aside>
+        <div class="admin-main">
+            <header class="admin-top">
+                <div><strong>Billing</strong> <span class="muted" id="partner-label"></span></div>
+                <button type="button" class="theme-toggle" id="theme-toggle">🌙</button>
+            </header>
+            <div class="admin-content">
+                <h1 class="page-title">Subscription &amp; billing</h1>
+                <p class="page-sub">
+                    Plans and payments are handled on the web (not in the mobile stores). Paystack checkout opens in a
+                    new tab; activation is automatic via webhook.
+                </p>
+                <div id="error" class="alert alert-error" style="display:none"></div>
+                <div id="info" class="alert alert-ok" style="display:none"></div>
+
+                <div class="panel" style="margin-bottom:1.25rem" id="status-panel">
+                    <p class="muted">Loading subscription…</p>
+                </div>
+
+                <div class="toolbar">
+                    <div style="display:flex;gap:.5rem;align-items:center">
+                        <span class="muted" style="font-size:.85rem">Billing cycle</span>
+                        <select id="cycle" class="search" style="max-width:140px">
+                            <option value="monthly">Monthly</option>
+                            <option value="yearly">Yearly</option>
+                        </select>
+                    </div>
+                    <button type="button" class="btn btn-ghost btn-sm" id="refresh">Refresh</button>
+                </div>
+
+                <div class="grid-3" id="plans-grid">
+                    <div class="card empty-state" style="grid-column:1/-1">Loading plans…</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="../js/config.js"></script>
+    <script src="../js/api.js"></script>
+    <script src="../js/admin-shell.js"></script>
+    <script src="../js/admin.js"></script>
+    <script>
+        if (!AdminGuard.requireAuth()) throw 0;
+        AdminShell.mount('billing.html');
+
+        let plans = [];
+        let current = null;
+
+        function money(n) {
+            return AdminGuard.money(typeof n === 'number' ? n : Number(n) || 0);
+        }
+
+        function cycle() {
+            return document.getElementById('cycle').value || 'monthly';
+        }
+
+        function priceOf(plan) {
+            return cycle() === 'yearly' ? Number(plan.yearlyPrice || 0) : Number(plan.monthlyPrice || 0);
+        }
+
+        function isCurrent(plan) {
+            if (!current || String(current.status).toLowerCase() !== 'active') return false;
+            const pid = String(current.planId || '').toLowerCase();
+            return pid === String(plan.id || '').toLowerCase() || pid === String(plan.name || '').toLowerCase();
+        }
+
+        function paintStatus() {
+            const el = document.getElementById('status-panel');
+            if (!current || !current.planId) {
+                el.innerHTML = `
+          <h3 style="margin:0 0 .35rem">No active paid plan</h3>
+          <p class="muted" style="margin:0">You are on the free tier (or trial). Choose a plan below to upgrade. Payment opens on Paystack.</p>
+        `;
+                return;
+            }
+            const st = String(current.status || '').toLowerCase();
+            el.innerHTML = `
+        <div style="display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-start;justify-content:space-between">
+          <div>
+            <h3 style="margin:0 0 .35rem">Current: <span style="text-transform:capitalize">${AdminGuard.esc(current.planId)}</span></h3>
+            <p style="margin:0">${AdminGuard.badge(current.status)}
+              <span class="muted" style="margin-left:.5rem">${AdminGuard.esc(current.billingCycle || '')}</span>
+            </p>
+            <p class="muted" style="margin:.5rem 0 0;font-size:.9rem">
+              ${st === 'cancelled' ? 'Access until' : 'Renews / ends'}:
+              <strong>${current.endDate ? new Date(current.endDate).toLocaleDateString() : '—'}</strong>
+            </p>
+          </div>
+          <div style="display:flex;gap:.5rem;flex-wrap:wrap">
+            ${st === 'active'
+                    ? '<button type="button" class="btn btn-ghost btn-sm" id="btn-cancel">Cancel at period end</button>'
+                    : ''
+                }
+            <a class="btn btn-ghost btn-sm" href="../pricing.html" target="_blank" rel="noopener">Public pricing</a>
+          </div>
+        </div>
+      `;
+            const cancelBtn = document.getElementById('btn-cancel');
+            if (cancelBtn) {
+                cancelBtn.onclick = async () => {
+                    if (!confirm('Cancel subscription? You keep access until the end of the billing period.')) return;
+                    try {
+                        AdminGuard.clearAlerts();
+                        const res = await NeztMateApi.cancelSubscription();
+                        AdminGuard.showOk(res.message || 'Cancellation scheduled');
+                        await load();
+                    } catch (e) {
+                        AdminGuard.showError(e.message || 'Cancel failed');
+                    }
+                };
+            }
+        }
+
+        function paintPlans() {
+            const grid = document.getElementById('plans-grid');
+            if (!plans.length) {
+                grid.innerHTML =
+                    '<div class="card empty-state" style="grid-column:1/-1">No plans configured for this workspace. Platform admin should create plans first.</div>';
+                return;
+            }
+            grid.innerHTML = plans
+                .map((p) => {
+                    const price = priceOf(p);
+                    const cur = isCurrent(p);
+                    const features = [
+                        p.maxListings === -1 || p.maxListings == null
+                            ? 'Unlimited listings'
+                            : 'Up to ' + p.maxListings + ' listings',
+                        p.hasAgentAssignment ? 'Agent assignment' : null,
+                        p.hasAdvancedScreening ? 'Advanced screening' : null,
+                        p.hasAnalytics ? 'Analytics' : null,
+                        p.hasPrioritySupport ? 'Priority support' : null,
+                    ].filter(Boolean);
+
+                    return `
+          <div class="card" style="border-top:3px solid ${cur ? 'var(--teal,#0d9488)' : 'transparent'}">
+            <h3 style="margin:0 0 .25rem;text-transform:capitalize">${AdminGuard.esc(p.name || p.id)}</h3>
+            <p style="margin:0 0 .75rem;font-size:1.35rem;font-weight:800">
+              ${price === 0 ? 'Free' : money(price)}
+              ${price > 0 ? '<span class="muted" style="font-size:.85rem;font-weight:500">/' + (cycle() === 'yearly' ? 'yr' : 'mo') + '</span>' : ''}
+            </p>
+            <ul style="margin:0 0 1rem;padding-left:1.1rem;font-size:.9rem">
+              ${features.map((f) => '<li>' + AdminGuard.esc(f) + '</li>').join('')}
+            </ul>
+            <button type="button" class="btn ${cur ? 'btn-ghost' : 'btn-primary'} btn-sm" style="width:100%"
+              data-plan="${AdminGuard.esc(p.id || p.name)}" ${cur ? 'disabled' : ''}>
+              ${cur ? 'Current plan' : price === 0 ? 'Switch to Free' : 'Subscribe'}
+            </button>
+          </div>`;
+                })
+                .join('');
+        }
+
+        async function subscribe(planId) {
+            AdminGuard.clearAlerts();
+            try {
+                const res = await NeztMateApi.subscribeToPlan({ planId, billingCycle: cycle() });
+                if (res.requiresPayment && res.authorizationUrl) {
+                    AdminGuard.showOk('Complete payment in the Paystack window. This page will refresh when you return.');
+                    window.open(res.authorizationUrl, '_blank', 'noopener');
+                    return;
+                }
+                AdminGuard.showOk(res.message || 'Plan activated');
+                await load();
+            } catch (e) {
+                AdminGuard.showError(e.message || 'Subscribe failed');
+            }
+        }
+
+        async function load() {
+            AdminGuard.clearAlerts();
+            const [plansRes, subRes] = await Promise.all([
+                AdminGuard.api(() => NeztMateApi.getSubscriptionPlans(), { plans: [] }),
+                AdminGuard.api(() => NeztMateApi.getMySubscription(), {}),
+            ]);
+            plans = plansRes.plans || [];
+            if (!Array.isArray(plans)) plans = [];
+            plans.sort((a, b) => Number(a.monthlyPrice || 0) - Number(b.monthlyPrice || 0));
+            current = subRes.subscription || (subRes.planId ? subRes : null);
+            if (subRes.status === 'free') current = null;
+            paintStatus();
+            paintPlans();
+        }
+
+        document.getElementById('plans-grid').onclick = (e) => {
+            const btn = e.target.closest('[data-plan]');
+            if (!btn || btn.disabled) return;
+            const planId = btn.getAttribute('data-plan');
+            if (!planId) return;
+            if (!confirm('Continue with plan "' + planId + '" (' + cycle() + ')?')) return;
+            subscribe(planId);
+        };
+
+        document.getElementById('cycle').onchange = paintPlans;
+        document.getElementById('refresh').onclick = load;
+        // Refresh when user returns from Paystack tab
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') load();
+        });
+        load();
+    </script>
+</body>
+
+</html>
