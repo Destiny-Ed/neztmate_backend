@@ -104,9 +104,11 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
         totalProperties = propertiesSnap.docs.length;
 
         // 2. Total Revenue (from paid payments)
+        //check where propertyId is not null
         final paymentsSnap = await firestore
             .collection('payments')
             .where('status', WhereFilter.equal, 'paid')
+            .where("propertyId", WhereFilter.notEqual, null)
             .get();
 
         for (var doc in paymentsSnap.docs) {

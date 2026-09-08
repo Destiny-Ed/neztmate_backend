@@ -1,0 +1,488 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Subscribe · NeztMate</title>
+    <meta name="description" content="Choose a NeztMate plan for your properties." />
+    <meta name="robots" content="noindex" />
+    <link
+        href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap"
+        rel="stylesheet" />
+    <link rel="stylesheet" href="css/styles.css" />
+    <style>
+        .sub-wrap {
+            padding: 2.5rem 0 4rem;
+        }
+
+        .sub-header {
+            margin-bottom: 1.5rem;
+        }
+
+        .sub-header h1 {
+            margin: 0.35rem 0 0.5rem;
+            font-size: 1.75rem;
+        }
+
+        .billing-toggle {
+            display: inline-flex;
+            gap: 0.35rem;
+            padding: 0.3rem;
+            margin: 1rem 0 1.25rem;
+            background: var(--bg-soft, #f1f5f9);
+            border-radius: 14px;
+        }
+
+        .billing-toggle .btn {
+            min-width: 6.5rem;
+        }
+
+        .billing-toggle .btn.is-active {
+            background: #fff;
+            color: var(--teal, #0d9488);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, .06);
+            border-color: transparent;
+        }
+
+        .plan-card {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            padding: 1.35rem 1.4rem;
+        }
+
+        .plan-card h3 {
+            margin: 0 0 0.25rem;
+            text-transform: capitalize;
+        }
+
+        .plan-card .price {
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin: 0.25rem 0 0.9rem;
+            letter-spacing: -0.02em;
+        }
+
+        .plan-card .price span {
+            font-size: 0.82rem;
+            font-weight: 500;
+        }
+
+        .plan-card ul {
+            margin: 0 0 1.1rem;
+            padding-left: 1.1rem;
+            font-size: 0.9rem;
+            line-height: 1.5;
+            flex: 1;
+        }
+
+        .plan-card .btn {
+            width: 100%;
+            margin-top: auto;
+            text-align: center;
+        }
+
+        .status-card {
+            margin-bottom: 1.25rem;
+            padding: 1.15rem 1.25rem;
+        }
+
+        .auth-box {
+            max-width: 420px;
+            margin: 2rem auto;
+            padding: 1.5rem;
+        }
+
+        .auth-box .field {
+            margin-bottom: 0.85rem;
+        }
+
+        .user-chip {
+            font-size: 0.9rem;
+            color: var(--muted, #64748b);
+        }
+    </style>
+</head>
+
+<body>
+    <header class="site-header">
+        <div class="container nav">
+            <a class="logo" href="index.html">Nezt<span>Mate</span></a>
+            <ul class="nav-links">
+                <li><a href="pricing.html">Pricing</a></li>
+                <li><a href="index.html">Home</a></li>
+            </ul>
+        </div>
+    </header>
+
+    <main class="sub-wrap">
+        <div class="container">
+            <div id="error" class="alert alert-error" style="display:none"></div>
+            <div id="info" class="alert alert-ok" style="display:none"></div>
+
+            <!-- Not signed in -->
+            <div id="auth-panel" class="card auth-box" style="display:none">
+                <h2 style="margin-top:0">Sign in to manage your plan</h2>
+                <p class="muted" style="margin-top:0">Use the same email and password as the NeztMate app.</p>
+                <div class="field">
+                    <label>Email</label>
+                    <input id="login-email" type="email" autocomplete="username" />
+                </div>
+                <div class="field">
+                    <label>Password</label>
+                    <input id="login-password" type="password" autocomplete="current-password" />
+                </div>
+                <button type="button" class="btn btn-primary" id="login-btn" style="width:100%">Sign in</button>
+                <p class="muted" style="font-size:0.85rem;margin-top:1rem;margin-bottom:0">
+                    Opened from the app? Use <strong>Manage plan</strong> in Profile so we can sign you in
+                    automatically.
+                </p>
+            </div>
+
+            <!-- Signed in -->
+            <div id="main-panel" style="display:none">
+                <div class="sub-header">
+                    <span class="eyebrow">Your plan</span>
+                    <h1>Choose a subscription</h1>
+                    <p class="user-chip" id="user-line"></p>
+                </div>
+
+                <div class="card status-card" id="status-panel">
+                    <p class="muted" style="margin:0">Loading…</p>
+                </div>
+
+                <div class="billing-toggle" role="group" aria-label="Billing cycle">
+                    <button type="button" class="btn btn-ghost btn-sm is-active" id="cycle-monthly">Monthly</button>
+                    <button type="button" class="btn btn-ghost btn-sm" id="cycle-yearly">Yearly</button>
+                </div>
+
+                <div class="grid-3" id="plans-grid">
+                    <div class="card empty-state" style="grid-column:1/-1">Loading plans…</div>
+                </div>
+            </div>
+        </div>
+    </main>
+
+    <script src="js/config.js"></script>
+    <script src="js/api.js"></script>
+    <script>
+        (function () {
+            let plans = [];
+            let current = null;
+            let billingCycle = 'monthly';
+            let partnerSlug = 'neztmate';
+
+            const errEl = document.getElementById('error');
+            const infoEl = document.getElementById('info');
+
+            function showError(msg) {
+                errEl.style.display = 'block';
+                errEl.textContent = msg || 'Something went wrong';
+            }
+            function showOk(msg) {
+                infoEl.style.display = 'block';
+                infoEl.className = 'alert alert-ok';
+                infoEl.textContent = msg;
+            }
+            function clearAlerts() {
+                errEl.style.display = 'none';
+                infoEl.style.display = 'none';
+            }
+
+            function money(n) {
+                return '₦' + Number(n || 0).toLocaleString('en-NG', { maximumFractionDigits: 0 });
+            }
+            function priceOf(p) {
+                return billingCycle === 'yearly' ? Number(p.yearlyPrice || 0) : Number(p.monthlyPrice || 0);
+            }
+
+            /** Accept token from app deep link, then strip it from the URL */
+            function bootstrapTokenFromQuery() {
+                const params = new URLSearchParams(location.search);
+                const token = params.get('token') || params.get('accessToken');
+                const refresh = params.get('refreshToken');
+                partnerSlug = params.get('partner') || params.get('slug') || partnerSlug;
+
+                if (token) {
+                    NeztMateApi.setSession({
+                        accessToken: token,
+                        refreshToken: refresh || undefined,
+                    });
+                    params.delete('token');
+                    params.delete('accessToken');
+                    params.delete('refreshToken');
+                    const qs = params.toString();
+                    const clean = location.pathname + (qs ? '?' + qs : '') + location.hash;
+                    history.replaceState({}, '', clean);
+                }
+            }
+
+            function payload() {
+                return NeztMateApi.getTokenPayload() || {};
+            }
+
+            function isLandownerLike() {
+                const role = String(payload().role || '').toLowerCase();
+                return ['landowner', 'manager', 'partner_admin', 'tenant', 'artisan'].includes(role) || !!NeztMateApi.getToken();
+            }
+
+            function paintUser() {
+                const p = payload();
+                const u = NeztMateApi.getUser() || {};
+                const name = u.fullName || u.email || p.email || '';
+                const role = u.role || p.role || '';
+                document.getElementById('user-line').textContent = [name, role].filter(Boolean).join(' · ');
+            }
+
+            function paintStatus() {
+                const el = document.getElementById('status-panel');
+                if (!current || !current.planId) {
+                    el.innerHTML =
+                        '<strong>Current plan:</strong> Free tier<br/>' +
+                        '<span class="muted" style="font-size:.9rem">Upgrade below to unlock more listings and features.</span>';
+                    return;
+                }
+                const st = String(current.status || '').toLowerCase();
+                el.innerHTML =
+                    '<div style="display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;align-items:flex-start">' +
+                    '<div><strong style="text-transform:capitalize">' +
+                    escapeHtml(current.planId) +
+                    '</strong> · ' +
+                    escapeHtml(current.status || '') +
+                    '<br/><span class="muted" style="font-size:.9rem">' +
+                    (st === 'cancelled' ? 'Access until ' : 'Valid until ') +
+                    (current.endDate ? new Date(current.endDate).toLocaleDateString() : '—') +
+                    (current.billingCycle ? ' · ' + escapeHtml(current.billingCycle) : '') +
+                    '</span></div>' +
+                    (st === 'active'
+                        ? '<button type="button" class="btn btn-ghost btn-sm" id="btn-cancel">Cancel at period end</button>'
+                        : '') +
+                    '</div>';
+
+                const cancelBtn = document.getElementById('btn-cancel');
+                if (cancelBtn) {
+                    cancelBtn.onclick = async function () {
+                        if (!confirm('Cancel subscription? You keep access until the period ends.')) return;
+                        clearAlerts();
+                        try {
+                            const res = await NeztMateApi.cancelSubscription();
+                            showOk(res.message || 'Cancellation scheduled');
+                            await loadBilling();
+                        } catch (e) {
+                            showError(e.message || 'Could not cancel');
+                        }
+                    };
+                }
+            }
+
+            function escapeHtml(s) {
+                return String(s ?? '')
+                    .replace(/&/g, '&amp;')
+                    .replace(/</g, '&lt;')
+                    .replace(/>/g, '&gt;')
+                    .replace(/"/g, '&quot;');
+            }
+
+            function isCurrent(plan) {
+                if (!current || String(current.status).toLowerCase() !== 'active') return false;
+                const pid = String(current.planId || '').toLowerCase();
+                return pid === String(plan.id || '').toLowerCase() || pid === String(plan.name || '').toLowerCase();
+            }
+
+            function paintPlans() {
+                const grid = document.getElementById('plans-grid');
+                if (!plans.length) {
+                    grid.innerHTML =
+                        '<div class="card empty-state" style="grid-column:1/-1">No plans available right now. Please try again later.</div>';
+                    return;
+                }
+                grid.innerHTML = plans
+                    .map(function (p) {
+                        const price = priceOf(p);
+                        const cur = isCurrent(p);
+                        const feats = [
+                            p.maxListings === -1 || p.maxListings == null
+                                ? 'Unlimited listings'
+                                : 'Up to ' + p.maxListings + ' listings',
+                            p.hasAgentAssignment ? 'Agent assignment' : null,
+                            p.hasAdvancedScreening ? 'Advanced screening' : null,
+                            p.hasAnalytics ? 'Analytics' : null,
+                            p.hasPrioritySupport ? 'Priority support' : null,
+                        ].filter(Boolean);
+
+                        return (
+                            '<div class="card plan-card">' +
+                            '<h3>' +
+                            escapeHtml(p.name || p.id) +
+                            '</h3>' +
+                            '<p class="price">' +
+                            (price === 0 ? 'Free' : money(price)) +
+                            (price > 0
+                                ? ' <span class="muted">/' + (billingCycle === 'yearly' ? 'year' : 'month') + '</span>'
+                                : '') +
+                            '</p>' +
+                            '<ul>' +
+                            feats
+                                .map(function (f) {
+                                    return '<li>' + escapeHtml(f) + '</li>';
+                                })
+                                .join('') +
+                            '</ul>' +
+                            '<button type="button" class="btn ' +
+                            (cur ? 'btn-ghost' : 'btn-primary') +
+                            ' btn-sm" data-plan="' +
+                            escapeHtml(p.id || p.name) +
+                            '" ' +
+                            (cur ? 'disabled' : '') +
+                            '>' +
+                            (cur ? 'Current plan' : price === 0 ? 'Switch to Free' : 'Subscribe') +
+                            '</button>' +
+                            '</div>'
+                        );
+                    })
+                    .join('');
+            }
+
+            function setCycle(cycle) {
+                billingCycle = cycle;
+                document.getElementById('cycle-monthly').classList.toggle('is-active', cycle === 'monthly');
+                document.getElementById('cycle-yearly').classList.toggle('is-active', cycle === 'yearly');
+                paintPlans();
+            }
+
+            async function loadBilling() {
+                clearAlerts();
+                try {
+                    const [plansRes, subRes] = await Promise.all([
+                        NeztMateApi.getSubscriptionPlans().catch(function () {
+                            return NeztMateApi.getPublicPlans({ slug: partnerSlug });
+                        }),
+                        NeztMateApi.getMySubscription().catch(function () {
+                            return {};
+                        }),
+                    ]);
+                    plans = plansRes.plans || [];
+                    if (!Array.isArray(plans)) plans = [];
+                    plans = plans.filter(function (p) {
+                        return p.isActive !== false;
+                    });
+                    plans.sort(function (a, b) {
+                        return Number(a.monthlyPrice || 0) - Number(b.monthlyPrice || 0);
+                    });
+                    current = subRes.subscription || (subRes.planId ? subRes : null);
+                    if (subRes.status === 'free') current = null;
+                    paintUser();
+                    paintStatus();
+                    paintPlans();
+                } catch (e) {
+                    showError(e.message || 'Failed to load plans');
+                    plans = [];
+                    paintPlans();
+                }
+            }
+
+            async function subscribe(planId) {
+                clearAlerts();
+                try {
+                    const res = await NeztMateApi.subscribeToPlan({
+                        planId: planId,
+                        billingCycle: billingCycle,
+                    });
+                    if (res.requiresPayment && res.authorizationUrl) {
+                        showOk('Complete payment in the next window. This page will refresh when you return.');
+                        window.open(res.authorizationUrl, '_blank', 'noopener');
+                        return;
+                    }
+                    showOk(res.message || 'Plan activated');
+                    await loadBilling();
+                } catch (e) {
+                    showError(e.message || 'Subscribe failed');
+                }
+            }
+
+            function showMain() {
+                document.getElementById('auth-panel').style.display = 'none';
+                document.getElementById('main-panel').style.display = 'block';
+                loadBilling();
+            }
+
+            function showAuth() {
+                document.getElementById('auth-panel').style.display = 'block';
+                document.getElementById('main-panel').style.display = 'none';
+            }
+
+            async function login() {
+                clearAlerts();
+                const email = document.getElementById('login-email').value.trim();
+                const password = document.getElementById('login-password').value;
+                if (!email || !password) {
+                    showError('Email and password are required');
+                    return;
+                }
+                const btn = document.getElementById('login-btn');
+                btn.disabled = true;
+                try {
+                    // Landowner on main platform — partnerId from slug config if required by API
+                    const body = {
+                        email: email,
+                        password: password,
+                        fcmToken: 'web_subscribe',
+                        platform: 'web',
+                    };
+                    // Optional: resolve partner id from slug via public config
+                    try {
+                        const cfg = await NeztMateApi.getPartnerConfig(partnerSlug);
+                        if (cfg && (cfg.id || cfg.partnerId)) body.partnerId = cfg.id || cfg.partnerId;
+                    } catch (_) { }
+
+                    const res = await NeztMateApi.request('/auth/login', {
+                        method: 'POST',
+                        auth: false,
+                        body: body,
+                    });
+                    NeztMateApi.setSession({
+                        accessToken: res.accessToken || res.token,
+                        refreshToken: res.refreshToken,
+                        user: res.user,
+                    });
+                    showMain();
+                } catch (e) {
+                    showError(e.message || 'Sign in failed');
+                } finally {
+                    btn.disabled = false;
+                }
+            }
+
+            // Events
+            document.getElementById('cycle-monthly').onclick = function () {
+                setCycle('monthly');
+            };
+            document.getElementById('cycle-yearly').onclick = function () {
+                setCycle('yearly');
+            };
+            document.getElementById('login-btn').onclick = login;
+            document.getElementById('plans-grid').onclick = function (e) {
+                const btn = e.target.closest('[data-plan]');
+                if (!btn || btn.disabled) return;
+                const planId = btn.getAttribute('data-plan');
+                if (!planId) return;
+                if (!confirm('Continue with this plan?')) return;
+                subscribe(planId);
+            };
+            document.addEventListener('visibilitychange', function () {
+                if (document.visibilityState === 'visible' && NeztMateApi.getToken()) loadBilling();
+            });
+
+            // Init
+            bootstrapTokenFromQuery();
+            if (NeztMateApi.getToken()) {
+                showMain();
+            } else {
+                showAuth();
+            }
+        })();
+    </script>
+</body>
+
+</html>

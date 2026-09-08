@@ -106,7 +106,7 @@ class PaystackService {
           "business_name": businessName,
           "bank_code": bankCode,
           "account_number": accountNumber,
-          "percentage_charge": 0, // You can charge extra if needed
+          "percentage_charge": 0.toString(),
         }),
       );
 
@@ -116,8 +116,9 @@ class PaystackService {
       }
       print('Failed to create subaccount: ${data['message']}');
       return null;
-    } catch (e) {
-      print('Error creating subaccount: $e');
+    } catch (e, stackTrace) {
+      print('Error creating subaccount: $e ===== $stackTrace');
+
       return null;
     }
   }
