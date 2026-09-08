@@ -11,14 +11,14 @@ Router partnerPublicRoutes(PartnerHandler handler) {
   router.get('/config', handler.getPublicConfig); // ?slug=
   router.get('/public', handler.listPublicPartners); // landing page
   router.post('/requests', handler.submitPartnerRequest);
-  router.get('/<id>', (Request req) async {
-    final id = req.params['id']!;
-    const reserved = {'config', 'public', 'requests', 'all-requests', 'me'};
-    if (reserved.contains(id)) {
-      return Response.notFound(jsonEncode({'message': 'Not found'}));
-    }
-    return handler.getPartnerById(req);
-  });
+  // router.get('/<id>', (Request req) async {
+  //   final id = req.params['id']!;
+  //   const reserved = {'config', 'public', 'requests', 'all-requests', 'me'};
+  //   if (reserved.contains(id)) {
+  //     return Response.notFound(jsonEncode({'message': 'Not found'}));
+  //   }
+  //   return handler.getPartnerById(req);
+  // });
 
   return router;
 }
@@ -44,6 +44,7 @@ Router partnerProtectedRoutes(PartnerHandler handler) {
   router.patch('/requests/<id>', handler.updatePartnerRequest);
   router.post('/requests/<id>/approve', handler.approvePartnerRequest);
 
+  router.get('/<id>', handler.getPartnerById); // optional, auth required
   router.patch('/<id>', handler.updatePartner);
   router.patch('/<id>/status', handler.setPartnerStatus);
   router.post('/<id>/admin/reset-password', handler.resetPartnerAdminPassword);

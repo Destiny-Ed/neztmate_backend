@@ -279,7 +279,7 @@ const Api = {
   },
   listPartnerRequests(params = {}) {
     const q = new URLSearchParams(params).toString();
-    return this.request('/partners/requests' + (q ? '?' + q : ''));
+    return this.request('/partners/all-requests' + (q ? '?' + q : ''));
   },
   createPartner(body) {
     return this.request('/partners/', { method: 'POST', body });
