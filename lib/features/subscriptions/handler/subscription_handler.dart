@@ -29,9 +29,8 @@ class SubscriptionHandler {
     this.notificationRepository,
     this.historyRepository,
     this.paymentRepository,
-    this.partnerRepository
+    this.partnerRepository,
   );
-
 
   final paystackService = PaystackService();
 
@@ -39,17 +38,23 @@ class SubscriptionHandler {
   Future<Response> createPlan(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
-      final partnerId = request.context['partnerId'] as String?;
 
       final role = request.context['role'] as String?;
 
-      if (userId == null || partnerId == null) return unauthorized('Unauthorized');
+      if (userId == null) return unauthorized('Unauthorized');
 
-      if (role != 'admin') {
-        return Response(403, body: jsonEncode({'message': 'Only admins can create plans'}));
+      // Accept platform_admin
+      if (!isPlatformAdmin(role) && role != 'partner_admin') {
+        return Response(403, body: jsonEncode({'message': 'Only admins can manage plans'}));
       }
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+
+      // partnerId: body or context
+      final partnerId = body['partnerId'] as String? ?? request.context['partnerId'] as String?;
+      if (partnerId == null || partnerId.isEmpty) {
+        return badRequest('partnerId is required');
+      }
 
       final name = (body['name'] as String?)?.trim().toLowerCase();
       final monthlyPrice = (body['monthlyPrice'] as num?)?.toDouble();
@@ -110,21 +115,25 @@ class SubscriptionHandler {
   Future<Response> updatePlan(Request request) async {
     try {
       final role = request.context['role'] as String?;
-      final partnerId = request.context['partnerId'] as String?;
       final planId = request.params['id'];
 
-      if (role != 'admin') {
-        return Response(403, body: jsonEncode({'message': 'Only admins can update plans'}));
-      }
       if (planId == null || planId.isEmpty) {
         return badRequest('Plan id is required');
       }
 
-      if (partnerId == null) {
-        return badRequest('PartnerId is required');
+      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+
+      // Accept platform_admin
+      if (!isPlatformAdmin(role) && role != 'partner_admin') {
+        return Response(403, body: jsonEncode({'message': 'Only admins can manage plans'}));
       }
 
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      // partnerId: body or context
+      final partnerId = body['partnerId'] as String? ?? request.context['partnerId'] as String?;
+      if (partnerId == null || partnerId.isEmpty) {
+        return badRequest('partnerId is required');
+      }
+
       final existing = await subscriptionRepository.getPlanById(planId, partnerId: partnerId);
 
       if (existing == null) {
@@ -159,19 +168,41 @@ class SubscriptionHandler {
     }
   }
 
+  /// DELETE /subscriptions/plans/<id>?partnerId=
+  Future<Response> deletePlan(Request request) async {
+    final role = (request.context['role'] as String?)?.toLowerCase();
+    if (role != 'platform_admin' && role != 'super_admin' && role != 'admin') {
+      return Response(403, body: jsonEncode({'message': 'Forbidden'}));
+    }
+    final planId = request.params['id'];
+    final partnerId = request.url.queryParameters['partnerId'] ?? request.context['partnerId'] as String?;
+    if (planId == null || partnerId == null) return badRequest('plan id and partnerId required');
+
+    final existing = await subscriptionRepository.getPlanById(planId, partnerId: partnerId);
+    if (existing == null) return Response(404, body: jsonEncode({'message': 'Plan not found'}));
+
+    await subscriptionRepository.updatePlan(existing.copyWith(isActive: false));
+    // or hard delete if you prefer
+    return Response.ok(jsonEncode({'message': 'Plan deactivated'}));
+  }
+
   /// GET /subscriptions/plans - Get all available plans
   Future<Response> getPlans(Request request) async {
-    final partnerId = request.context['partnerId'] as String?;
+    final role = (request.context['role'] as String?)?.toLowerCase();
+    var partnerId = request.context['partnerId'] as String?;
+    partnerId ??= request.url.queryParameters['partnerId'];
 
-    if (partnerId == null) return badRequest("Partner Id is required");
-    try {
-      final plans = await subscriptionRepository.getAllPlans(partnerId: partnerId);
-
-      return Response.ok(jsonEncode({'plans': plans.map((p) => p.toMap()).toList()}));
-    } catch (e, stack) {
-      print('Get plans error: $e\n$stack');
-      return Response.internalServerError();
+    final isPlatform = role == 'platform_admin' || role == 'super_admin' || role == 'admin';
+    if (!isPlatform && (partnerId == null || partnerId.isEmpty)) {
+      return badRequest('Partner Id is required');
     }
+    if (isPlatform && (partnerId == null || partnerId.isEmpty)) {
+      return Response.ok(jsonEncode({'plans': []})); // UI selects partner first
+    }
+
+    final plans = await subscriptionRepository.getAllPlans(partnerId: partnerId);
+    // For public-style list, only active; for admin management return all:
+    return Response.ok(jsonEncode({'plans': plans.map((p) => p.toMap()).toList()}));
   }
 
   /// GET /subscriptions/plans/public?slug=neztmate  OR  ?partnerId=
@@ -432,5 +463,15 @@ class SubscriptionHandler {
       print('Cancel subscription error: $e\n$stack');
       return Response.internalServerError();
     }
+  }
+
+  bool isPlatformAdmin(String? role) {
+    final r = (role ?? '').toLowerCase();
+    return r == 'platform_admin' || r == 'super_admin' || r == 'admin';
+  }
+
+  bool isPartnerAdmin(String? role) {
+    final r = (role ?? '').toLowerCase();
+    return r == 'partner_admin' || r == 'landowner' || r == 'manager';
   }
 }

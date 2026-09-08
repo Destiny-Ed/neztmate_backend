@@ -239,6 +239,8 @@ void main() async {
 
   router.mount('/partners/', partnerPublicRoutes(injector<PartnerHandler>()).call);
 
+  
+
   router.mount(
     '/partners/',
     Pipeline()

@@ -20,19 +20,25 @@
                 <button type="button" class="theme-toggle" id="theme-toggle">🌙</button>
             </header>
             <div class="admin-content">
-                <h1 class="page-title">Subscription &amp; billing</h1>
-                <p class="page-sub">
-                    Plans and payments are handled on the web (not in the mobile stores). Paystack checkout opens in a
-                    new tab; activation is automatic via webhook.
-                </p>
+                <h1 class="page-title">Billing &amp; plans</h1>
+                <p class="page-sub" id="page-sub">Manage subscription plans and billing for this workspace.</p>
                 <div id="error" class="alert alert-error" style="display:none"></div>
                 <div id="info" class="alert alert-ok" style="display:none"></div>
 
-                <div class="panel" style="margin-bottom:1.25rem" id="status-panel">
-                    <p class="muted">Loading subscription…</p>
+                <!-- Platform: partner scope -->
+                <div class="toolbar" id="platform-toolbar" style="display:none">
+                    <label class="muted" style="font-size:.85rem">Workspace</label>
+                    <select id="partner-select" class="search" style="max-width:260px">
+                        <option value="">Select partner…</option>
+                    </select>
+                    <button type="button" class="btn btn-primary btn-sm" id="btn-new-plan">New plan</button>
+                    <button type="button" class="btn btn-ghost btn-sm" id="refresh">Refresh</button>
                 </div>
 
-                <div class="toolbar">
+                <!-- Partner admin: own subscription status -->
+                <div class="panel" style="margin-bottom:1.25rem;display:none" id="status-panel"></div>
+
+                <div class="toolbar" id="partner-cycle-bar" style="display:none">
                     <div style="display:flex;gap:.5rem;align-items:center">
                         <span class="muted" style="font-size:.85rem">Billing cycle</span>
                         <select id="cycle" class="search" style="max-width:140px">
@@ -40,12 +46,53 @@
                             <option value="yearly">Yearly</option>
                         </select>
                     </div>
-                    <button type="button" class="btn btn-ghost btn-sm" id="refresh">Refresh</button>
+                    <button type="button" class="btn btn-ghost btn-sm" id="refresh-partner">Refresh</button>
                 </div>
 
+                <h2 class="page-title" style="font-size:1.1rem;margin:1rem 0 .75rem" id="plans-heading">Plans</h2>
                 <div class="grid-3" id="plans-grid">
-                    <div class="card empty-state" style="grid-column:1/-1">Loading plans…</div>
+                    <div class="card empty-state" style="grid-column:1/-1">Loading…</div>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Create / edit plan modal -->
+    <div id="plan-modal" class="modal-backdrop hidden">
+        <div class="modal" style="max-width:440px">
+            <div class="modal-head">
+                <h3 id="plan-modal-title">New plan</h3>
+                <button type="button" class="btn btn-ghost btn-sm" data-close-plan>×</button>
+            </div>
+            <div class="modal-body">
+                <div class="field"><label>Name (id)</label>
+                    <select id="plan-name">
+                        <option value="free">free</option>
+                        <option value="basic">basic</option>
+                        <option value="premium">premium</option>
+                        <option value="enterprise">enterprise</option>
+                    </select>
+                </div>
+                <div class="field"><label>Monthly price (₦)</label><input id="plan-monthly" type="number" min="0"
+                        step="1" value="0" /></div>
+                <div class="field"><label>Yearly price (₦)</label><input id="plan-yearly" type="number" min="0" step="1"
+                        value="0" /></div>
+                <div class="field"><label>Max listings (-1 = unlimited)</label><input id="plan-max" type="number"
+                        value="5" /></div>
+                <label class="muted" style="display:flex;gap:.5rem;align-items:center;margin:.4rem 0"><input
+                        type="checkbox" id="plan-agent" /> Agent assignment</label>
+                <label class="muted" style="display:flex;gap:.5rem;align-items:center;margin:.4rem 0"><input
+                        type="checkbox" id="plan-screening" /> Advanced screening</label>
+                <label class="muted" style="display:flex;gap:.5rem;align-items:center;margin:.4rem 0"><input
+                        type="checkbox" id="plan-analytics" /> Analytics</label>
+                <label class="muted" style="display:flex;gap:.5rem;align-items:center;margin:.4rem 0"><input
+                        type="checkbox" id="plan-support" /> Priority support</label>
+                <label class="muted" style="display:flex;gap:.5rem;align-items:center;margin:.4rem 0"><input
+                        type="checkbox" id="plan-active" checked /> Active (shown on pricing)</label>
+            </div>
+            <div class="modal-foot">
+                <button type="button" class="btn btn-ghost btn-sm" data-close-plan>Cancel</button>
+                <button type="button" class="btn btn-primary btn-sm" id="plan-save">Save plan</button>
             </div>
         </div>
     </div>
@@ -58,67 +105,75 @@
         if (!AdminGuard.requireAuth()) throw 0;
         AdminShell.mount('billing.html');
 
+        const isPlatform = AdminGuard.isPlatform();
         let plans = [];
         let current = null;
+        let partners = [];
+        let editingPlanId = null;
+
+        document.getElementById('page-sub').textContent = isPlatform
+            ? 'Create and manage plans for each partner workspace. Plans appear on the public pricing page for that workspace.'
+            : 'View your plan and upgrade. Payment opens with Paystack in a new tab.';
+
+        if (isPlatform) {
+            document.getElementById('platform-toolbar').style.display = 'flex';
+            document.getElementById('plans-heading').textContent = 'Plans for selected workspace';
+        } else {
+            document.getElementById('status-panel').style.display = 'block';
+            document.getElementById('partner-cycle-bar').style.display = 'flex';
+            document.getElementById('plans-heading').textContent = 'Available plans';
+        }
 
         function money(n) {
             return AdminGuard.money(typeof n === 'number' ? n : Number(n) || 0);
         }
-
         function cycle() {
-            return document.getElementById('cycle').value || 'monthly';
+            return document.getElementById('cycle')?.value || 'monthly';
         }
-
         function priceOf(plan) {
             return cycle() === 'yearly' ? Number(plan.yearlyPrice || 0) : Number(plan.monthlyPrice || 0);
         }
-
-        function isCurrent(plan) {
-            if (!current || String(current.status).toLowerCase() !== 'active') return false;
-            const pid = String(current.planId || '').toLowerCase();
-            return pid === String(plan.id || '').toLowerCase() || pid === String(plan.name || '').toLowerCase();
+        function selectedPartnerId() {
+            if (isPlatform) return document.getElementById('partner-select').value || '';
+            const u = NeztMateApi.getUser() || {};
+            const payload = NeztMateApi.getTokenPayload() || {};
+            return u.partnerId || payload.partnerId || '';
         }
 
         function paintStatus() {
+            if (isPlatform) return;
             const el = document.getElementById('status-panel');
             if (!current || !current.planId) {
-                el.innerHTML = `
-          <h3 style="margin:0 0 .35rem">No active paid plan</h3>
-          <p class="muted" style="margin:0">You are on the free tier (or trial). Choose a plan below to upgrade. Payment opens on Paystack.</p>
-        `;
+                el.innerHTML =
+                    '<h3 style="margin:0 0 .35rem">No active paid plan</h3><p class="muted" style="margin:0">You are on the free tier. Choose a plan below to upgrade.</p>';
                 return;
             }
             const st = String(current.status || '').toLowerCase();
-            el.innerHTML = `
-        <div style="display:flex;flex-wrap:wrap;gap:1rem;align-items:flex-start;justify-content:space-between">
-          <div>
-            <h3 style="margin:0 0 .35rem">Current: <span style="text-transform:capitalize">${AdminGuard.esc(current.planId)}</span></h3>
-            <p style="margin:0">${AdminGuard.badge(current.status)}
-              <span class="muted" style="margin-left:.5rem">${AdminGuard.esc(current.billingCycle || '')}</span>
-            </p>
-            <p class="muted" style="margin:.5rem 0 0;font-size:.9rem">
-              ${st === 'cancelled' ? 'Access until' : 'Renews / ends'}:
-              <strong>${current.endDate ? new Date(current.endDate).toLocaleDateString() : '—'}</strong>
-            </p>
-          </div>
-          <div style="display:flex;gap:.5rem;flex-wrap:wrap">
-            ${st === 'active'
+            el.innerHTML =
+                '<div style="display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;align-items:flex-start">' +
+                '<div><h3 style="margin:0 0 .35rem">Current: <span style="text-transform:capitalize">' +
+                AdminGuard.esc(current.planId) +
+                '</span></h3><p style="margin:0">' +
+                AdminGuard.badge(current.status) +
+                ' <span class="muted">' +
+                AdminGuard.esc(current.billingCycle || '') +
+                '</span></p><p class="muted" style="margin:.5rem 0 0;font-size:.9rem">' +
+                (st === 'cancelled' ? 'Access until' : 'Ends') +
+                ': <strong>' +
+                (current.endDate ? new Date(current.endDate).toLocaleDateString() : '—') +
+                '</strong></p></div>' +
+                (st === 'active'
                     ? '<button type="button" class="btn btn-ghost btn-sm" id="btn-cancel">Cancel at period end</button>'
-                    : ''
-                }
-            <a class="btn btn-ghost btn-sm" href="../pricing.html" target="_blank" rel="noopener">Public pricing</a>
-          </div>
-        </div>
-      `;
+                    : '') +
+                '</div>';
             const cancelBtn = document.getElementById('btn-cancel');
             if (cancelBtn) {
                 cancelBtn.onclick = async () => {
-                    if (!confirm('Cancel subscription? You keep access until the end of the billing period.')) return;
+                    if (!confirm('Cancel subscription? Access continues until the period ends.')) return;
                     try {
-                        AdminGuard.clearAlerts();
                         const res = await NeztMateApi.cancelSubscription();
                         AdminGuard.showOk(res.message || 'Cancellation scheduled');
-                        await load();
+                        await loadPartner();
                     } catch (e) {
                         AdminGuard.showError(e.message || 'Cancel failed');
                     }
@@ -130,14 +185,23 @@
             const grid = document.getElementById('plans-grid');
             if (!plans.length) {
                 grid.innerHTML =
-                    '<div class="card empty-state" style="grid-column:1/-1">No plans configured for this workspace. Platform admin should create plans first.</div>';
+                    '<div class="card empty-state" style="grid-column:1/-1">' +
+                    (isPlatform
+                        ? 'No plans for this workspace yet. Click <strong>New plan</strong> to create one.'
+                        : 'No plans available yet. Contact support if this persists.') +
+                    '</div>';
                 return;
             }
             grid.innerHTML = plans
                 .map((p) => {
                     const price = priceOf(p);
-                    const cur = isCurrent(p);
-                    const features = [
+                    const cur =
+                        !isPlatform &&
+                        current &&
+                        String(current.status).toLowerCase() === 'active' &&
+                        (String(current.planId).toLowerCase() === String(p.id).toLowerCase() ||
+                            String(current.planId).toLowerCase() === String(p.name).toLowerCase());
+                    const feats = [
                         p.maxListings === -1 || p.maxListings == null
                             ? 'Unlimited listings'
                             : 'Up to ' + p.maxListings + ' listings',
@@ -145,44 +209,124 @@
                         p.hasAdvancedScreening ? 'Advanced screening' : null,
                         p.hasAnalytics ? 'Analytics' : null,
                         p.hasPrioritySupport ? 'Priority support' : null,
+                        p.isActive === false ? 'Inactive' : null,
                     ].filter(Boolean);
 
-                    return `
-          <div class="card" style="border-top:3px solid ${cur ? 'var(--teal,#0d9488)' : 'transparent'}">
-            <h3 style="margin:0 0 .25rem;text-transform:capitalize">${AdminGuard.esc(p.name || p.id)}</h3>
-            <p style="margin:0 0 .75rem;font-size:1.35rem;font-weight:800">
-              ${price === 0 ? 'Free' : money(price)}
-              ${price > 0 ? '<span class="muted" style="font-size:.85rem;font-weight:500">/' + (cycle() === 'yearly' ? 'yr' : 'mo') + '</span>' : ''}
-            </p>
-            <ul style="margin:0 0 1rem;padding-left:1.1rem;font-size:.9rem">
-              ${features.map((f) => '<li>' + AdminGuard.esc(f) + '</li>').join('')}
-            </ul>
-            <button type="button" class="btn ${cur ? 'btn-ghost' : 'btn-primary'} btn-sm" style="width:100%"
-              data-plan="${AdminGuard.esc(p.id || p.name)}" ${cur ? 'disabled' : ''}>
-              ${cur ? 'Current plan' : price === 0 ? 'Switch to Free' : 'Subscribe'}
-            </button>
-          </div>`;
+                    let actions = '';
+                    if (isPlatform) {
+                        actions =
+                            '<div style="display:flex;gap:.4rem;margin-top:auto">' +
+                            '<button type="button" class="btn btn-ghost btn-sm" data-edit="' +
+                            AdminGuard.esc(p.id) +
+                            '">Edit</button>' +
+                            '<button type="button" class="btn btn-ghost btn-sm" data-delete="' +
+                            AdminGuard.esc(p.id) +
+                            '">Delete</button>' +
+                            '</div>';
+                    } else {
+                        actions =
+                            '<button type="button" class="btn ' +
+                            (cur ? 'btn-ghost' : 'btn-primary') +
+                            ' btn-sm" style="width:100%;margin-top:auto" data-subscribe="' +
+                            AdminGuard.esc(p.id || p.name) +
+                            '" ' +
+                            (cur ? 'disabled' : '') +
+                            '>' +
+                            (cur ? 'Current plan' : price === 0 ? 'Switch to Free' : 'Subscribe') +
+                            '</button>';
+                    }
+
+                    return (
+                        '<div class="card" style="display:flex;flex-direction:column">' +
+                        '<h3 style="margin:0 0 .25rem;text-transform:capitalize">' +
+                        AdminGuard.esc(p.name || p.id) +
+                        '</h3>' +
+                        '<p style="margin:0 0 .75rem;font-size:1.25rem;font-weight:800">' +
+                        (price === 0 ? 'Free' : money(price)) +
+                        (price > 0
+                            ? ' <span class="muted" style="font-size:.8rem;font-weight:500">/' +
+                            (cycle() === 'yearly' ? 'yr' : 'mo') +
+                            '</span>'
+                            : '') +
+                        '</p>' +
+                        '<ul style="margin:0 0 1rem;padding-left:1.1rem;font-size:.9rem">' +
+                        feats.map((f) => '<li>' + AdminGuard.esc(f) + '</li>').join('') +
+                        '</ul>' +
+                        actions +
+                        '</div>'
+                    );
                 })
                 .join('');
         }
 
-        async function subscribe(planId) {
-            AdminGuard.clearAlerts();
+        function openPlanModal(plan) {
+            editingPlanId = plan ? plan.id : null;
+            document.getElementById('plan-modal-title').textContent = plan ? 'Edit plan' : 'New plan';
+            document.getElementById('plan-name').value = plan?.name || plan?.id || 'basic';
+            document.getElementById('plan-name').disabled = !!plan;
+            document.getElementById('plan-monthly').value = plan?.monthlyPrice ?? 0;
+            document.getElementById('plan-yearly').value = plan?.yearlyPrice ?? 0;
+            document.getElementById('plan-max').value = plan?.maxListings ?? 5;
+            document.getElementById('plan-agent').checked = !!plan?.hasAgentAssignment;
+            document.getElementById('plan-screening').checked = !!plan?.hasAdvancedScreening;
+            document.getElementById('plan-analytics').checked = !!plan?.hasAnalytics;
+            document.getElementById('plan-support').checked = !!plan?.hasPrioritySupport;
+            document.getElementById('plan-active').checked = plan?.isActive !== false;
+            AdminGuard.openModal('plan-modal');
+        }
+
+        async function savePlan() {
+            const partnerId = selectedPartnerId();
+            if (!partnerId) {
+                AdminGuard.showError('Select a partner workspace first');
+                return;
+            }
+            const body = {
+                name: document.getElementById('plan-name').value,
+                monthlyPrice: Number(document.getElementById('plan-monthly').value) || 0,
+                yearlyPrice: Number(document.getElementById('plan-yearly').value) || 0,
+                maxListings: Number(document.getElementById('plan-max').value),
+                hasAgentAssignment: document.getElementById('plan-agent').checked,
+                hasAdvancedScreening: document.getElementById('plan-screening').checked,
+                hasAnalytics: document.getElementById('plan-analytics').checked,
+                hasPrioritySupport: document.getElementById('plan-support').checked,
+                isActive: document.getElementById('plan-active').checked,
+                partnerId: partnerId,
+            };
             try {
-                const res = await NeztMateApi.subscribeToPlan({ planId, billingCycle: cycle() });
-                if (res.requiresPayment && res.authorizationUrl) {
-                    AdminGuard.showOk('Complete payment in the Paystack window. This page will refresh when you return.');
-                    window.open(res.authorizationUrl, '_blank', 'noopener');
-                    return;
+                if (editingPlanId) {
+                    await NeztMateApi.updateSubscriptionPlan(editingPlanId, body);
+                    AdminGuard.showOk('Plan updated');
+                } else {
+                    await NeztMateApi.createSubscriptionPlan(body);
+                    AdminGuard.showOk('Plan created');
                 }
-                AdminGuard.showOk(res.message || 'Plan activated');
-                await load();
+                AdminGuard.closeModal('plan-modal');
+                await loadPlatform();
             } catch (e) {
-                AdminGuard.showError(e.message || 'Subscribe failed');
+                AdminGuard.showError(e.message || 'Save failed');
             }
         }
 
-        async function load() {
+        async function loadPlatform() {
+            AdminGuard.clearAlerts();
+            const partnerId = selectedPartnerId();
+            if (!partnerId) {
+                plans = [];
+                paintPlans();
+                return;
+            }
+            const data = await AdminGuard.api(
+                () => NeztMateApi.getSubscriptionPlans({ partnerId }),
+                { plans: [] }
+            );
+            plans = data.plans || [];
+            if (!Array.isArray(plans)) plans = [];
+            plans.sort((a, b) => Number(a.monthlyPrice || 0) - Number(b.monthlyPrice || 0));
+            paintPlans();
+        }
+
+        async function loadPartner() {
             AdminGuard.clearAlerts();
             const [plansRes, subRes] = await Promise.all([
                 AdminGuard.api(() => NeztMateApi.getSubscriptionPlans(), { plans: [] }),
@@ -197,22 +341,108 @@
             paintPlans();
         }
 
-        document.getElementById('plans-grid').onclick = (e) => {
-            const btn = e.target.closest('[data-plan]');
-            if (!btn || btn.disabled) return;
-            const planId = btn.getAttribute('data-plan');
-            if (!planId) return;
-            if (!confirm('Continue with plan "' + planId + '" (' + cycle() + ')?')) return;
-            subscribe(planId);
+        async function loadPartnersList() {
+            const data = await AdminGuard.api(() => NeztMateApi.listPartners(), { partners: [] });
+            partners = data.partners || data || [];
+            if (!Array.isArray(partners)) partners = [];
+            const sel = document.getElementById('partner-select');
+            sel.innerHTML =
+                '<option value="">Select partner…</option>' +
+                partners
+                    .map(
+                        (p) =>
+                            '<option value="' +
+                            AdminGuard.esc(p.id) +
+                            '">' +
+                            AdminGuard.esc(p.name || p.slug || p.id) +
+                            '</option>'
+                    )
+                    .join('');
+            // Prefer neztmate / first active
+            const main = partners.find((p) => String(p.slug).toLowerCase() === 'neztmate') || partners[0];
+            if (main) {
+                sel.value = main.id;
+                await loadPlatform();
+            }
+        }
+
+        document.getElementById('plans-grid').onclick = async (e) => {
+            const sub = e.target.closest('[data-subscribe]');
+            const edit = e.target.closest('[data-edit]');
+            const del = e.target.closest('[data-delete]');
+
+            if (sub && !isPlatform) {
+                const planId = sub.getAttribute('data-subscribe');
+                if (!confirm('Continue with plan "' + planId + '"?')) return;
+                try {
+                    const res = await NeztMateApi.subscribeToPlan({ planId, billingCycle: cycle() });
+                    if (res.requiresPayment && res.authorizationUrl) {
+                        AdminGuard.showOk('Complete payment in the Paystack window.');
+                        window.open(res.authorizationUrl, '_blank', 'noopener');
+                    } else {
+                        AdminGuard.showOk(res.message || 'Plan activated');
+                        await loadPartner();
+                    }
+                } catch (err) {
+                    AdminGuard.showError(err.message || 'Subscribe failed');
+                }
+                return;
+            }
+
+            if (edit && isPlatform) {
+                const id = edit.getAttribute('data-edit');
+                const plan = plans.find((p) => p.id === id);
+                openPlanModal(plan);
+                return;
+            }
+
+            if (del && isPlatform) {
+                const id = del.getAttribute('data-delete');
+                if (!confirm('Deactivate / delete plan "' + id + '"?')) return;
+                try {
+                    await NeztMateApi.deleteSubscriptionPlan(id, { partnerId: selectedPartnerId() });
+                    AdminGuard.showOk('Plan removed');
+                    await loadPlatform();
+                } catch (err) {
+                    // Fallback: soft-deactivate via PATCH if DELETE not implemented
+                    try {
+                        await NeztMateApi.updateSubscriptionPlan(id, {
+                            isActive: false,
+                            partnerId: selectedPartnerId(),
+                        });
+                        AdminGuard.showOk('Plan deactivated');
+                        await loadPlatform();
+                    } catch (e2) {
+                        AdminGuard.showError(err.message || e2.message || 'Delete failed');
+                    }
+                }
+            }
         };
 
-        document.getElementById('cycle').onchange = paintPlans;
-        document.getElementById('refresh').onclick = load;
-        // Refresh when user returns from Paystack tab
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') load();
+        document.getElementById('btn-new-plan')?.addEventListener('click', () => {
+            if (!selectedPartnerId()) {
+                AdminGuard.showError('Select a partner first');
+                return;
+            }
+            openPlanModal(null);
         });
-        load();
+        document.getElementById('plan-save')?.addEventListener('click', savePlan);
+        document.querySelectorAll('[data-close-plan]').forEach((b) => {
+            b.onclick = () => AdminGuard.closeModal('plan-modal');
+        });
+        document.getElementById('partner-select')?.addEventListener('change', loadPlatform);
+        document.getElementById('refresh')?.addEventListener('click', loadPlatform);
+        document.getElementById('refresh-partner')?.addEventListener('click', loadPartner);
+        document.getElementById('cycle')?.addEventListener('change', paintPlans);
+        document.addEventListener('visibilitychange', () => {
+            if (document.visibilityState === 'visible') {
+                if (isPlatform) loadPlatform();
+                else loadPartner();
+            }
+        });
+
+        if (isPlatform) loadPartnersList();
+        else loadPartner();
     </script>
 </body>
 

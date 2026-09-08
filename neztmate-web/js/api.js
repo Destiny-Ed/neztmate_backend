@@ -206,25 +206,57 @@ const Api = {
       }
     );
   },
-  getSubscriptionPlans() {
-    return this.request('/subscriptions/plans');
+  getSubscriptionPlans(params = {}) {
+    const q = new URLSearchParams();
+    Object.entries(params || {}).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') q.set(k, v);
+    });
+    const qs = q.toString();
+    return this.request('/subscriptions/plans' + (qs ? '?' + qs : ''));
   },
-  getMySubscription() {
-    return this.request('/subscriptions/me');
+  getMySubscription(params = {}) {
+    const q = new URLSearchParams();
+    Object.entries(params || {}).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') q.set(k, v);
+    });
+    const qs = q.toString();
+    return this.request('/subscriptions/me' + (qs ? '?' + qs : ''));
   },
   getSubscriptionHistory() {
     return this.request('/subscriptions/history').catch(() =>
       this.request('/subscriptions/me/history')
     );
   },
-  subscribeToPlan({ planId, billingCycle }) {
+  subscribeToPlan({ planId, billingCycle, partnerId }) {
+    const body = { planId, billingCycle };
+    if (partnerId) body.partnerId = partnerId;
     return this.request('/subscriptions/subscribe', {
       method: 'POST',
-      body: { planId, billingCycle },
+      body,
     });
   },
   cancelSubscription() {
     return this.request('/subscriptions/cancel', { method: 'POST', body: {} });
+  },
+  createSubscriptionPlan(body) {
+    return this.request('/subscriptions/plans', { method: 'POST', body });
+  },
+  updateSubscriptionPlan(id, body) {
+    return this.request('/subscriptions/plans/' + encodeURIComponent(id), {
+      method: 'PATCH',
+      body,
+    });
+  },
+  deleteSubscriptionPlan(id, params = {}) {
+    const q = new URLSearchParams();
+    Object.entries(params || {}).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') q.set(k, v);
+    });
+    const qs = q.toString();
+    return this.request(
+      '/subscriptions/plans/' + encodeURIComponent(id) + (qs ? '?' + qs : ''),
+      { method: 'DELETE' }
+    );
   },
   getPaymentSummary() {
     return this.request('/payments/summary');
@@ -236,7 +268,7 @@ const Api = {
     return this.request('/properties').catch(() => this.request('/properties/all'));
   },
   getNotifications() {
-    return this.request('/notifications');
+    return this.request('/notifications').catch(() => this.request('/notifications/all'));
   },
 
 
@@ -309,6 +341,7 @@ const Api = {
   },
   getNotifications() {
     return this.request('/notifications').catch(() => this.request('/notifications/all'));
+
   },
   getHistory() {
     return this.request('/history/me');
@@ -319,7 +352,7 @@ const Api = {
   },
   listPartnerRequests(params = {}) {
     const q = new URLSearchParams(params).toString();
-    return this.request('/partners/all-requests' + (q ? '?' + q : ''));
+    return this.request('/partners/requests' + (q ? '?' + q : ''));
   },
   createPartner(body) {
     return this.request('/partners/', { method: 'POST', body });

@@ -5,12 +5,103 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Pricing · NeztMate</title>
-    <meta name="description"
-        content="NeztMate subscription plans for landowners and partners. Pay on the web — not through the app stores." />
+    <meta name="description" content="NeztMate subscription plans for landowners and property partners." />
     <link
         href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap"
         rel="stylesheet" />
     <link rel="stylesheet" href="css/styles.css" />
+    <style>
+        .pricing-hero {
+            padding: 3.5rem 0 2.5rem;
+        }
+
+        .pricing-hero .lead {
+            max-width: 34rem;
+            margin-top: 0.75rem;
+        }
+
+        .billing-toggle {
+            display: inline-flex;
+            gap: 0.35rem;
+            padding: 0.3rem;
+            margin-top: 1.5rem;
+            background: var(--bg-soft, #f1f5f9);
+            border-radius: 14px;
+        }
+
+        .billing-toggle .btn {
+            min-width: 6.5rem;
+        }
+
+        .billing-toggle .btn.is-active {
+            background: #fff;
+            color: var(--teal, #0d9488);
+            box-shadow: 0 1px 4px rgba(0, 0, 0, 0.06);
+            border-color: transparent;
+        }
+
+        .pricing-section {
+            padding: 0.5rem 0 4rem;
+        }
+
+        .pricing-section .grid-3 {
+            gap: 1.25rem;
+        }
+
+        .plan-card {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            padding: 1.5rem;
+        }
+
+        .plan-card h3 {
+            margin: 0 0 0.35rem;
+            text-transform: capitalize;
+        }
+
+        .plan-card .price {
+            font-size: 1.65rem;
+            font-weight: 800;
+            margin: 0.35rem 0 1rem;
+            letter-spacing: -0.02em;
+        }
+
+        .plan-card .price span {
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .plan-card ul {
+            margin: 0 0 1.25rem;
+            padding-left: 1.15rem;
+            font-size: 0.92rem;
+            line-height: 1.55;
+            flex: 1;
+        }
+
+        .plan-card .btn {
+            width: 100%;
+            text-align: center;
+            margin-top: auto;
+        }
+
+        .pricing-cta {
+            margin-top: 2.75rem;
+            padding: 1.75rem 1.5rem;
+            text-align: center;
+        }
+
+        .pricing-cta p {
+            margin: 0.35rem auto 1.15rem;
+            max-width: 28rem;
+        }
+
+        #plans-status {
+            margin-top: 1.25rem;
+            min-height: 1.25rem;
+        }
+    </style>
 </head>
 
 <body>
@@ -27,46 +118,34 @@
     </header>
 
     <main>
-        <section class="hero" style="padding-bottom:2rem">
+        <section class="pricing-hero">
             <div class="container">
-                <span class="eyebrow">Billing on the web</span>
-                <h1>Simple plans for property teams</h1>
-                <p class="lead" style="max-width:36rem">
-                    Subscriptions are purchased on the website only (App Store / Play Store rules). The mobile app shows
-                    status; payment and upgrades happen here.
+                <span class="eyebrow">Pricing</span>
+                <h1>Plans for property teams</h1>
+                <p class="lead muted">
+                    Choose a plan that fits how many properties you manage. Upgrade anytime as your portfolio grows.
                 </p>
-                <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1rem">
-                    <button type="button" class="btn btn-ghost btn-sm" id="cycle-monthly">Monthly</button>
+                <div class="billing-toggle" role="group" aria-label="Billing cycle">
+                    <button type="button" class="btn btn-ghost btn-sm is-active" id="cycle-monthly">Monthly</button>
                     <button type="button" class="btn btn-ghost btn-sm" id="cycle-yearly">Yearly</button>
                 </div>
-                <p class="muted" id="plans-status" style="margin-top:1rem">Loading plans…</p>
+                <p class="muted" id="plans-status"></p>
             </div>
         </section>
 
-        <section>
+        <section class="pricing-section">
             <div class="container">
                 <div class="grid-3" id="plans-grid">
-                    <div class="card empty-state" style="grid-column:1/-1">Loading…</div>
+                    <div class="card empty-state" style="grid-column: 1 / -1">Loading plans…</div>
                 </div>
 
-                <div class="panel" style="margin-top:2rem">
-                    <h2 style="margin-top:0">Who pays where?</h2>
-                    <div class="grid-2" style="gap:1.25rem">
-                        <div>
-                            <h3>Landowners (main NeztMate app)</h3>
-                            <p class="muted">Subscribe on this site after signing in on web, or from Admin → Billing.
-                                Mobile profile only links here — no in-app purchase.</p>
-                        </div>
-                        <div>
-                            <h3>Partners (white-label)</h3>
-                            <p class="muted">Partner admins manage the workspace plan under <strong>Admin →
-                                    Billing</strong>. Paystack webhook activates access automatically.</p>
-                        </div>
-                    </div>
-                    <p style="margin-top:1rem">
-                        <a class="btn btn-primary" href="admin/login.html">Go to admin billing</a>
+                <div class="panel pricing-cta">
+                    <h2 style="margin: 0">Ready to get started?</h2>
+                    <p class="muted">Sign in to your workspace to subscribe or change your plan.</p>
+                    <div style="display: flex; gap: 0.75rem; flex-wrap: wrap; justify-content: center">
+                        <a class="btn btn-primary" href="admin/login.html">Sign in</a>
                         <a class="btn btn-ghost" href="partners.html">Become a partner</a>
-                    </p>
+                    </div>
                 </div>
             </div>
         </section>
@@ -86,66 +165,88 @@
             return billingCycle === 'yearly' ? Number(p.yearlyPrice || 0) : Number(p.monthlyPrice || 0);
         }
 
+        function setCycle(cycle) {
+            billingCycle = cycle;
+            document.getElementById('cycle-monthly').classList.toggle('is-active', cycle === 'monthly');
+            document.getElementById('cycle-yearly').classList.toggle('is-active', cycle === 'yearly');
+            paint();
+        }
+
         function paint() {
             const grid = document.getElementById('plans-grid');
             if (!plans.length) {
                 grid.innerHTML =
-                    '<div class="card empty-state" style="grid-column:1/-1">Plans will appear once published. Partner / landowner billing is available after admin login.</div>';
+                    '<div class="card empty-state" style="grid-column:1/-1">Plans will be available soon.</div>';
                 return;
             }
             grid.innerHTML = plans
-                .map((p) => {
-                    const price = priceOf(p);
-                    const feats = [
-                        p.maxListings === -1 ? 'Unlimited listings' : 'Up to ' + (p.maxListings ?? '—') + ' listings',
-                        p.hasAnalytics ? 'Analytics' : null,
+                .map(function (p) {
+                    var price = priceOf(p);
+                    var feats = [
+                        p.maxListings === -1 || p.maxListings == null
+                            ? 'Unlimited listings'
+                            : 'Up to ' + p.maxListings + ' listings',
+                        p.hasAgentAssignment ? 'Agent assignment' : null,
                         p.hasAdvancedScreening ? 'Advanced screening' : null,
+                        p.hasAnalytics ? 'Analytics' : null,
                         p.hasPrioritySupport ? 'Priority support' : null,
                     ].filter(Boolean);
-                    return `
-          <div class="card">
-            <h3 style="margin-top:0;text-transform:capitalize">${p.name || p.id}</h3>
-            <p style="font-size:1.5rem;font-weight:800;margin:.25rem 0">
-              ${price === 0 ? 'Free' : money(price)}
-              ${price > 0 ? '<span class="muted" style="font-size:.85rem;font-weight:500">/' + (billingCycle === 'yearly' ? 'year' : 'month') + '</span>' : ''}
-            </p>
-            <ul style="padding-left:1.1rem;font-size:.9rem">${feats.map((f) => '<li>' + f + '</li>').join('')}</ul>
-            <a class="btn btn-primary btn-sm" style="width:100%;margin-top:1rem;text-align:center" href="admin/login.html">Sign in to subscribe</a>
-          </div>`;
+                    return (
+                        '<div class="card plan-card">' +
+                        '<h3>' +
+                        (p.name || p.id) +
+                        '</h3>' +
+                        '<p class="price">' +
+                        (price === 0 ? 'Free' : money(price)) +
+                        (price > 0
+                            ? ' <span class="muted">/' + (billingCycle === 'yearly' ? 'year' : 'month') + '</span>'
+                            : '') +
+                        '</p>' +
+                        '<ul>' +
+                        feats
+                            .map(function (f) {
+                                return '<li>' + f + '</li>';
+                            })
+                            .join('') +
+                        '</ul>' +
+                        '<a class="btn btn-primary btn-sm" href="admin/login.html">Get started</a>' +
+                        '</div>'
+                    );
                 })
                 .join('');
         }
 
         async function load() {
-            const status = document.getElementById('plans-status');
-            const params = new URLSearchParams(location.search);
-            const slug = params.get('partner') || params.get('slug') || 'neztmate';
+            var status = document.getElementById('plans-status');
+            var params = new URLSearchParams(location.search);
+            var slug = params.get('partner') || params.get('slug') || 'neztmate';
             try {
-                const data = await NeztMateApi.getPublicPlans({ slug });
+                var data = await NeztMateApi.getPublicPlans({ slug: slug });
                 plans = data.plans || [];
                 if (!Array.isArray(plans)) plans = [];
-                plans.sort((a, b) => Number(a.monthlyPrice || 0) - Number(b.monthlyPrice || 0));
-                status.textContent = plans.length
-                    ? plans.length + ' plan' + (plans.length === 1 ? '' : 's') + ' · pay on the web after sign-in'
-                    : 'No public plans yet — use Admin → Billing after login.';
+                plans.sort(function (a, b) {
+                    return Number(a.monthlyPrice || 0) - Number(b.monthlyPrice || 0);
+                });
+                status.textContent = '';
                 paint();
             } catch (e) {
-                status.textContent = 'Could not load public plans. Sign in to Admin → Billing to view workspace plans.';
+                status.textContent = '';
                 plans = [];
                 paint();
             }
         }
 
-        document.getElementById('cycle-monthly').onclick = () => {
-            billingCycle = 'monthly';
-            paint();
+        document.getElementById('cycle-monthly').onclick = function () {
+            setCycle('monthly');
         };
-        document.getElementById('cycle-yearly').onclick = () => {
-            billingCycle = 'yearly';
-            paint();
+        document.getElementById('cycle-yearly').onclick = function () {
+            setCycle('yearly');
         };
         load();
     </script>
 </body>
 
 </html>
+
+Hmmm. the billing for admin is not role aware. I logged in as platform admin and it's showing me to login. Also we don't
+have a flow to create/delete public billings plans. for partners and users.
