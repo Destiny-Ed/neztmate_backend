@@ -235,13 +235,14 @@ void main() async {
         .addHandler(subscriptionRoutes(injector<SubscriptionHandler>()).call),
   );
 
+  router.mount('/partners/', partnerPublicRoutes(injector<PartnerHandler>()).call);
+
   router.mount(
     '/partners/',
     Pipeline()
         .addMiddleware(authMiddleWare)
         .addHandler(partnerProtectedRoutes(injector<PartnerHandler>()).call),
   );
-  router.mount('/partners/', partnerPublicRoutes(injector<PartnerHandler>()).call);
 
   router.mount(
     '/platform/',

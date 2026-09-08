@@ -186,29 +186,48 @@
     const status = document.getElementById('partners-status');
     if (!grid || isPartnerHosted) return;
 
+    grid.innerHTML = '<div class="card empty-state" style="grid-column:1/-1">Loading partners…</div>';
+    if (status) status.textContent = 'Loading partners…';
+
     try {
       const data = await NeztMateApi.listActivePartners();
       let list = data.partners || data || [];
       if (!Array.isArray(list)) list = [];
-      list = list.filter((p) => p && p.isActive !== false && p.name);
-      if (!list.length) throw new Error('empty');
+
+      // Live API only — active partners with a display name
+      list = list.filter((p) => p && p.isActive !== false && (p.name || p.displayName));
+
+      // Optional: hide platform self from the strip if slug is neztmate
+      // list = list.filter((p) => (p.slug || '').toLowerCase() !== 'neztmate');
+
+      if (!list.length) {
+        grid.innerHTML =
+          '<div class="card empty-state" style="grid-column:1/-1">' +
+          '<p style="margin:0">No live partners yet.</p>' +
+          '<p class="muted" style="margin:.5rem 0 0">Approved partners will show here automatically.</p>' +
+          '</div>';
+        if (status) status.textContent = 'No active partners published yet.';
+        return;
+      }
 
       grid.innerHTML = list
         .map((p) => {
-          const color = p.primaryColor || '#0d9488';
-          const s = p.slug || '';
-          const tagline = p.tagline || 'Property partner on NeztMate';
+          const color = p.primaryColor || p.primary_color || '#0d9488';
+          const s = (p.slug || '').toLowerCase();
+          const name = p.name || p.displayName || 'Partner';
+          const tagline = p.tagline || p.description || 'Property partner on NeztMate';
           const href = s ? 'index.html?partner=' + encodeURIComponent(s) : '#';
-          const logo = p.logoUrl
+          const logoUrl = p.logoUrl || p.logo_url || null;
+          const logo = logoUrl
             ? '<img src="' +
-              p.logoUrl +
-              '" alt="" width="40" height="40" style="width:40px;height:40px;border-radius:10px;object-fit:cover" />'
+              logoUrl.replace(/"/g, '&quot;') +
+              '" alt="" width="40" height="40" style="width:40px;height:40px;border-radius:10px;object-fit:cover" onerror="this.style.display=\'none\'" />'
             : '<div class="icon" style="background:' +
               color +
               '22;color:' +
               color +
               '">' +
-              (p.name || '?').charAt(0).toUpperCase() +
+              name.charAt(0).toUpperCase() +
               '</div>';
           return (
             '<a class="card partner-card" href="' +
@@ -218,7 +237,7 @@
             '">' +
             logo +
             '<h3 style="margin-top:.75rem">' +
-            (p.name || 'Partner') +
+            name +
             '</h3><p>' +
             tagline +
             '</p>' +
@@ -227,36 +246,19 @@
           );
         })
         .join('');
-      if (status) status.textContent = list.length + ' active partner' + (list.length === 1 ? '' : 's');
-    } catch (e) {
-      const samplesList = Object.values(CFG.samplePartners || {});
-      if (samplesList.length) {
-        grid.innerHTML = samplesList
-          .map((p) => {
-            const color = p.primaryColor || '#0d9488';
-            return (
-              '<a class="card partner-card" href="index.html?partner=' +
-              encodeURIComponent(p.slug) +
-              '" style="text-decoration:none;color:inherit;border-top:3px solid ' +
-              color +
-              '"><div class="icon" style="background:' +
-              color +
-              '22;color:' +
-              color +
-              '">' +
-              p.name.charAt(0) +
-              '</div><h3 style="margin-top:.75rem">' +
-              p.name +
-              '</h3><p>' +
-              (p.tagline || '') +
-              '</p></a>'
-            );
-          })
-          .join('');
-        if (status) status.textContent = 'Sample partners (connect public partners API when ready).';
-      } else if (status) {
-        status.textContent = 'Partners will appear here once published.';
+
+      if (status) {
+        status.textContent =
+          list.length + ' active partner' + (list.length === 1 ? '' : 's') + ' on NeztMate';
       }
+    } catch (e) {
+      console.warn('listActivePartners failed', e);
+      grid.innerHTML =
+        '<div class="card empty-state" style="grid-column:1/-1">' +
+        '<p style="margin:0">Could not load partners.</p>' +
+        '<p class="muted" style="margin:.5rem 0 0">Check that GET /partners/public is available, then refresh.</p>' +
+        '</div>';
+      if (status) status.textContent = 'Unable to load partners from API.';
     }
   }
 })();

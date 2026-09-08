@@ -99,13 +99,12 @@ const Api = {
 
   // Public
   
+  /**
+   * Public active partners for landing showcase.
+   * GET /partners/public  →  { partners: [ { id, slug, name, tagline, logoUrl, primaryColor, isActive, ... } ] }
+   */
   listActivePartners() {
-    // Prefer public list; fall back to protected list if public not deployed
-    return this.request('/partners/public', { auth: false }).catch(() =>
-      this.request('/partners/?activeOnly=true', { auth: false }).catch(() =>
-        this.request('/partners/', { auth: false })
-      )
-    );
+    return this.request('/partners/public', { auth: false });
   },
 
   getPartnerConfig(slug) {
