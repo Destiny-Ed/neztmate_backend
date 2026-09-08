@@ -32,7 +32,7 @@ class FirestorePartnerDataSource implements PartnerRemoteDataSource {
     final doc = await _partners.doc(id).get();
     if (!doc.exists) throw NotFoundException('Partner', id);
     final partner = PartnerModel.fromMap(doc.data() as Map<String, dynamic>, doc.id);
-    if (!partner.isActive) throw unauthorized("Partner $id is inactive. Request blocked.");
+    // if (!partner.isActive) throw unauthorized("Partner $id is inactive. Request blocked.");
     return partner;
   }
 
