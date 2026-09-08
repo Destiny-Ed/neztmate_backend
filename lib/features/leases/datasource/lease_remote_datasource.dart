@@ -23,6 +23,15 @@ abstract class LeaseRemoteDataSource {
   Future<List<LeaseModel>> getExpiringLeases({int withinDays = 5, String? partnerId});
   Future<LeaseRequestModel> updateLeaseRequest(LeaseRequestModel request);
 
+  Future<List<LeaseModel>> getLeasesForAdmin({
+    String? partnerId,
+    String? status,
+    String? propertyId,
+    String? tenantId,
+    int limit = 50,
+    String? startAfterId,
+  });
+
   // SIGNING & ACTIVATION
   Future<void> markLeaseAsSigned(
     String leaseId,

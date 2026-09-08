@@ -98,7 +98,7 @@ const Api = {
   },
 
   // Public
-  
+
   /**
    * Public active partners for landing showcase.
    * GET /partners/public  →  { partners: [ { id, slug, name, tagline, logoUrl, primaryColor, isActive, ... } ] }
@@ -121,7 +121,7 @@ const Api = {
    * - everyone else: partnerId required
    * - fcmToken required by API (web sends a web placeholder)
    */
-  
+
   /**
    * Platform admin only — Google ID token from GIS.
    * Backend verifies token, checks allowlist / role platform_admin, returns JWT.
@@ -207,8 +207,8 @@ const Api = {
   getNotifications() {
     return this.request('/notifications');
   },
-  
-  
+
+
   // ── Platform: partners + credentials ──
   createPartnerWithAdmin(body) {
     return this.request('/partners/with-admin', { method: 'POST', body });
@@ -240,11 +240,14 @@ const Api = {
     return this.request('/users' + (q ? '?' + q : ''));
   },
   listLeases(params = {}) {
-    const q = new URLSearchParams(params).toString();
-    return this.request('/leases' + (q ? '?' + q : '')).catch(() =>
-      this.request('/leases/me')
-    );
+    const q = new URLSearchParams();
+    Object.entries(params).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') q.set(k, v);
+    });
+    const qs = q.toString();
+    return this.request('/leases/admin' + (qs ? '?' + qs : ''));
   },
+
   listAllUnits(params = {}) {
     const q = new URLSearchParams(params).toString();
     return this.request('/units/my' + (q ? '?' + q : '')).catch(() =>

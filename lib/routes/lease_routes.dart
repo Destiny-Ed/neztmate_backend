@@ -6,6 +6,8 @@ Router leaseRoutes(LeaseHandler handler) {
 
   // View
   router.get('/me', handler.getMyLeases);
+  router.get('/admin', handler.getLeasesForAdmin);
+
   router.get('/property/<propertyId>', handler.getLeasesByProperty);
   router.get('/application/<id>', handler.getLeaseByApplicationId);
   router.get('/<id>', handler.getLeaseById);

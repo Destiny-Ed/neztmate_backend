@@ -116,14 +116,7 @@ class LeaseHandler {
       final role = request.context['role'] as String?;
 
       if (userId == null || partnerId == null) return _unauthorized();
-      if (![
-        'tenant',
-        'manager',
-        'landowner',
-        'platform_admin',
-        'super_admin',
-        'partner_admin',
-      ].contains(role)) {
+      if (!['tenant', 'manager', 'landowner', 'platform_admin', 'super_admin'].contains(role)) {
         return Response(403, body: jsonEncode({'message': 'You are not authorized to view leases'}));
       }
 
@@ -146,6 +139,102 @@ class LeaseHandler {
       );
     } catch (e, stack) {
       print('Get my leases error: $e\n$stack');
+      return Response.internalServerError(body: jsonEncode({'message': 'Failed to load leases'}));
+    }
+  }
+
+  /// GET /leases/admin
+  /// Platform admin: all leases (optional ?partnerId=)
+  Future<Response> getLeasesForAdmin(Request request) async {
+    try {
+      final userId = request.context['userId'] as String?;
+      final role = (request.context['role'] as String?)?.toLowerCase();
+      final jwtPartnerId = request.context['partnerId'] as String?;
+
+      if (userId == null || role == null) {
+        return Response(401, body: jsonEncode({'message': 'Unauthorized'}));
+      }
+
+      final isPlatformAdmin = role == 'platform_admin' || role == 'super_admin';
+      final isPartnerAdmin = role == 'partner_admin' || role == 'manager' || role == 'landowner';
+
+      if (!isPlatformAdmin && !isPartnerAdmin) {
+        return Response(403, body: jsonEncode({'message': 'Admin access required'}));
+      }
+
+      final q = request.url.queryParameters;
+      final status = q['status'];
+      final propertyId = q['propertyId'];
+      final tenantId = q['tenantId'];
+      final limit = int.tryParse(q['limit'] ?? '50') ?? 50;
+
+      String? partnerId;
+      if (isPlatformAdmin) {
+        partnerId = q['partnerId']; // optional filter
+      } else {
+        partnerId = jwtPartnerId;
+        if (partnerId == null || partnerId.isEmpty) {
+          return Response(400, body: jsonEncode({'message': 'partnerId missing from token'}));
+        }
+      }
+
+      final leases = await leaseRepository.getLeasesForAdmin(
+        partnerId: partnerId,
+        status: status,
+        propertyId: propertyId,
+        tenantId: tenantId,
+        limit: limit,
+      );
+
+      // Enrich for admin UI
+      final enriched = await Future.wait(
+        leases.map((lease) async {
+          Map<String, dynamic>? tenant;
+          Map<String, dynamic>? property;
+          Map<String, dynamic>? unit;
+
+          try {
+            final t = await userRepository.getUserById(lease.tenantId);
+            tenant = {
+              'id': t.id,
+              'fullName': t.fullName,
+              'email': t.email,
+              'phone': t.phone,
+              'profilePhotoUrl': t.profilePhotoUrl,
+            };
+          } catch (_) {}
+
+          try {
+            if (lease.propertyId.isNotEmpty) {
+              final p = await propertyRepository.getPropertyById(lease.propertyId);
+              property = {'id': p.id, 'name': p.name, 'address': p.address, 'state': p.state, 'city': p.city};
+            }
+          } catch (_) {}
+
+          try {
+            final u = await unitRepository.getUnitById(lease.unitId);
+            unit = {'id': u.id, 'unitNumber': u.unitNumber, 'monthlyRent': u.monthlyRent, 'status': u.status};
+          } catch (_) {}
+
+          return {...lease.toMap(), 'id': lease.id, 'tenant': tenant, 'property': property, 'unit': unit};
+        }),
+      );
+
+      return Response.ok(
+        jsonEncode({
+          'leases': enriched,
+          'count': enriched.length,
+          'filters': {
+            'partnerId': partnerId,
+            'status': status,
+            'propertyId': propertyId,
+            'tenantId': tenantId,
+          },
+        }),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } catch (e, stack) {
+      print('getLeasesForAdmin error: $e\n$stack');
       return Response.internalServerError(body: jsonEncode({'message': 'Failed to load leases'}));
     }
   }

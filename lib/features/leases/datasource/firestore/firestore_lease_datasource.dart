@@ -135,6 +135,36 @@ class FirestoreLeaseDataSource implements LeaseRemoteDataSource {
   }
 
   @override
+  Future<List<LeaseModel>> getLeasesForAdmin({
+    String? partnerId,
+    String? status,
+    String? propertyId,
+    String? tenantId,
+    int limit = 50,
+    String? startAfterId,
+  }) async {
+    Query query = firestore.collection('leases');
+
+    if (partnerId != null && partnerId.isNotEmpty) {
+      query = query.where('partnerId', WhereFilter.equal, partnerId);
+    }
+    if (status != null && status.isNotEmpty) {
+      query = query.where('status', WhereFilter.equal, status);
+    }
+    if (propertyId != null && propertyId.isNotEmpty) {
+      query = query.where('propertyId', WhereFilter.equal, propertyId);
+    }
+    if (tenantId != null && tenantId.isNotEmpty) {
+      query = query.where('tenantId', WhereFilter.equal, tenantId);
+    }
+
+    query = query.orderBy('createdAt', descending: true).limit(limit.clamp(1, 100));
+
+    final snap = await query.get();
+    return snap.docs.map((d) => LeaseModel.fromMap(d.data() as Map<String, dynamic>)).toList();
+  }
+
+  @override
   Future<List<LeaseModel>> getExpiringLeases({int withinDays = 5, String? partnerId}) async {
     try {
       final thresholdDate = DateTime.now().add(Duration(days: withinDays));

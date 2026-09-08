@@ -21,6 +21,16 @@ abstract class LeaseRepository {
   Future<List<LeaseModel>> getLeasesByUnit(String unitId);
   Future<List<LeaseModel>> getAllActiveLeases({String? partnerId}); // null = all (cron)
   Future<List<LeaseModel>> getExpiringLeases({int withinDays = 5, String? partnerId});
+
+  Future<List<LeaseModel>> getLeasesForAdmin({
+    String? partnerId,
+    String? status,
+    String? propertyId,
+    String? tenantId,
+    int limit = 50,
+    String? startAfterId,
+  });
+
   // SIGNING & ACTIVATION
   Future<void> markLeaseAsSigned(
     String leaseId,

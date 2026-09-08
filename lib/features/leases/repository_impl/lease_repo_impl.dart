@@ -31,6 +31,23 @@ class LeaseRepositoryImpl implements LeaseRepository {
   Future<void> updateLeaseStatus(String leaseId, String status) =>
       dataSource.updateLeaseStatus(leaseId, status);
 
+  @override
+  Future<List<LeaseModel>> getLeasesForAdmin({
+    String? partnerId,
+    String? status,
+    String? propertyId,
+    String? tenantId,
+    int limit = 50,
+    String? startAfterId,
+  }) => dataSource.getLeasesForAdmin(
+    partnerId: partnerId,
+    status: status,
+    propertyId: propertyId,
+    tenantId: tenantId,
+    limit: limit,
+    startAfterId: startAfterId,
+  );
+
   // QUERIES
   @override
   Future<List<LeaseModel>> getActiveLeasesByTenant(String tenantId, {String? partnerId}) =>
