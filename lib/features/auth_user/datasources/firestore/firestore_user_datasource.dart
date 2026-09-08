@@ -108,7 +108,7 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
         final paymentsSnap = await firestore
             .collection('payments')
             .where('status', WhereFilter.equal, 'paid')
-            .where("propertyId", WhereFilter.notEqual, null)
+            .where("type", WhereFilter.notIn, ['application_fee', 'subscription'])
             .get();
 
         for (var doc in paymentsSnap.docs) {
