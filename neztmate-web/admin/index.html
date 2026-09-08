@@ -1,12 +1,18 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Dashboard · NeztMate Admin</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet" />
+  <link rel="icon" type="image/png" href="assets/logo_bg.png" sizes="192x192" />
+
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap"
+    rel="stylesheet" />
   <link rel="stylesheet" href="../css/styles.css" />
 </head>
+
 <body class="admin-body">
   <div class="admin-shell">
     <aside class="sidebar" id="sidebar"></aside>
@@ -25,12 +31,18 @@
         <div id="info" class="alert alert-ok" style="display:none"></div>
         <div class="kpi-grid" id="kpi-grid"></div>
         <div class="panel">
-          <div class="panel-head"><h3>Quick actions</h3></div>
+          <div class="panel-head">
+            <h3>Quick actions</h3>
+          </div>
           <div class="panel-body actions" id="quick-actions"></div>
         </div>
         <div class="panel">
-          <div class="panel-head"><h3>Recent signals</h3></div>
-          <div class="panel-body" id="signals"><div class="empty-state">Loading…</div></div>
+          <div class="panel-head">
+            <h3>Recent signals</h3>
+          </div>
+          <div class="panel-body" id="signals">
+            <div class="empty-state">Loading…</div>
+          </div>
         </div>
       </div>
     </div>
@@ -120,4 +132,5 @@
     load();
   </script>
 </body>
+
 </html>

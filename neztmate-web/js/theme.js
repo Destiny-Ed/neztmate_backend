@@ -55,7 +55,8 @@ window.NeztMateTheme = {
           el.alt = name;
           el.hidden = false;
         } else {
-          el.style.backgroundImage = 'url(' + logoUrl + ')';
+          // el.style.backgroundImage = 'url(' + logoUrl + ')';
+          el.src = 'assets/logo_bg.png'; // NeztMate default
         }
       }
     });

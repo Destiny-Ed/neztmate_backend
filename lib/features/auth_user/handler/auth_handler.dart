@@ -227,7 +227,7 @@ class AuthHandler {
       final isPlatform =
           role == 'platform_admin' ||
           role == 'super_admin' ||
-          (user.roles?.map((r) => r.toLowerCase()).contains('platform_admin') ?? false);
+          (user.roles.map((r) => r.toLowerCase()).contains('platform_admin'));
 
       if (!isPlatform) {
         return Response(

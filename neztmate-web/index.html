@@ -10,6 +10,7 @@
     content="NeztMate helps tenants find homes, and helps landowners, managers and artisans run leases, rent and repairs with clarity." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link rel="icon" type="image/png" href="assets/logo_bg.png" sizes="192x192" />
   <link
     href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap"
     rel="stylesheet" />
@@ -27,7 +28,11 @@
 <body>
   <header class="site-header">
     <div class="container nav">
-      <a class="logo" href="index.html" data-brand-name-html>Nezt<span>Mate</span></a>
+
+      <a class="logo logo-with-icon" href="index.html">
+        <img src="assets/logo_bg.png" alt="" class="logo-img" width="32" height="32" data-brand-logo />
+        <span data-brand-name-html>Nezt<span>Mate</span></span>
+      </a>
       <span class="partner-pill" id="partner-pill"></span>
       <ul class="nav-links">
         <li><a href="#tenants">Tenants</a></li>
@@ -299,11 +304,13 @@
   <footer class="site-footer">
     <div class="container footer-grid">
       <div>
-        <a class="logo" href="index.html" data-brand-name-html>Nezt<span>Mate</span></a>
-        <p style="margin:.6rem 0 0" data-brand-tagline>Find, rent, and manage homes with clearer workflows.</p>
-        <p class="powered-by" id="powered-by" style="display:none;margin-top:.85rem;font-size:.85rem">
-          Powered by <a href="https://neztmate.com" target="_blank" rel="noopener">NeztMate</a>
-        </p>
+        <a class="logo logo-with-icon" href="index.html">
+          <img src="assets/logo_bg.png" alt="" class="logo-img" width="32" height="32" data-brand-logo />
+          <span data-brand-name-html>Nezt<span>Mate</span></span>
+          <p style="margin:.6rem 0 0" data-brand-tagline>Find, rent, and manage homes with clearer workflows.</p>
+          <p class="powered-by" id="powered-by" style="display:none;margin-top:.85rem;font-size:.85rem">
+            Powered by <a href="https://neztmate.com" target="_blank" rel="noopener">NeztMate</a>
+          </p>
       </div>
       <div>
         <h4>Product</h4>

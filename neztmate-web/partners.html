@@ -1,21 +1,31 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Become a NeztMate Partner</title>
-  <meta name="description" content="Launch a branded property experience on NeztMate infrastructure. Request a partner account." />
+  <link rel="icon" type="image/png" href="assets/logo_bg.png" sizes="192x192" />
+
+  <meta name="description"
+    content="Launch a branded property experience on NeztMate infrastructure. Request a partner account." />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap"
+    rel="stylesheet" />
   <link rel="stylesheet" href="css/styles.css" />
   <script src="js/config.js"></script>
   <script src="js/theme.js"></script>
 </head>
+
 <body>
   <header class="site-header">
     <div class="container nav">
-      <a class="logo" href="index.html">Nezt<span>Mate</span></a>
+      <a class="logo logo-with-icon" href="index.html">
+        <img src="assets/logo_bg.png" alt="" class="logo-img" width="32" height="32" data-brand-logo />
+        <span data-brand-name-html>Nezt<span>Mate</span></span>
+      </a>>Nezt<span>Mate</span></a>
       <ul class="nav-links">
         <li><a href="index.html#tenants">Product</a></li>
         <li><a href="index.html#download">Download</a></li>
@@ -50,17 +60,21 @@
           <article class="card">
             <div class="icon">1</div>
             <h3>Your brand, your users</h3>
-            <p>Tenants and owners experience your identity (name, slug, branding). Their data stays under your <code>partnerId</code>.</p>
+            <p>Tenants and owners experience your identity (name, slug, branding). Their data stays under your
+              <code>partnerId</code>.
+            </p>
           </article>
           <article class="card">
             <div class="icon">2</div>
             <h3>Full product surface</h3>
-            <p>Applications, leases, rent flows, maintenance, invites, notifications — the same workflows NeztMate runs.</p>
+            <p>Applications, leases, rent flows, maintenance, invites, notifications — the same workflows NeztMate runs.
+            </p>
           </article>
           <article class="card">
             <div class="icon">3</div>
             <h3>You are not a listing marketplace</h3>
-            <p>Inventory stays controlled by landowners on the platform. Partners enable the product; they do not scrape random agent listings.</p>
+            <p>Inventory stays controlled by landowners on the platform. Partners enable the product; they do not scrape
+              random agent listings.</p>
           </article>
         </div>
       </div>
@@ -93,7 +107,8 @@
         </div>
         <div class="form-card" id="apply">
           <h3 style="margin:0 0 .35rem">Request a partnership</h3>
-          <p class="muted" style="margin:0 0 1.1rem;font-size:.92rem">Our team reviews every request and follows up by email.</p>
+          <p class="muted" style="margin:0 0 1.1rem;font-size:.92rem">Our team reviews every request and follows up by
+            email.</p>
           <div id="form-alert" class="alert" style="display:none"></div>
           <form id="partner-form">
             <div class="field">
@@ -114,7 +129,8 @@
             </div>
             <div class="field">
               <label for="proposedSlug">Preferred slug *</label>
-              <input id="proposedSlug" name="proposedSlug" required pattern="[a-z0-9-]{3,40}" placeholder="acme-homes" />
+              <input id="proposedSlug" name="proposedSlug" required pattern="[a-z0-9-]{3,40}"
+                placeholder="acme-homes" />
             </div>
             <div class="field">
               <label for="website">Website (optional)</label>
@@ -135,10 +151,12 @@
             </div>
             <div class="field">
               <label for="message">Tell us about your goals *</label>
-              <textarea id="message" name="message" required placeholder="What problem are you solving? When do you want to launch?"></textarea>
+              <textarea id="message" name="message" required
+                placeholder="What problem are you solving? When do you want to launch?"></textarea>
             </div>
             <button class="btn btn-primary" style="width:100%" type="submit" id="submit-btn">Submit request</button>
-            <p class="muted" style="font-size:.8rem;margin:.85rem 0 0">By submitting, you agree we may contact you about partnership. No spam lists.</p>
+            <p class="muted" style="font-size:.8rem;margin:.85rem 0 0">By submitting, you agree we may contact you about
+              partnership. No spam lists.</p>
           </form>
         </div>
       </div>
@@ -148,7 +166,10 @@
   <footer class="site-footer">
     <div class="container footer-grid">
       <div>
-        <a class="logo" href="index.html">Nezt<span>Mate</span></a>
+        <a class="logo logo-with-icon" href="index.html">
+          <img src="assets/logo_bg.png" alt="" class="logo-img" width="32" height="32" data-brand-logo />
+          <span data-brand-name-html>Nezt<span>Mate</span></span>
+        </a>>Nezt<span>Mate</span></a>
         <p style="margin:.6rem 0 0">Property workflows for tenants, owners, managers and artisans.</p>
       </div>
       <div>
@@ -227,15 +248,15 @@
   </script>
 
   <script>
-    (function(){
+    (function () {
       var t = localStorage.getItem('neztmate_theme') || 'light';
       document.documentElement.setAttribute('data-theme', t);
       var btn = document.getElementById('theme-toggle');
       if (!btn) return;
-      function sync(){ var cur = document.documentElement.getAttribute('data-theme')||'light'; btn.textContent = cur==='dark'?'☀️':'🌙'; }
+      function sync() { var cur = document.documentElement.getAttribute('data-theme') || 'light'; btn.textContent = cur === 'dark' ? '☀️' : '🌙'; }
       sync();
-      btn.onclick = function(){
-        var next = (document.documentElement.getAttribute('data-theme')||'light')==='dark'?'light':'dark';
+      btn.onclick = function () {
+        var next = (document.documentElement.getAttribute('data-theme') || 'light') === 'dark' ? 'light' : 'dark';
         document.documentElement.setAttribute('data-theme', next);
         localStorage.setItem('neztmate_theme', next);
         sync();
@@ -244,4 +265,5 @@
   </script>
 
 </body>
+
 </html>

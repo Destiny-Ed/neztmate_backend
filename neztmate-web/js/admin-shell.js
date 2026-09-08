@@ -5,7 +5,10 @@ const AdminShell = {
     if (!el) return;
     const isP = NeztMateApi.isPlatformAdmin();
     el.innerHTML = `
-      <a class="logo" href="index.html">Nezt<span>Mate</span></a>
+      <a class="logo logo-with-icon" href="index.html">
+        <img src="assets/logo_bg.png" alt="" class="logo-img" width="32" height="32" data-brand-logo />
+        <span data-brand-name-html>Nezt<span>Mate</span></span>
+      </a>
       <div class="nav-section">Workspace</div>
       <nav>
         <a href="index.html">Dashboard</a>
