@@ -16,6 +16,8 @@ abstract class PropertyRemoteDataSource {
 
   Future<List<PropertyModel>> getPropertiesByArtisan(String artisanId, {String? partnerId});
 
+  Future<List<PropertyModel>> getPropertiesByPartner(String partnerId);
+
   Future<void> updateProperty(PropertyModel property);
 
   Future<void> deleteProperty(String id);

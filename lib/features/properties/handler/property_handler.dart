@@ -41,19 +41,27 @@ class PropertyHandler {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
 
       if (userId == null || role == null) {
         return _unauthorized();
       }
 
-      if (!['landowner', 'manager', 'artisan'].contains(role)) {
-        return Response(
-          403,
-          body: jsonEncode({'message': 'Only landowners and managers can view properties'}),
-        );
+      if (!['landowner', 'manager', 'artisan', 'partner_admin'].contains(role)) {
+        return Response(403, body: jsonEncode({'message': 'Not allowed to view properties'}));
       }
 
-      final properties = await propertyRepository.getMyProperties(userId, role);
+      List properties;
+
+      if (role == 'partner_admin') {
+        // All properties for this partner workspace
+        if (partnerId == null || partnerId.isEmpty) {
+          return Response(400, body: jsonEncode({'message': 'partnerId required'}));
+        }
+        properties = await propertyRepository.getPropertiesByPartner(partnerId);
+      } else {
+        properties = await propertyRepository.getMyProperties(userId, role, partnerId: partnerId);
+      }
 
       // Enrich each property with tenant information
       final enrichedProperties = await Future.wait(

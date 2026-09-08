@@ -4,6 +4,7 @@ import 'package:shelf_router/shelf_router.dart';
 Router propertyRoutes(PropertyHandler handler) {
   final router = Router();
 
+  router.get('/', handler.getMyProperties); // List "my" properties (landowner / manager / partner_admin)
   router.get('/all', handler.getMyProperties);
   router.get('/<id>', handler.getPropertyById);
   router.post('/create', handler.createProperty);
