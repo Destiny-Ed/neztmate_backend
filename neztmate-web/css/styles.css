@@ -149,19 +149,6 @@ code {
   color: var(--teal)
 }
 
-.logo-with-icon {
-  display: inline-flex;
-  align-items: center;
-  gap: 0.5rem;
-}
-
-.logo-img {
-  width: 32px;
-  height: 32px;
-  border-radius: 8px;
-  object-fit: contain;
-}
-
 .nav-links {
   display: flex;
   gap: 1.35rem;
@@ -1782,4 +1769,74 @@ html[data-theme="dark"] .muted {
 /* Keep download band readable in dark */
 html[data-theme="dark"] .download-band {
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.45);
+}
+
+
+/* Admin layout spacing */
+.admin-content {
+  padding: 1.75rem 1.75rem 2.5rem;
+  max-width: 1280px;
+  width: 100%;
+  margin: 0 auto;
+  box-sizing: border-box;
+}
+
+.admin-content .page-title {
+  margin: 0 0 0.35rem;
+}
+
+.admin-content .page-sub {
+  margin: 0 0 1.25rem;
+}
+
+.admin-content .toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  align-items: center;
+  margin-bottom: 1.25rem;
+  padding: 0.15rem 0;
+}
+
+.admin-content .panel {
+  margin-bottom: 1.25rem;
+}
+
+.admin-content .grid-3 {
+  gap: 1.25rem;
+}
+
+.admin-content .grid-3 .card {
+  padding: 1.35rem 1.4rem;
+  min-height: 100%;
+  box-sizing: border-box;
+}
+
+.admin-content .card.empty-state {
+  padding: 2.5rem 1.5rem;
+}
+
+/* Billing-specific breathing room */
+body.admin-body .admin-content #status-panel {
+  padding: 1.25rem 1.35rem;
+}
+
+body.admin-body .admin-content #plans-heading {
+  margin: 1.5rem 0 1rem;
+}
+
+body.admin-body .admin-content #platform-toolbar,
+body.admin-body .admin-content #partner-cycle-bar {
+  padding: 0.75rem 0;
+  gap: 0.85rem;
+}
+
+@media (max-width: 900px) {
+  .admin-content {
+    padding: 1.25rem 1rem 2rem;
+  }
+
+  .admin-content .grid-3 {
+    grid-template-columns: 1fr;
+  }
 }

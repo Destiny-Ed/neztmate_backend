@@ -350,9 +350,9 @@ const Api = {
       this.request('/units/available')
     );
   },
-  listApplications(params = {}) {
+  listApplicationsAdmin(params = {}) {
     const q = new URLSearchParams(params).toString();
-    return this.request('/applications/me' + (q ? '?' + q : ''));
+    return this.request('/applications/admin' + (q ? '?' + q : ''));
   },
   getPaymentSummary(params = {}) {
     const q = new URLSearchParams(params).toString();

@@ -21,19 +21,32 @@
       </header>
       <div class="admin-content">
         <h1 class="page-title">Lease applications</h1>
-        <p class="page-sub">Inbound tenancy applications for your properties.</p>
+        <p class="page-sub">Inbound tenancy applications for your properties. Click a row for details.</p>
         <div id="error" class="alert alert-error" style="display:none"></div>
-        <div class="toolbar"><button class="btn btn-ghost btn-sm" id="refresh">Refresh</button></div>
+        <div id="info" class="alert alert-ok" style="display:none"></div>
+
+        <div class="toolbar">
+          <select id="status" class="search" style="max-width:180px">
+            <option value="">All statuses</option>
+            <option value="Pending">Pending</option>
+            <option value="FeePending">Fee pending</option>
+            <option value="Approved">Approved</option>
+            <option value="Rejected">Rejected</option>
+            <option value="Withdrawn">Withdrawn</option>
+          </select>
+          <button type="button" class="btn btn-ghost btn-sm" id="refresh">Refresh</button>
+        </div>
+
         <div class="panel">
           <div class="table-wrap">
             <table class="table">
               <thead>
                 <tr>
-                  <th>ID</th>
                   <th>Tenant</th>
-                  <th>Unit</th>
+                  <th>Property / Unit</th>
                   <th>Status</th>
                   <th>Applied</th>
+                  <th></th>
                 </tr>
               </thead>
               <tbody id="tbody">
@@ -47,6 +60,7 @@
       </div>
     </div>
   </div>
+
   <script src="../js/config.js"></script>
   <script src="../js/api.js"></script>
   <script src="../js/admin-shell.js"></script>
@@ -54,42 +68,130 @@
   <script>
     if (!AdminGuard.requireAuth()) throw 0;
     AdminShell.mount('applications.html');
-    async function load() {
-      const params = {};
-      const st = document.getElementById('status')?.value;
-      if (st) params.status = st;
-      const data = await AdminGuard.api(
-        () => NeztMateApi.listApplicationsAdmin(params),
-        { applications: [] }
+
+    let all = [];
+
+    function tenantName(a) {
+      return (
+        a.tenant?.fullName ||
+        a.tenantName ||
+        a.tenant?.email ||
+        a.tenantId ||
+        '—'
       );
-      all = data.applications || [];
-      render();
+    }
+
+    function propertyLabel(a) {
+      const prop = a.property?.name || a.propertyName || a.propertyId || '—';
+      const unit = a.unit?.unitNumber || a.unitNumber || a.unitId || '';
+      return unit ? prop + ' · Unit ' + unit : prop;
+    }
+
+    function render() {
+      const tb = document.getElementById('tbody');
+      if (!all.length) {
+        tb.innerHTML =
+          '<tr><td colspan="5" class="empty-state">No applications</td></tr>';
+        return;
+      }
+      tb.innerHTML = all
+        .map(function (a) {
+          return (
+            '<tr class="row-click" data-id="' +
+            AdminGuard.esc(a.id) +
+            '">' +
+            '<td><strong>' +
+            AdminGuard.esc(tenantName(a)) +
+            '</strong>' +
+            (a.tenant?.email
+              ? '<br/><span class="muted" style="font-size:.8rem">' +
+              AdminGuard.esc(a.tenant.email) +
+              '</span>'
+              : '') +
+            '</td>' +
+            '<td>' +
+            AdminGuard.esc(propertyLabel(a)) +
+            '</td>' +
+            '<td>' +
+            AdminGuard.badge(a.status) +
+            '</td>' +
+            '<td>' +
+            AdminGuard.fmtDate(a.appliedAt || a.createdAt) +
+            '</td>' +
+            '<td class="actions"><button type="button" class="btn btn-ghost btn-sm" data-view="' +
+            AdminGuard.esc(a.id) +
+            '">View</button></td>' +
+            '</tr>'
+          );
+        })
+        .join('');
     }
 
     function openApp(a) {
+      if (!a) return;
+      const rent =
+        a.unit?.yearlyRent != null
+          ? AdminGuard.money(a.unit.yearlyRent) + ' /yr'
+          : a.unit?.monthlyRent != null
+            ? AdminGuard.money(a.unit.monthlyRent) + ' /mo'
+            : a.proposedRent != null
+              ? AdminGuard.money(a.proposedRent)
+              : '—';
+
       AdminGuard.showDetail({
-        title: a.property?.name || 'Application',
+        title: a.property?.name || a.propertyName || 'Application',
         rows: [
           ['ID', a.id],
           ['Status', a.status],
-          ['Applied', AdminGuard.fmtDate(a.appliedAt)],
-          ['Tenant', a.tenant?.fullName],
+          ['Applied', AdminGuard.fmtDate(a.appliedAt || a.createdAt)],
+          ['Tenant', a.tenant?.fullName || a.tenantName],
           ['Email', a.tenant?.email],
           ['Phone', a.tenant?.phone],
-          ['Property', a.property?.name],
+          ['Property', a.property?.name || a.propertyName],
           ['Address', a.property?.address],
-          ['Unit', a.unit?.unitNumber],
-          ['Rent', a.unit?.monthlyRent],
+          ['Unit', a.unit?.unitNumber || a.unitNumber],
+          ['Rent', rent],
           ['Message', a.message],
-          ['Proposed rent', a.proposedRent],
+          ['Proposed rent', a.proposedRent != null ? AdminGuard.money(a.proposedRent) : null],
           ['Desired start', AdminGuard.fmtDate(a.desiredStartDate)],
           ['Reviewed by', a.reviewedBy],
           ['Reviewed at', AdminGuard.fmtDate(a.reviewedAt)],
           ['Partner', a.partnerId],
+          ['Fee payment ref', a.feePaymentReference],
         ],
       });
     }
+
+    async function load() {
+      AdminGuard.clearAlerts();
+      const params = {};
+      const st = document.getElementById('status')?.value;
+      if (st) params.status = st;
+
+      const data = await AdminGuard.api(
+        function () {
+          return NeztMateApi.listApplicationsAdmin(params);
+        },
+        { applications: [] }
+      );
+      all = data.applications || data || [];
+      if (!Array.isArray(all)) all = [];
+      render();
+    }
+
+    document.getElementById('tbody').onclick = function (e) {
+      const btn = e.target.closest('[data-view]');
+      const tr = e.target.closest('tr[data-id]');
+      const id = (btn && btn.getAttribute('data-view')) || (tr && tr.getAttribute('data-id'));
+      if (!id) return;
+      const a = all.find(function (x) {
+        return x.id === id;
+      });
+      openApp(a);
+    };
+
     document.getElementById('refresh').onclick = load;
+    document.getElementById('status').onchange = load;
     load();
   </script>
 </body>
