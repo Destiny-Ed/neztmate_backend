@@ -33,4 +33,6 @@ abstract class UnitRemoteDataSource {
 
   Future<int> countByOwner(String ownerId, {String? partnerId});
   Future<int> countListedByOwner(String ownerId, {String? partnerId});
+
+  Future<int> countByPartner(String partnerId);
 }

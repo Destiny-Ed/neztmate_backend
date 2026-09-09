@@ -51,4 +51,6 @@ abstract class UnitRepository {
 
   Future<int> countByOwner(String ownerId, {String? partnerId});
   Future<int> countListedByOwner(String ownerId, {String? partnerId});
+
+  Future<int> countByPartner(String partnerId);
 }

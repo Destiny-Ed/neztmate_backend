@@ -245,4 +245,14 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
       return User.fromMap({...data, 'id': data['id'] ?? d.id});
     }).toList();
   }
+
+  @override
+  Future<int> countByPartnerAndRole({required String partnerId, required String role}) async {
+    final snap = await firestore
+        .collection('users')
+        .where('partnerId', WhereFilter.equal, partnerId)
+        .where('role', WhereFilter.equal, role)
+        .get();
+    return snap.docs.length;
+  }
 }

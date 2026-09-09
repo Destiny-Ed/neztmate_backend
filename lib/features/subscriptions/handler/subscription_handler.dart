@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:neztmate_backend/core/services/payment/paystack_service.dart';
+import 'package:neztmate_backend/core/services/subscription/partner_access_service.dart';
 import 'package:neztmate_backend/features/history/model/user_history_model.dart';
 import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
@@ -22,6 +23,7 @@ class SubscriptionHandler {
   final HistoryRepository historyRepository;
   final PaymentRepository paymentRepository;
   final PartnerRepository partnerRepository;
+  final PartnerAccessService partnerAccess;
 
   SubscriptionHandler(
     this.subscriptionRepository,
@@ -30,6 +32,7 @@ class SubscriptionHandler {
     this.historyRepository,
     this.paymentRepository,
     this.partnerRepository,
+    this.partnerAccess,
   );
 
   final paystackService = PaystackService();
@@ -253,8 +256,19 @@ class SubscriptionHandler {
     try {
       final userId = request.context['userId'] as String?;
       final partnerId = request.context['partnerId'] as String?;
+      final role = (request.context['role'] as String?)?.toLowerCase();
 
       if (userId == null || partnerId == null) return unauthorized('You are not authorized');
+
+      if (role != 'landowner') {
+        return Response(403, body: jsonEncode({'message': 'Only landowners can subscribe to plans'}));
+      }
+
+      try {
+        await partnerAccess.assertSubscriptionsEnabled(partnerId);
+      } on PartnerAccessException catch (e) {
+        return e.toResponse();
+      }
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final planId = body['planId'] as String?;

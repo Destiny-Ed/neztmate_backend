@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:neztmate_backend/core/di/injector.dart';
+import 'package:neztmate_backend/core/services/subscription/partner_access_service.dart';
 import 'package:neztmate_backend/core/services/subscription/subscription_limit_service.dart';
 import 'package:neztmate_backend/core/utils.dart';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
@@ -15,10 +16,10 @@ import 'package:uuid/uuid.dart';
 class UnitHandler {
   final UnitRepository unitRepository;
   final UserRepository userRepository;
+  final SubscriptionLimitService subscriptionLimitService;
+  final PartnerAccessService partnerAccess;
 
-  UnitHandler(this.unitRepository, this.userRepository);
-
-  final subscriptionLimits = injector<SubscriptionLimitService>();
+  UnitHandler(this.unitRepository, this.userRepository, this.subscriptionLimitService, this.partnerAccess);
 
   /// GET /units/property/<propertyId>
   Future<Response> getUnitsByProperty(Request request) async {
@@ -175,11 +176,22 @@ class UnitHandler {
       }
 
       //  SUBSCRIPTION RESTRICTION
+      try {
+        await partnerAccess.assertCanCreateUnit(partnerId);
+      } on PartnerAccessException catch (e) {
+        return e.toResponse();
+      }
 
-      await subscriptionLimits.assertCanCreateUnit(
-        request: request,
-        countUnits: () => unitRepository.countByOwner(userId, partnerId: partnerId),
-      );
+      try {
+        await subscriptionLimitService.assertCanCreateUnit(
+          request: request,
+          countUnits: () => unitRepository.countByOwner(userId, partnerId: partnerId),
+        );
+      } on SubscriptionLimitException catch (e) {
+        return e.toResponse();
+      } on SubscriptionFeatureException catch (e) {
+        return e.toResponse();
+      }
 
       body['createdAt'] = DateTime.now().toIso8601String();
       body['updatedAt'] = DateTime.now().toIso8601String();
@@ -294,10 +306,16 @@ class UnitHandler {
       if (isListed) {
         // ========== SUBSCRIPTION RESTRICTION ==========
 
-        await subscriptionLimits.assertCanListUnit(
-          request: request,
-          countListed: () => unitRepository.countByOwner(userId, partnerId: partnerId),
-        );
+        try {
+          await subscriptionLimitService.assertCanListUnit(
+            request: request,
+            countListed: () => unitRepository.countByOwner(userId, partnerId: partnerId),
+          );
+        } on SubscriptionLimitException catch (e) {
+          return e.toResponse();
+        } on SubscriptionFeatureException catch (e) {
+          return e.toResponse();
+        }
       }
 
       await unitRepository.toggleUnitListing(unitId, isListed);

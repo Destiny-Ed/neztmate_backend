@@ -10,21 +10,22 @@ class PartnerModel {
   final String? supportPhone;
   final String? website;
   final String? domain;
-
-  /// App store links (optional — web falls back to NeztMate defaults)
   final String? playStoreUrl;
   final String? appStoreUrl;
-
-  /// Legal (optional — web falls back to privacy.html / terms.html)
   final String? privacyUrl;
   final String? termsUrl;
-
-  /// e.g. "© {year} Acme Homes. All rights reserved."
   final String? copyright;
-
   final bool isActive;
   final Map<String, dynamic> features;
   final Map<String, dynamic> fees;
+
+  /// Platform → partner workspace gates (not landowner subscription plans)
+  /// {
+  ///   appEnabled, subscriptionsEnabled, applicationsEnabled,
+  ///   maxLandowners, maxProperties, maxUnits  // -1 = unlimited
+  /// }
+  final Map<String, dynamic> limits;
+
   final DateTime createdAt;
   final DateTime updatedAt;
 
@@ -48,6 +49,7 @@ class PartnerModel {
     this.isActive = true,
     this.features = const {},
     this.fees = const {},
+    this.limits = const {},
     required this.createdAt,
     required this.updatedAt,
   });
@@ -56,6 +58,11 @@ class PartnerModel {
     DateTime parseDt(dynamic v) {
       if (v is DateTime) return v;
       return DateTime.tryParse(v?.toString() ?? '') ?? DateTime.now();
+    }
+
+    Map<String, dynamic> asMap(dynamic v) {
+      if (v is Map) return Map<String, dynamic>.from(v);
+      return {};
     }
 
     return PartnerModel(
@@ -76,8 +83,9 @@ class PartnerModel {
       termsUrl: map['termsUrl'] as String?,
       copyright: map['copyright'] as String?,
       isActive: map['isActive'] as bool? ?? true,
-      features: map['features'] != null ? Map<String, dynamic>.from(map['features'] as Map) : {},
-      fees: map['fees'] != null ? Map<String, dynamic>.from(map['fees'] as Map) : {},
+      features: asMap(map['features']),
+      fees: asMap(map['fees']),
+      limits: asMap(map['limits']),
       createdAt: parseDt(map['createdAt']),
       updatedAt: parseDt(map['updatedAt']),
     );
@@ -103,6 +111,7 @@ class PartnerModel {
     'isActive': isActive,
     'features': features,
     'fees': fees,
+    'limits': limits,
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt.toIso8601String(),
   };
@@ -127,6 +136,7 @@ class PartnerModel {
     bool? isActive,
     Map<String, dynamic>? features,
     Map<String, dynamic>? fees,
+    Map<String, dynamic>? limits,
     DateTime? createdAt,
     DateTime? updatedAt,
   }) {
@@ -150,12 +160,12 @@ class PartnerModel {
       isActive: isActive ?? this.isActive,
       features: features ?? this.features,
       fees: fees ?? this.fees,
+      limits: limits ?? this.limits,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
     );
   }
 
-  /// Public branding payload (web + mobile) — no internal fees/domain secrets
   Map<String, dynamic> toPublicMap() => {
     'id': id,
     'slug': slug,
@@ -174,6 +184,10 @@ class PartnerModel {
     'copyright': copyright,
     'features': features,
     'isActive': isActive,
+    // Optional: expose soft flags to clients (not max caps)
+    'appEnabled': isActive && (limits['appEnabled'] != false),
+    'subscriptionsEnabled': limits['subscriptionsEnabled'] != false,
+    'applicationsEnabled': limits['applicationsEnabled'] != false,
   };
 }
 
@@ -186,5 +200,39 @@ extension PartnerFeesX on PartnerModel {
       ..['applicationFeeEnabled'] = enabled
       ..['applicationFeeAmount'] = amount;
     return copyWith(fees: next, updatedAt: DateTime.now());
+  }
+}
+
+extension PartnerLimitsX on PartnerModel {
+  bool get appEnabled => isActive && limits['appEnabled'] != false;
+  bool get subscriptionsEnabled => limits['subscriptionsEnabled'] != false;
+  bool get applicationsEnabled => limits['applicationsEnabled'] != false;
+
+  int get maxLandowners => (limits['maxLandowners'] as num?)?.toInt() ?? -1;
+  int get maxProperties => (limits['maxProperties'] as num?)?.toInt() ?? -1;
+  int get maxUnits => (limits['maxUnits'] as num?)?.toInt() ?? -1;
+
+  PartnerModel withLimits({
+    bool? appEnabled,
+    bool? subscriptionsEnabled,
+    bool? applicationsEnabled,
+    int? maxLandowners,
+    int? maxProperties,
+    int? maxUnits,
+    bool? isActive,
+  }) {
+    final next = Map<String, dynamic>.from(limits);
+    if (appEnabled != null) next['appEnabled'] = appEnabled;
+    if (subscriptionsEnabled != null) next['subscriptionsEnabled'] = subscriptionsEnabled;
+    if (applicationsEnabled != null) next['applicationsEnabled'] = applicationsEnabled;
+    if (maxLandowners != null) next['maxLandowners'] = maxLandowners;
+    if (maxProperties != null) next['maxProperties'] = maxProperties;
+    if (maxUnits != null) next['maxUnits'] = maxUnits;
+
+    return copyWith(
+      limits: next,
+      isActive: isActive ?? (appEnabled == false ? false : this.isActive),
+      updatedAt: DateTime.now(),
+    );
   }
 }

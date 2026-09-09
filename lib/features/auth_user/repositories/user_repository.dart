@@ -27,4 +27,6 @@ abstract class UserRepository {
   Future<User?> getUserByVerificationId(String verificationId);
 
   Future<List<User>> listUsers({String? partnerId, String? role, int limit = 100});
+
+  Future<int> countByPartnerAndRole({required String partnerId, required String role});
 }

@@ -292,6 +292,12 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
     return total;
   }
 
+  @override
+  Future<int> countByPartner(String partnerId) async {
+    final snap = await firestore.collection('units').where('partnerId', WhereFilter.equal, partnerId).get();
+    return snap.docs.length;
+  }
+
   // @override
   // Future<void> updateComment(String commentId, String newComment) async {
   //   await _unitComments.doc(commentId).update({

@@ -65,4 +65,8 @@ class UserRepositoryImpl implements UserRepository {
   @override
   Future<List<User>> listUsers({String? partnerId, String? role, int limit = 100}) =>
       dataSource.listUsers(partnerId: partnerId, limit: limit, role: role);
+
+  @override
+  Future<int> countByPartnerAndRole({required String partnerId, required String role}) =>
+      dataSource.countByPartnerAndRole(partnerId: partnerId, role: role);
 }

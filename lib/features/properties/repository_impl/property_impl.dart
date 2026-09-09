@@ -104,4 +104,7 @@ class PropertyRepositoryImpl implements PropertyRepository {
   @override
   Future<List<PropertyModel>> getPropertiesByPartner(String partnerId) =>
       dataSource.getPropertiesByPartner(partnerId);
+
+  @override
+  Future<int> countByPartner(String partnerId) => dataSource.countByPartner(partnerId);
 }

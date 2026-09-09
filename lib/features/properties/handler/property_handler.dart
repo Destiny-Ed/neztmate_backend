@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:neztmate_backend/core/di/injector.dart';
+import 'package:neztmate_backend/core/services/subscription/partner_access_service.dart';
 import 'package:neztmate_backend/core/services/subscription/subscription_limit_service.dart';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
 import 'package:neztmate_backend/features/leases/models/lease_request_model.dart';
@@ -26,6 +27,7 @@ class PropertyHandler {
   final NotificationRepository notificationRepository;
   final LeaseRepository leaseRepository;
   final SubscriptionLimitService subscriptionLimits;
+  final PartnerAccessService partnerAccess;
 
   PropertyHandler(
     this.propertyRepository,
@@ -36,6 +38,7 @@ class PropertyHandler {
     this.paymentRepository,
     this.leaseRepository,
     this.subscriptionLimits,
+    this.partnerAccess,
   );
 
   // GET /properties (my properties)
@@ -290,10 +293,22 @@ class PropertyHandler {
 
       // Subscription limit
 
-      await subscriptionLimits.assertCanCreateProperty(
-        request: request,
-        countProperties: () => propertyRepository.countByOwner(landownerId, partnerId: partnerId),
-      );
+      try {
+        await partnerAccess.assertCanCreateProperty(partnerId);
+      } on PartnerAccessException catch (e) {
+        return e.toResponse();
+      }
+
+      try {
+        await subscriptionLimits.assertCanCreateProperty(
+          request: request,
+          countProperties: () => propertyRepository.countByOwner(landownerId, partnerId: partnerId),
+        );
+      } on SubscriptionLimitException catch (e) {
+        return e.toResponse();
+      } on SubscriptionFeatureException catch (e) {
+        return e.toResponse();
+      }
 
       // Optional: require payout account
       final payout = await paymentRepository.getDefaultPayoutAccount(landownerId);

@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'package:neztmate_backend/core/services/payment/paystack_service.dart';
+import 'package:neztmate_backend/core/services/subscription/partner_access_service.dart';
 import 'package:neztmate_backend/core/utils.dart';
 import 'package:neztmate_backend/features/applications/models/application_model.dart';
 import 'package:neztmate_backend/features/applications/repository/application_repo.dart';
@@ -28,6 +29,7 @@ class ApplicationHandler {
   final NotificationRepository notificationRepository;
   final UserReviewRepository userReviewRepository;
   final PaymentRepository paymentRepository;
+  final PartnerAccessService partnerAccess;
 
   ApplicationHandler({
     required this.applicationRepository,
@@ -38,6 +40,7 @@ class ApplicationHandler {
     required this.notificationRepository,
     required this.userReviewRepository,
     required this.paymentRepository,
+    required this.partnerAccess,
   });
 
   final paystackService = PaystackService();
@@ -54,7 +57,13 @@ class ApplicationHandler {
       }
 
       if (partnerId == null) {
-        unauthorized("PartnerId is missing");
+        return unauthorized('PartnerId is missing');
+      }
+
+      try {
+        await partnerAccess.assertApplicationsEnabled(partnerId);
+      } on PartnerAccessException catch (e) {
+        return e.toResponse();
       }
 
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;

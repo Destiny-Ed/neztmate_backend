@@ -237,4 +237,7 @@ class UnitRepositoryImpl implements UnitRepository {
     final a = sin(dLat / 2) * sin(dLat / 2) + cos(rad(lat1)) * cos(rad(lat2)) * sin(dLon / 2) * sin(dLon / 2);
     return r * 2 * atan2(sqrt(a), sqrt(1 - a));
   }
+
+  @override
+  Future<int> countByPartner(String partnerId) => unitDataSource.countByPartner(partnerId);
 }

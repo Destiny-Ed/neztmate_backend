@@ -46,4 +46,6 @@ abstract class PropertyRemoteDataSource {
   Future<int> countByOwner(String ownerId, {String? partnerId});
   Future<int> countManagersByOwner(String ownerId, {String? partnerId});
   Future<int> countArtisansByOwner(String ownerId, {String? partnerId});
+
+  Future<int> countByPartner(String partnerId);
 }

@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:dart_firebase_admin/auth.dart';
 import 'package:neztmate_backend/core/error.dart';
+import 'package:neztmate_backend/core/services/subscription/partner_access_service.dart';
 import 'package:neztmate_backend/features/partners/repository/partner_repository.dart';
 import 'package:shelf/shelf.dart';
 import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
@@ -18,6 +19,7 @@ class AuthHandler {
   final JwtService jwtService;
   final PartnerRepository partnerRepository;
   final Auth firebaseAuth;
+  final PartnerAccessService partnerAccess;
 
   AuthHandler(
     this.authRepository,
@@ -26,6 +28,7 @@ class AuthHandler {
     this.userRepository,
     this.partnerRepository,
     this.firebaseAuth,
+    this.partnerAccess,
   );
 
   Future<Response> register(Request req) async {
@@ -58,7 +61,7 @@ class AuthHandler {
 
       final partnerSlug = body['partnerSlug'] as String? ?? req.headers['x-partner-slug'];
 
-      if (partnerSlug == null && partnerSlug!.isEmpty) {
+      if (partnerSlug == null || partnerSlug.isEmpty) {
         throw ValidationException('partner slug header is required');
       }
 
@@ -66,6 +69,15 @@ class AuthHandler {
 
       if (partner == null) {
         throw NotFoundException('Partner', partnerSlug);
+      }
+
+      try {
+        await partnerAccess.assertAppEnabled(partner.id);
+        if (request.role.toLowerCase() == 'landowner') {
+          await partnerAccess.assertCanRegisterLandowner(partner.id);
+        }
+      } on PartnerAccessException catch (e) {
+        return e.toResponse();
       }
 
       //resolve slug into partner Id
@@ -181,6 +193,12 @@ class AuthHandler {
           throw ValidationException('This workspace is inactive');
         }
 
+        try {
+          await partnerAccess.assertAppEnabled(partner.id);
+        } on PartnerAccessException catch (e) {
+          return e.toResponse();
+        }
+
         resolvedPartnerId = partner.id;
         partnerSlugOut = partner.slug;
         partnerNameOut = partner.name;
@@ -197,6 +215,11 @@ class AuthHandler {
       } else if (user.partnerId != null && user.partnerId.isNotEmpty) {
         final partner = await partnerRepository.getPartnerById(user.partnerId);
         if (partner != null) {
+          try {
+            await partnerAccess.assertAppEnabled(partner.id);
+          } on PartnerAccessException catch (e) {
+            return e.toResponse();
+          }
           resolvedPartnerId = partner.id;
           partnerSlugOut = partner.slug;
           partnerNameOut = partner.name;
@@ -254,11 +277,17 @@ class AuthHandler {
 
       final partnerSlug = req.headers['x-partner-slug'] ?? request.partnerSlug as String?;
 
-      if (partnerSlug == null && partnerSlug!.isEmpty) {
+      if (partnerSlug == null || partnerSlug.isEmpty) {
         throw ValidationException('partner slug header is required');
       }
 
       final partner = await partnerRepository.getPartnerBySlug(partnerSlug);
+      if (partner == null) throw NotFoundException('Partner', partnerSlug);
+      try {
+        await partnerAccess.assertAppEnabled(partner.id);
+      } on PartnerAccessException catch (e) {
+        return e.toResponse();
+      }
 
       final user = await authRepository.socialLogin(req: request.copyWith(partnerSlug: partnerSlug));
 

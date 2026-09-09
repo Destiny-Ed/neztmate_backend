@@ -246,4 +246,13 @@ class FirestorePropertyDataSource implements PropertyRemoteDataSource {
         .get();
     return snap.docs.map((d) => PropertyModel.fromMap(d.data() as Map<String, dynamic>)).toList();
   }
+
+  @override
+  Future<int> countByPartner(String partnerId) async {
+    final snap = await firestore
+        .collection('properties')
+        .where('partnerId', WhereFilter.equal, partnerId)
+        .get();
+    return snap.docs.length;
+  }
 }

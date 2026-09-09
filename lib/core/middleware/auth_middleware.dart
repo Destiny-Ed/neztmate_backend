@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
+import 'package:neztmate_backend/core/services/subscription/partner_access_service.dart';
 import 'package:neztmate_backend/features/subscriptions/repository/subscription_repository.dart';
 import 'package:shelf/shelf.dart';
 
@@ -9,7 +10,11 @@ bool _isPlatformAdmin(String? role) {
   return r == 'platform_admin' || r == 'super_admin';
 }
 
-Middleware authMiddleware(JwtService jwtService, SubscriptionRepository subscriptionRepository) {
+Middleware authMiddleware(
+  JwtService jwtService,
+  SubscriptionRepository subscriptionRepository,
+  PartnerAccessService partnerAccess,
+) {
   return (Handler innerHandler) {
     return (Request request) async {
       final authHeader = request.headers['authorization'] ?? request.headers['Authorization'];
@@ -56,6 +61,15 @@ Middleware authMiddleware(JwtService jwtService, SubscriptionRepository subscrip
             }),
             headers: {'Content-Type': 'application/json'},
           );
+        }
+
+        // Partner app gate (skip platform admin)
+        if (!isPlatformAdmin && partnerId.isNotEmpty) {
+          try {
+            await partnerAccess.assertAppEnabled(partnerId);
+          } on PartnerAccessException catch (e) {
+            return e.toResponse();
+          }
         }
 
         // Subscription is partner-scoped — skip for platform admins

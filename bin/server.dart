@@ -7,6 +7,7 @@ import 'package:neztmate_backend/core/middleware/rate_limitter.dart';
 import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
 import 'package:neztmate_backend/core/services/database/firebase/firebase.dart';
 import 'package:neztmate_backend/core/services/scheduler/schedule_service.dart';
+import 'package:neztmate_backend/core/services/subscription/partner_access_service.dart';
 import 'package:neztmate_backend/features/affiliates/handler/affliate_handler.dart';
 import 'package:neztmate_backend/features/affiliates/repository/affiliate_repository.dart';
 import 'package:neztmate_backend/features/announcement/handler/announcement_handler.dart';
@@ -124,7 +125,11 @@ void main() async {
     }
   });
 
-  final authMiddleWare = authMiddleware(jwtService, injector<SubscriptionRepository>());
+  final authMiddleWare = authMiddleware(
+    jwtService,
+    injector<SubscriptionRepository>(),
+    injector<PartnerAccessService>(),
+  );
 
   /// routes
   router.mount('/auth', authRoutes(authHandler).call);

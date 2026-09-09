@@ -21,35 +21,59 @@
             </header>
             <div class="admin-content billing-page">
                 <h1 class="page-title">Billing &amp; plans</h1>
-                <p class="page-sub" id="page-sub">Manage subscription plans and billing for this workspace.</p>
+                <p class="page-sub" id="page-sub">Landowner subscription plans for this workspace.</p>
                 <div id="error" class="alert alert-error" style="display:none"></div>
                 <div id="info" class="alert alert-ok" style="display:none"></div>
 
-                <!-- Platform: partner scope -->
+                <!-- Platform: partner scope + partner app limits -->
                 <div class="toolbar" id="platform-toolbar" style="display:none">
                     <label class="muted" style="font-size:.85rem">Workspace</label>
                     <select id="partner-select" class="search" style="max-width:260px">
                         <option value="">Select partner…</option>
                     </select>
-                    <button type="button" class="btn btn-primary btn-sm" id="btn-new-plan">New plan</button>
+                    <button type="button" class="btn btn-primary btn-sm" id="btn-new-plan">New landowner plan</button>
+                    <button type="button" class="btn btn-ghost btn-sm" id="btn-partner-limits">Partner app
+                        limits</button>
                     <button type="button" class="btn btn-ghost btn-sm" id="refresh">Refresh</button>
                 </div>
 
-                <!-- Partner admin: own subscription status -->
+                <div class="panel" id="partner-limits-panel" style="display:none;margin-bottom:1.25rem">
+                    <div class="panel-head">
+                        <h3>Partner app limits (platform → partner)</h3>
+                    </div>
+                    <div class="panel-body" id="partner-limits-body">
+                        <p class="muted" style="margin-top:0">Controls whether this partner’s app is live and high-level
+                            caps. Separate from landowner plans below.</p>
+                        <label class="muted" style="display:flex;gap:.5rem;align-items:center;margin:.5rem 0">
+                            <input type="checkbox" id="pl-app-enabled" checked /> App enabled (partners / users can sign
+                            in)
+                        </label>
+                        <label class="muted" style="display:flex;gap:.5rem;align-items:center;margin:.5rem 0">
+                            <input type="checkbox" id="pl-subs-enabled" checked /> Landowner subscriptions enabled
+                        </label>
+                        <label class="muted" style="display:flex;gap:.5rem;align-items:center;margin:.5rem 0">
+                            <input type="checkbox" id="pl-apps-enabled" checked /> Lease applications enabled
+                        </label>
+                        <div class="field"><label>Max landowners (-1 unlimited)</label><input id="pl-max-landowners"
+                                type="number" value="-1" /></div>
+                        <div class="field"><label>Max properties across workspace (-1 unlimited)</label><input
+                                id="pl-max-properties" type="number" value="-1" /></div>
+                        <div class="field"><label>Max units across workspace (-1 unlimited)</label><input
+                                id="pl-max-units" type="number" value="-1" /></div>
+                        <button type="button" class="btn btn-primary btn-sm" id="pl-save">Save partner limits</button>
+                    </div>
+                </div>
+
+                <!-- Partner admin: catalog only (no self-subscribe) -->
                 <div class="panel" style="margin-bottom:1.25rem;display:none" id="status-panel"></div>
 
                 <div class="toolbar" id="partner-cycle-bar" style="display:none">
-                    <div style="display:flex;gap:.5rem;align-items:center">
-                        <span class="muted" style="font-size:.85rem">Billing cycle</span>
-                        <select id="cycle" class="search" style="max-width:140px">
-                            <option value="monthly">Monthly</option>
-                            <option value="yearly">Yearly</option>
-                        </select>
-                    </div>
                     <button type="button" class="btn btn-ghost btn-sm" id="refresh-partner">Refresh</button>
                 </div>
 
-                <h2 class="page-title" style="font-size:1.1rem;margin:1rem 0 .75rem" id="plans-heading">Plans</h2>
+                <h2 class="page-title" style="font-size:1.1rem;margin:1rem 0 .75rem" id="plans-heading">Landowner plans
+                </h2>
+                <p class="muted" id="plans-note" style="margin:-0.5rem 0 1rem;font-size:.9rem"></p>
                 <div class="grid-3" id="plans-grid">
                     <div class="card empty-state" style="grid-column:1/-1">Loading…</div>
                 </div>
@@ -69,16 +93,30 @@
                     <select id="plan-name">
                         <option value="free">free</option>
                         <option value="basic">basic</option>
+                        <option value="pro">pro</option>
                         <option value="premium">premium</option>
+                        <option value="business">business</option>
                         <option value="enterprise">enterprise</option>
                     </select>
+                </div>
+                <div class="field"><label>Description</label>
+                    <textarea id="plan-description" rows="2"
+                        placeholder="Short plan summary for pricing page"></textarea>
                 </div>
                 <div class="field"><label>Monthly price (₦)</label><input id="plan-monthly" type="number" min="0"
                         step="1" value="0" /></div>
                 <div class="field"><label>Yearly price (₦)</label><input id="plan-yearly" type="number" min="0" step="1"
                         value="0" /></div>
+                <div class="field"><label>Max units (-1 = unlimited)</label><input id="plan-max-units" type="number"
+                        value="3" /></div>
                 <div class="field"><label>Max listings (-1 = unlimited)</label><input id="plan-max" type="number"
-                        value="5" /></div>
+                        value="3" /></div>
+                <div class="field"><label>Max properties (-1 = unlimited)</label><input id="plan-max-properties"
+                        type="number" value="1" /></div>
+                <div class="field"><label>Max managers (0 = off, -1 = unlimited)</label><input id="plan-max-managers"
+                        type="number" value="0" /></div>
+                <div class="field"><label>Max artisans (0 = off, -1 = unlimited)</label><input id="plan-max-artisans"
+                        type="number" value="0" /></div>
                 <label class="muted" style="display:flex;gap:.5rem;align-items:center;margin:.4rem 0"><input
                         type="checkbox" id="plan-agent" /> Agent assignment</label>
                 <label class="muted" style="display:flex;gap:.5rem;align-items:center;margin:.4rem 0"><input
@@ -112,16 +150,20 @@
         let editingPlanId = null;
 
         document.getElementById('page-sub').textContent = isPlatform
-            ? 'Create and manage plans for each partner workspace. Plans appear on the public pricing page for that workspace.'
-            : 'View your plan and upgrade.';
+            ? 'Landowner plans (sold to property owners) and partner-level app limits for each workspace.'
+            : 'Landowner plan catalog for your brand. Landowners subscribe in the mobile app or /subscribe.html — partner admins do not subscribe here.';
 
         if (isPlatform) {
             document.getElementById('platform-toolbar').style.display = 'flex';
-            document.getElementById('plans-heading').textContent = 'Plans for selected workspace';
+            document.getElementById('plans-heading').textContent = 'Landowner plans for selected workspace';
+            document.getElementById('plans-note').textContent =
+                'These plans are for landowners. Partner app on/off and workspace caps are under Partner app limits.';
         } else {
             document.getElementById('status-panel').style.display = 'block';
             document.getElementById('partner-cycle-bar').style.display = 'flex';
-            document.getElementById('plans-heading').textContent = 'Available plans';
+            document.getElementById('plans-heading').textContent = 'Landowner plan catalog';
+            document.getElementById('plans-note').textContent =
+                'View-only for partner admins. Landowners buy these plans; you do not subscribe as partner admin.';
         }
 
         function money(n) {
@@ -143,6 +185,13 @@
         function paintStatus() {
             if (isPlatform) return;
             const el = document.getElementById('status-panel');
+            // Partner admin is not the subscriber — landowner plans only
+            el.innerHTML =
+                '<h3 style="margin:0 0 .35rem">Landowner billing</h3>' +
+                '<p class="muted" style="margin:0">Plans below are sold to <strong>landowners</strong> in your workspace. ' +
+                'They subscribe in the app or on the public subscribe page. ' +
+                'Partner-level access (app on/off) is controlled by the platform.</p>';
+            return;
             if (!current || !current.planId) {
                 el.innerHTML =
                     '<h3 style="margin:0 0 .35rem">No active paid plan</h3><p class="muted" style="margin:0">You are on the free tier. Choose a plan below to upgrade.</p>';
@@ -201,10 +250,19 @@
                         String(current.status).toLowerCase() === 'active' &&
                         (String(current.planId).toLowerCase() === String(p.id).toLowerCase() ||
                             String(current.planId).toLowerCase() === String(p.name).toLowerCase());
+                    function lim(n, label) {
+                        if (n === -1 || n === '-1') return 'Unlimited ' + label;
+                        if (n === 0 || n === '0') return null;
+                        if (n == null) return null;
+                        return 'Up to ' + n + ' ' + label;
+                    }
                     const feats = [
-                        p.maxListings === -1 || p.maxListings == null
-                            ? 'Unlimited listings'
-                            : 'Up to ' + p.maxListings + ' listings',
+                        p.description || null,
+                        lim(p.maxUnits != null ? p.maxUnits : p.maxListings, 'units'),
+                        lim(p.maxListings, 'listings'),
+                        lim(p.maxProperties, 'properties'),
+                        lim(p.maxManagers, 'managers'),
+                        lim(p.maxArtisans, 'artisans'),
                         p.hasAgentAssignment ? 'Agent assignment' : null,
                         p.hasAdvancedScreening ? 'Advanced screening' : null,
                         p.hasAnalytics ? 'Analytics' : null,
@@ -224,16 +282,9 @@
                             '">Delete</button>' +
                             '</div>';
                     } else {
+                        // Partner admin: catalog only — no self-subscribe
                         actions =
-                            '<button type="button" class="btn ' +
-                            (cur ? 'btn-ghost' : 'btn-primary') +
-                            ' btn-sm" style="width:100%;margin-top:auto" data-subscribe="' +
-                            AdminGuard.esc(p.id || p.name) +
-                            '" ' +
-                            (cur ? 'disabled' : '') +
-                            '>' +
-                            (cur ? 'Current plan' : price === 0 ? 'Switch to Free' : 'Subscribe') +
-                            '</button>';
+                            '<p class="muted" style="margin-top:auto;font-size:.8rem">For landowners only</p>';
                     }
 
                     return (
@@ -264,9 +315,14 @@
             document.getElementById('plan-modal-title').textContent = plan ? 'Edit plan' : 'New plan';
             document.getElementById('plan-name').value = plan?.name || plan?.id || 'basic';
             document.getElementById('plan-name').disabled = !!plan;
+            document.getElementById('plan-description').value = plan?.description || '';
             document.getElementById('plan-monthly').value = plan?.monthlyPrice ?? 0;
             document.getElementById('plan-yearly').value = plan?.yearlyPrice ?? 0;
-            document.getElementById('plan-max').value = plan?.maxListings ?? 5;
+            document.getElementById('plan-max-units').value = plan?.maxUnits ?? plan?.maxListings ?? 3;
+            document.getElementById('plan-max').value = plan?.maxListings ?? 3;
+            document.getElementById('plan-max-properties').value = plan?.maxProperties ?? 1;
+            document.getElementById('plan-max-managers').value = plan?.maxManagers ?? 0;
+            document.getElementById('plan-max-artisans').value = plan?.maxArtisans ?? 0;
             document.getElementById('plan-agent').checked = !!plan?.hasAgentAssignment;
             document.getElementById('plan-screening').checked = !!plan?.hasAdvancedScreening;
             document.getElementById('plan-analytics').checked = !!plan?.hasAnalytics;
@@ -283,9 +339,14 @@
             }
             const body = {
                 name: document.getElementById('plan-name').value,
+                description: document.getElementById('plan-description').value.trim(),
                 monthlyPrice: Number(document.getElementById('plan-monthly').value) || 0,
                 yearlyPrice: Number(document.getElementById('plan-yearly').value) || 0,
+                maxUnits: Number(document.getElementById('plan-max-units').value),
                 maxListings: Number(document.getElementById('plan-max').value),
+                maxProperties: Number(document.getElementById('plan-max-properties').value),
+                maxManagers: Number(document.getElementById('plan-max-managers').value),
+                maxArtisans: Number(document.getElementById('plan-max-artisans').value),
                 hasAgentAssignment: document.getElementById('plan-agent').checked,
                 hasAdvancedScreening: document.getElementById('plan-screening').checked,
                 hasAnalytics: document.getElementById('plan-analytics').checked,

@@ -1,12 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Partners · NeztMate Admin</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap"
+    rel="stylesheet" />
   <link rel="stylesheet" href="../css/styles.css" />
 </head>
+
 <body class="admin-body">
   <div class="admin-shell">
     <aside class="sidebar" id="sidebar"></aside>
@@ -29,8 +33,20 @@
         <div class="panel">
           <div class="table-wrap">
             <table class="table">
-              <thead><tr><th>Partner</th><th>Slug</th><th>Status</th><th>Support</th><th></th></tr></thead>
-              <tbody id="tbody"><tr><td colspan="5" class="empty-state">Loading…</td></tr></tbody>
+              <thead>
+                <tr>
+                  <th>Partner</th>
+                  <th>Slug</th>
+                  <th>Status</th>
+                  <th>Support</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="tbody">
+                <tr>
+                  <td colspan="5" class="empty-state">Loading…</td>
+                </tr>
+              </tbody>
             </table>
           </div>
         </div>
@@ -40,15 +56,48 @@
 
   <div id="reset-modal" class="modal-backdrop hidden">
     <div class="modal">
-      <div class="modal-head"><h3>Reset partner admin password</h3><button type="button" class="btn btn-ghost btn-sm" data-close>×</button></div>
+      <div class="modal-head">
+        <h3>Reset partner admin password</h3><button type="button" class="btn btn-ghost btn-sm" data-close>×</button>
+      </div>
       <div class="modal-body">
         <p class="muted" id="reset-label"></p>
         <div class="field"><label>Admin email (optional filter)</label><input id="reset-email" type="email" /></div>
-        <div class="field"><label>New temporary password</label><input id="reset-password" type="text" minlength="8" required /></div>
+        <div class="field"><label>New temporary password</label><input id="reset-password" type="text" minlength="8"
+            required /></div>
       </div>
       <div class="modal-foot">
         <button type="button" class="btn btn-ghost btn-sm" data-close>Cancel</button>
         <button type="button" class="btn btn-primary btn-sm" id="confirm-reset">Reset password</button>
+      </div>
+    </div>
+  </div>
+
+
+  <div class="modal-backdrop" id="limits-modal" style="display:none">
+    <div class="modal" style="max-width:440px">
+      <div class="modal-head">
+        <h3>Partner app limits</h3>
+        <button type="button" class="btn btn-ghost btn-sm" data-close-limits>×</button>
+      </div>
+      <div class="modal-body">
+        <p class="muted" id="limits-partner-label" style="margin-top:0"></p>
+        <label class="muted" style="display:flex;gap:.5rem;align-items:center;margin:.5rem 0">
+          <input type="checkbox" id="lm-app" checked /> App enabled
+        </label>
+        <label class="muted" style="display:flex;gap:.5rem;align-items:center;margin:.5rem 0">
+          <input type="checkbox" id="lm-subs" checked /> Landowner subscriptions
+        </label>
+        <label class="muted" style="display:flex;gap:.5rem;align-items:center;margin:.5rem 0">
+          <input type="checkbox" id="lm-applications" checked /> Lease applications
+        </label>
+        <div class="field"><label>Max landowners (-1 = ∞)</label><input id="lm-max-lo" type="number" value="-1" /></div>
+        <div class="field"><label>Max properties (-1 = ∞)</label><input id="lm-max-prop" type="number" value="-1" />
+        </div>
+        <div class="field"><label>Max units (-1 = ∞)</label><input id="lm-max-units" type="number" value="-1" /></div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-ghost btn-sm" data-close-limits>Cancel</button>
+        <button type="button" class="btn btn-primary btn-sm" id="lm-save">Save</button>
       </div>
     </div>
   </div>
@@ -93,6 +142,7 @@
             <button class="btn btn-ghost btn-sm" data-toggle="${AdminGuard.esc(p.id)}" data-active="${p.isActive !== false}">
               ${p.isActive === false ? 'Activate' : 'Suspend'}
             </button>
+            <button class="btn btn-ghost btn-sm" data-limits="${AdminGuard.esc(p.id)}">Limits</button>
             <button class="btn btn-ghost btn-sm" data-reset="${AdminGuard.esc(p.id)}" data-name="${AdminGuard.esc(p.name)}">Reset password</button>
           </td>
         </tr>`).join('');
@@ -145,4 +195,5 @@
     load();
   </script>
 </body>
+
 </html>

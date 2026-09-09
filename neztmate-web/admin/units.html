@@ -1,12 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Units · NeztMate Admin</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap"
+    rel="stylesheet" />
   <link rel="stylesheet" href="../css/styles.css" />
 </head>
+
 <body class="admin-body">
   <div class="admin-shell">
     <aside class="sidebar" id="sidebar"></aside>
@@ -17,7 +21,7 @@
       </header>
       <div class="admin-content">
         <h1 class="page-title">Units</h1>
-        <p class="page-sub">Listing status, occupancy, and rent.</p>
+        <p class="page-sub">Listing status, occupancy, and rent. Click a row for details.</p>
         <div id="error" class="alert alert-error" style="display:none"></div>
         <div class="toolbar">
           <input class="search" id="q" placeholder="Search units…" />
@@ -27,9 +31,21 @@
           <div class="table-wrap">
             <table class="table">
               <thead>
-                <tr><th>Unit</th><th>Property</th><th>Rent/yr</th><th>Status</th><th>Listed</th><th>Tenant</th></tr>
+                <tr>
+                  <th>Unit</th>
+                  <th>Property</th>
+                  <th>Rent/yr</th>
+                  <th>Status</th>
+                  <th>Listed</th>
+                  <th>Tenant</th>
+                  <th></th>
+                </tr>
               </thead>
-              <tbody id="tbody"><tr><td colspan="6" class="empty-state">Loading…</td></tr></tbody>
+              <tbody id="tbody">
+                <tr>
+                  <td colspan="7" class="empty-state">Loading…</td>
+                </tr>
+              </tbody>
             </table>
           </div>
         </div>
@@ -44,36 +60,107 @@
     if (!AdminGuard.requireAuth()) throw 0;
     AdminShell.mount('units.html');
     let all = [];
+
+    function filtered() {
+      const q = document.getElementById('q').value.toLowerCase();
+      return all.filter((u) => !q || JSON.stringify(u).toLowerCase().includes(q));
+    }
+
+    function render() {
+      const list = filtered();
+      const tb = document.getElementById('tbody');
+      if (!list.length) {
+        tb.innerHTML = '<tr><td colspan="7" class="empty-state">No units</td></tr>';
+        return;
+      }
+      tb.innerHTML = list
+        .map(function (u) {
+          return (
+            '<tr class="row-click" data-id="' +
+            AdminGuard.esc(u.id) +
+            '">' +
+            '<td><strong>' +
+            AdminGuard.esc(u.unitNumber || u.id) +
+            '</strong></td>' +
+            '<td>' +
+            AdminGuard.esc(u.property?.name || u.propertyId || '—') +
+            '</td>' +
+            '<td>' +
+            AdminGuard.money(u.yearlyRent) +
+            '</td>' +
+            '<td>' +
+            AdminGuard.badge(u.status) +
+            '</td>' +
+            '<td>' +
+            (u.isListedForRent ? AdminGuard.badge('listed') : AdminGuard.badge('unlisted')) +
+            '</td>' +
+            '<td>' +
+            AdminGuard.esc(
+              u.currentTenant?.fullName ||
+              (u.currentTenantId ? String(u.currentTenantId).slice(0, 8) + '…' : '—')
+            ) +
+            '</td>' +
+            '<td class="actions"><button type="button" class="btn btn-ghost btn-sm" data-view="' +
+            AdminGuard.esc(u.id) +
+            '">View</button></td>' +
+            '</tr>'
+          );
+        })
+        .join('');
+    }
+
+    function openUnit(u) {
+      if (!u) return;
+      AdminGuard.showDetail({
+        title: 'Unit ' + (u.unitNumber || u.id),
+        rows: [
+          ['ID', u.id],
+          ['Unit number', u.unitNumber],
+          ['Property', u.property?.name || u.propertyId],
+          ['Property address', u.property?.address],
+          ['Floor', u.floorLevel],
+          ['Bedrooms', u.bedrooms],
+          ['Bathrooms', u.bathrooms],
+          ['Square feet', u.squareFeet],
+          ['Yearly rent', u.yearlyRent != null ? AdminGuard.money(u.yearlyRent) : null],
+          ['Monthly rent', u.monthlyRent != null ? AdminGuard.money(u.monthlyRent) : null],
+          ['Status', u.status],
+          ['Listed for rent', u.isListedForRent],
+          ['Listed at', AdminGuard.fmtDate(u.listedAt)],
+          ['Rent due date', AdminGuard.fmtDate(u.rentDueDate)],
+          ['Current tenant ID', u.currentTenantId],
+          ['Current tenant', u.currentTenant?.fullName],
+          ['Likes', u.likes],
+          ['Comments', u.commentsCount],
+          ['Features', Array.isArray(u.features) ? u.features.join(', ') : u.features],
+          ['Photo count', Array.isArray(u.photoUrls) ? u.photoUrls.length : null],
+          ['Video', u.videoUrl],
+          ['Partner', u.partnerId],
+          ['Created', AdminGuard.fmtDate(u.createdAt)],
+          ['Updated', AdminGuard.fmtDate(u.updatedAt)],
+        ],
+      });
+    }
+
     async function load() {
       const data = await AdminGuard.api(() => NeztMateApi.listAllUnits(), { units: [] });
       all = data.units || data || [];
       if (!Array.isArray(all)) all = [];
       render();
     }
-    function render() {
-      const q = document.getElementById('q').value.toLowerCase();
-      const list = all.filter((u) => !q || JSON.stringify(u).toLowerCase().includes(q));
-      const tb = document.getElementById('tbody');
-      if (!list.length) {
-        tb.innerHTML = '<tr><td colspan="6" class="empty-state">No units</td></tr>';
-        return;
-      }
-      tb.innerHTML = list
-        .map(
-          (u) => `<tr>
-        <td><strong>${AdminGuard.esc(u.unitNumber || u.id)}</strong></td>
-        <td>${AdminGuard.esc(u.propertyId || u.property?.name || '—')}</td>
-        <td>${AdminGuard.money(u.yearlyRent)}</td>
-        <td>${AdminGuard.badge(u.status)}</td>
-        <td>${u.isListedForRent ? AdminGuard.badge('listed') : AdminGuard.badge('unlisted')}</td>
-        <td>${AdminGuard.esc(u.currentTenantId ? String(u.currentTenantId).slice(0, 8) : '—')}</td>
-      </tr>`
-        )
-        .join('');
-    }
+
+    document.getElementById('tbody').onclick = function (e) {
+      const btn = e.target.closest('[data-view]');
+      const tr = e.target.closest('tr[data-id]');
+      const id = (btn && btn.getAttribute('data-view')) || (tr && tr.getAttribute('data-id'));
+      if (!id) return;
+      openUnit(all.find((x) => x.id === id));
+    };
+
     document.getElementById('q').oninput = render;
     document.getElementById('refresh').onclick = load;
     load();
   </script>
 </body>
+
 </html>

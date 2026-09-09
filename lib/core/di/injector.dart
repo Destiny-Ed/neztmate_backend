@@ -10,6 +10,7 @@ import 'package:neztmate_backend/core/services/database/firebase/firebase.dart';
 import 'package:neztmate_backend/core/services/push_notification/fcm_auth.dart';
 import 'package:neztmate_backend/core/services/push_notification/push_notification_service.dart';
 import 'package:neztmate_backend/core/services/reputation/reputation_service.dart';
+import 'package:neztmate_backend/core/services/subscription/partner_access_service.dart';
 import 'package:neztmate_backend/core/services/subscription/subscription_limit_service.dart';
 import 'package:neztmate_backend/core/services/verification/providers/veriff_service.dart';
 import 'package:neztmate_backend/core/services/verification/providers/you_verify_service.dart';
@@ -158,6 +159,7 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
       injector<PaymentRepository>(),
       injector<LeaseRepository>(),
       injector<SubscriptionLimitService>(),
+      injector<PartnerAccessService>(),
     ),
   );
 
@@ -173,7 +175,12 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
     ),
   );
   injector.registerLazySingleton<UnitHandler>(
-    () => UnitHandler(injector<UnitRepository>(), injector<UserRepository>()),
+    () => UnitHandler(
+      injector<UnitRepository>(),
+      injector<UserRepository>(),
+      injector<SubscriptionLimitService>(),
+      injector<PartnerAccessService>(),
+    ),
   );
 
   //history
@@ -218,6 +225,7 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
       injector<UserRepository>(),
       injector<PartnerRepository>(),
       injector<Auth>(),
+      injector<PartnerAccessService>(),
     ),
   );
 
@@ -283,6 +291,7 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
       notificationRepository: injector<NotificationRepository>(),
       userReviewRepository: injector<UserReviewRepository>(),
       paymentRepository: injector<PaymentRepository>(),
+      partnerAccess: injector<PartnerAccessService>(),
     ),
   );
 
@@ -465,11 +474,21 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
       injector<HistoryRepository>(),
       injector<PaymentRepository>(),
       injector<PartnerRepository>(),
+      injector<PartnerAccessService>(),
     ),
   );
 
   injector.registerLazySingleton<SubscriptionLimitService>(
     () => SubscriptionLimitService(injector<SubscriptionRepository>()),
+  );
+
+  injector.registerLazySingleton(
+    () => PartnerAccessService(
+      partnerRepository: injector<PartnerRepository>(),
+      userRepository: injector<UserRepository>(),
+      propertyRepository: injector<PropertyRepository>(),
+      unitRepository: injector<UnitRepository>(),
+    ),
   );
 
   //Subscription and affiliate ends
