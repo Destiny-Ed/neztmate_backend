@@ -16,6 +16,11 @@ import 'package:neztmate_backend/core/services/verification/verification_service
 import 'package:neztmate_backend/features/affiliates/datasource/firestore_affiliate_datasource.dart';
 import 'package:neztmate_backend/features/affiliates/handler/affliate_handler.dart';
 import 'package:neztmate_backend/features/affiliates/repository/affiliate_repository.dart';
+import 'package:neztmate_backend/features/announcement/datasource/announcement_remote_datasource.dart';
+import 'package:neztmate_backend/features/announcement/datasource/firestore/firestore_announcement_datasource.dart';
+import 'package:neztmate_backend/features/announcement/handler/announcement_handler.dart';
+import 'package:neztmate_backend/features/announcement/repository/announcement_repository.dart';
+import 'package:neztmate_backend/features/announcement/repository_impl/announcement_repo_impl.dart';
 import 'package:neztmate_backend/features/applications/datasource/application_remote_datasource.dart';
 import 'package:neztmate_backend/features/applications/datasource/firestore/firestore_remote_datasource.dart';
 import 'package:neztmate_backend/features/applications/handler/application_handler.dart';
@@ -456,4 +461,11 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
   );
 
   //Subscription and affiliate ends
+
+  // Announcement
+  injector.registerLazySingleton<AnnouncementRemoteDataSource>(
+    () => FirestoreAnnouncementDataSource(injector<Firestore>()),
+  );
+  injector.registerLazySingleton<AnnouncementRepository>(() => AnnouncementRepositoryImpl(injector()));
+  injector.registerLazySingleton(() => AnnouncementHandler(injector()));
 }

@@ -271,6 +271,33 @@ const Api = {
     return this.request('/notifications').catch(() => this.request('/notifications/all'));
   },
 
+  // ── In-app announcements (admin → apps) ──
+  listAnnouncementsAdmin(params = {}) {
+    const q = new URLSearchParams();
+    Object.entries(params || {}).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') q.set(k, v);
+    });
+    const qs = q.toString();
+    return this.request('/announcements/admin' + (qs ? '?' + qs : ''));
+  },
+  getActiveAnnouncements() {
+    return this.request('/announcements/active');
+  },
+  createAnnouncement(body) {
+    return this.request('/announcements', { method: 'POST', body });
+  },
+  updateAnnouncement(id, body) {
+    return this.request('/announcements/' + encodeURIComponent(id), {
+      method: 'PATCH',
+      body,
+    });
+  },
+  deactivateAnnouncement(id) {
+    return this.request('/announcements/' + encodeURIComponent(id), {
+      method: 'DELETE',
+    });
+  },
+
 
   // ── Platform: partners + credentials ──
   createPartnerWithAdmin(body) {

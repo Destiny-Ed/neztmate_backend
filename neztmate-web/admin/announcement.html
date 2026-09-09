@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Announcements · NeztMate Admin</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/styles.css" />
+</head>
+<body class="admin-body">
+  <div class="admin-shell">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="admin-main">
+      <header class="admin-top">
+        <div><strong>Announcements</strong> <span class="muted" id="partner-label"></span></div>
+        <button type="button" class="theme-toggle" id="theme-toggle">🌙</button>
+      </header>
+      <div class="admin-content">
+        <h1 class="page-title">In-app announcements</h1>
+        <p class="page-sub">
+          Send messages to the mobile app. Users see them as a banner (marquee) or a dialog.
+        </p>
+        <div id="error" class="alert alert-error" style="display:none"></div>
+        <div id="info" class="alert alert-ok" style="display:none"></div>
+
+        <div class="toolbar">
+          <select id="filter-active" class="search" style="max-width:160px">
+            <option value="true">Active only</option>
+            <option value="">All</option>
+          </select>
+          <select id="filter-partner" class="search" style="max-width:220px;display:none">
+            <option value="">All workspaces</option>
+          </select>
+          <button type="button" class="btn btn-ghost btn-sm" id="btn-refresh">Refresh</button>
+          <button type="button" class="btn btn-primary btn-sm" id="btn-new">New announcement</button>
+        </div>
+
+        <div class="panel">
+          <div class="table-wrap">
+            <table class="table">
+              <thead>
+                <tr>
+                  <th>Title</th>
+                  <th>Display</th>
+                  <th>Audience</th>
+                  <th>Status</th>
+                  <th>Schedule</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="tbody">
+                <tr><td colspan="6" class="empty-state">Loading…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="compose-modal" class="modal-backdrop hidden">
+    <div class="modal" style="max-width:520px">
+      <div class="modal-head">
+        <h3 id="compose-title">New announcement</h3>
+        <button type="button" class="btn btn-ghost btn-sm" data-close>×</button>
+      </div>
+      <div class="modal-body">
+        <div class="field">
+          <label>Title</label>
+          <input id="f-title" maxlength="120" placeholder="Short headline" />
+        </div>
+        <div class="field">
+          <label>Message</label>
+          <textarea id="f-body" rows="4" placeholder="What should users know?"></textarea>
+        </div>
+        <div class="field">
+          <label>Display</label>
+          <select id="f-display">
+            <option value="dialog">Dialog (popup)</option>
+            <option value="marquee">Marquee (banner)</option>
+          </select>
+        </div>
+        <div class="field">
+          <label>Priority</label>
+          <select id="f-priority">
+            <option value="normal">Normal</option>
+            <option value="high">High</option>
+          </select>
+        </div>
+        <div class="field" id="audience-field">
+          <label>Audience</label>
+          <select id="f-audience">
+            <option value="partner">This workspace only</option>
+            <option value="all">All apps (platform-wide)</option>
+          </select>
+        </div>
+        <div class="field" id="partner-field" style="display:none">
+          <label>Partner workspace</label>
+          <select id="f-partner"></select>
+        </div>
+        <div class="field">
+          <label>Roles (optional)</label>
+          <input id="f-roles" placeholder="e.g. landowner, tenant — empty = everyone" />
+        </div>
+        <div class="field">
+          <label>Link URL (optional)</label>
+          <input id="f-link" type="url" placeholder="https://…" />
+        </div>
+        <div class="field">
+          <label>Link label (optional)</label>
+          <input id="f-link-label" placeholder="Learn more" />
+        </div>
+        <div class="field">
+          <label>Ends at (optional)</label>
+          <input id="f-ends" type="datetime-local" />
+        </div>
+      </div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-ghost btn-sm" data-close>Cancel</button>
+        <button type="button" class="btn btn-primary btn-sm" id="btn-save">Publish</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/admin-shell.js"></script>
+  <script src="../js/admin.js"></script>
+  <script>
+    if (!AdminGuard.requireAuth()) throw 0;
+    AdminShell.mount('announcements.html');
+
+    const isPlatform = AdminGuard.isPlatform();
+    let rows = [];
+    let partners = [];
+
+    if (isPlatform) {
+      document.getElementById('filter-partner').style.display = '';
+      document.getElementById('partner-field').style.display = '';
+    } else {
+      // Partner admin: only their workspace
+      document.getElementById('f-audience').innerHTML =
+        '<option value="partner">This workspace only</option>';
+    }
+
+    function rolesList() {
+      return document
+        .getElementById('f-roles')
+        .value.split(',')
+        .map((s) => s.trim())
+        .filter(Boolean);
+    }
+
+    function audienceLabel(a) {
+      if (a.audience === 'all') return 'All apps';
+      const p = partners.find((x) => x.id === a.partnerId);
+      return p ? p.name || p.slug || a.partnerId : a.partnerId || 'Workspace';
+    }
+
+    function paint() {
+      const tb = document.getElementById('tbody');
+      if (!rows.length) {
+        tb.innerHTML = '<tr><td colspan="6" class="empty-state">No announcements yet</td></tr>';
+        return;
+      }
+      tb.innerHTML = rows
+        .map((a) => {
+          const active = a.isActive !== false;
+          return (
+            '<tr class="row-click" data-id="' +
+            AdminGuard.esc(a.id) +
+            '">' +
+            '<td><strong>' +
+            AdminGuard.esc(a.title) +
+            '</strong><br/><span class="muted" style="font-size:.8rem">' +
+            AdminGuard.esc((a.body || '').slice(0, 80)) +
+            ((a.body || '').length > 80 ? '…' : '') +
+            '</span></td>' +
+            '<td>' +
+            AdminGuard.badge(a.displayMode) +
+            (a.priority === 'high' ? ' ' + AdminGuard.badge('high') : '') +
+            '</td>' +
+            '<td>' +
+            AdminGuard.esc(audienceLabel(a)) +
+            (a.roles && a.roles.length
+              ? '<br/><span class="muted" style="font-size:.75rem">' +
+                AdminGuard.esc(a.roles.join(', ')) +
+                '</span>'
+              : '') +
+            '</td>' +
+            '<td>' +
+            AdminGuard.badge(active ? 'active' : 'off') +
+            '</td>' +
+            '<td style="font-size:.85rem">' +
+            (a.startsAt ? new Date(a.startsAt).toLocaleString() : '—') +
+            (a.endsAt ? '<br/>→ ' + new Date(a.endsAt).toLocaleString() : '') +
+            '</td>' +
+            '<td class="actions">' +
+            (active
+              ? '<button type="button" class="btn btn-ghost btn-sm" data-off="' +
+                AdminGuard.esc(a.id) +
+                '">Turn off</button>'
+              : '—') +
+            '</td></tr>'
+          );
+        })
+        .join('');
+    }
+
+    async function loadPartners() {
+      if (!isPlatform) return;
+      const data = await AdminGuard.api(() => NeztMateApi.listPartners(), { partners: [] });
+      partners = data.partners || [];
+      if (!Array.isArray(partners)) partners = [];
+      const opts =
+        '<option value="">All workspaces</option>' +
+        partners
+          .map(
+            (p) =>
+              '<option value="' +
+              AdminGuard.esc(p.id) +
+              '">' +
+              AdminGuard.esc(p.name || p.slug || p.id) +
+              '</option>'
+          )
+          .join('');
+      document.getElementById('filter-partner').innerHTML = opts;
+      document.getElementById('f-partner').innerHTML = partners
+        .map(
+          (p) =>
+            '<option value="' +
+            AdminGuard.esc(p.id) +
+            '">' +
+            AdminGuard.esc(p.name || p.slug || p.id) +
+            '</option>'
+        )
+        .join('');
+    }
+
+    async function load() {
+      AdminGuard.clearAlerts();
+      const params = {};
+      const active = document.getElementById('filter-active').value;
+      if (active === 'true') params.activeOnly = 'true';
+      if (isPlatform) {
+        const pid = document.getElementById('filter-partner').value;
+        if (pid) params.partnerId = pid;
+      }
+      const data = await AdminGuard.api(
+        () => NeztMateApi.listAnnouncementsAdmin(params),
+        { announcements: [] }
+      );
+      rows = data.announcements || data || [];
+      if (!Array.isArray(rows)) rows = [];
+      paint();
+    }
+
+    function openCompose() {
+      document.getElementById('f-title').value = '';
+      document.getElementById('f-body').value = '';
+      document.getElementById('f-display').value = 'dialog';
+      document.getElementById('f-priority').value = 'normal';
+      document.getElementById('f-audience').value = isPlatform ? 'all' : 'partner';
+      document.getElementById('f-roles').value = '';
+      document.getElementById('f-link').value = '';
+      document.getElementById('f-link-label').value = '';
+      document.getElementById('f-ends').value = '';
+      syncAudienceFields();
+      AdminGuard.openModal('compose-modal');
+    }
+
+    function syncAudienceFields() {
+      if (!isPlatform) return;
+      const aud = document.getElementById('f-audience').value;
+      document.getElementById('partner-field').style.display = aud === 'partner' ? '' : 'none';
+    }
+
+    async function publish() {
+      const title = document.getElementById('f-title').value.trim();
+      const body = document.getElementById('f-body').value.trim();
+      if (!title || !body) {
+        AdminGuard.showError('Title and message are required');
+        return;
+      }
+      const payload = {
+        title,
+        body,
+        displayMode: document.getElementById('f-display').value,
+        priority: document.getElementById('f-priority').value,
+        audience: document.getElementById('f-audience').value,
+        roles: rolesList(),
+        linkUrl: document.getElementById('f-link').value.trim() || undefined,
+        linkLabel: document.getElementById('f-link-label').value.trim() || undefined,
+      };
+      if (payload.audience === 'partner' && isPlatform) {
+        payload.partnerId = document.getElementById('f-partner').value;
+        if (!payload.partnerId) {
+          AdminGuard.showError('Select a partner workspace');
+          return;
+        }
+      }
+      const ends = document.getElementById('f-ends').value;
+      if (ends) payload.endsAt = new Date(ends).toISOString();
+
+      try {
+        await NeztMateApi.createAnnouncement(payload);
+        AdminGuard.closeModal('compose-modal');
+        AdminGuard.showOk('Announcement published');
+        await load();
+      } catch (e) {
+        AdminGuard.showError(e.message || 'Failed to publish');
+      }
+    }
+
+    document.getElementById('tbody').onclick = async (e) => {
+      const off = e.target.closest('[data-off]');
+      if (off) {
+        e.stopPropagation();
+        const id = off.getAttribute('data-off');
+        if (!confirm('Turn off this announcement?')) return;
+        try {
+          await NeztMateApi.deactivateAnnouncement(id);
+          AdminGuard.showOk('Announcement turned off');
+          await load();
+        } catch (err) {
+          AdminGuard.showError(err.message || 'Failed');
+        }
+        return;
+      }
+      const tr = e.target.closest('tr[data-id]');
+      if (!tr) return;
+      const a = rows.find((x) => x.id === tr.getAttribute('data-id'));
+      if (!a) return;
+      AdminGuard.showDetail({
+        title: a.title,
+        rows: [
+          ['ID', a.id],
+          ['Body', a.body],
+          ['Display', a.displayMode],
+          ['Priority', a.priority],
+          ['Audience', a.audience],
+          ['Partner', a.partnerId],
+          ['Roles', (a.roles || []).join(', ') || 'All'],
+          ['Active', a.isActive],
+          ['Starts', AdminGuard.fmtDate(a.startsAt)],
+          ['Ends', AdminGuard.fmtDate(a.endsAt)],
+          ['Link', a.linkUrl],
+          ['Created', AdminGuard.fmtDate(a.createdAt)],
+        ],
+      });
+    };
+
+    document.getElementById('btn-new').onclick = openCompose;
+    document.getElementById('btn-save').onclick = publish;
+    document.getElementById('btn-refresh').onclick = load;
+    document.getElementById('filter-active').onchange = load;
+    document.getElementById('filter-partner').onchange = load;
+    document.getElementById('f-audience').onchange = syncAudienceFields;
+    document.querySelectorAll('[data-close]').forEach((b) => {
+      b.onclick = () => AdminGuard.closeModal('compose-modal');
+    });
+
+    (async function init() {
+      await loadPartners();
+      await load();
+    })();
+  </script>
+</body>
+</html>

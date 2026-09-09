@@ -9,6 +9,7 @@ import 'package:neztmate_backend/core/services/database/firebase/firebase.dart';
 import 'package:neztmate_backend/core/services/scheduler/schedule_service.dart';
 import 'package:neztmate_backend/features/affiliates/handler/affliate_handler.dart';
 import 'package:neztmate_backend/features/affiliates/repository/affiliate_repository.dart';
+import 'package:neztmate_backend/features/announcement/handler/announcement_handler.dart';
 import 'package:neztmate_backend/features/applications/handler/application_handler.dart';
 import 'package:neztmate_backend/features/auth_user/handler/auth_handler.dart';
 import 'package:neztmate_backend/features/auth_user/handler/user_handler.dart';
@@ -37,6 +38,7 @@ import 'package:neztmate_backend/features/units/handler/unit_handler.dart';
 import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
 import 'package:neztmate_backend/features/verification/handler/verification_handler.dart';
 import 'package:neztmate_backend/routes/affiliate_routes.dart';
+import 'package:neztmate_backend/routes/announcement_routes.dart';
 import 'package:neztmate_backend/routes/applications_routes.dart';
 import 'package:neztmate_backend/routes/auth_routes.dart';
 import 'package:neztmate_backend/routes/community_routes.dart';
@@ -239,8 +241,6 @@ void main() async {
 
   router.mount('/partners/', partnerPublicRoutes(injector<PartnerHandler>()).call);
 
-  
-
   router.mount(
     '/partners/',
     Pipeline()
@@ -256,6 +256,13 @@ void main() async {
   router.mount('/locations/', locationRoutes(LocationHandler()).call);
   // GET /locations/states
   // GET /locations/cities?state=Lagos
+
+  router.mount(
+    '/announcements/',
+    Pipeline()
+        .addMiddleware(authMiddleWare)
+        .addHandler(announcementRoutes(injector<AnnouncementHandler>()).call),
+  );
 
   //  SWAGGER UI SETUP
 
