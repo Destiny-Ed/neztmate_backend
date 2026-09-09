@@ -64,7 +64,6 @@ import 'package:neztmate_backend/routes/verification_routes.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart';
 import 'package:shelf_cors_headers/shelf_cors_headers.dart';
-import 'package:shelf_limiter/shelf_limiter.dart';
 import 'package:shelf_router/shelf_router.dart';
 import 'package:shelf_swagger_ui/shelf_swagger_ui.dart';
 

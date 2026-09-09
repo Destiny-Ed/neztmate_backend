@@ -284,7 +284,7 @@ const Api = {
     return this.request('/announcements/active');
   },
   createAnnouncement(body) {
-    return this.request('/announcements', { method: 'POST', body });
+    return this.request('/announcements/create', { method: 'POST', body });
   },
   updateAnnouncement(id, body) {
     return this.request('/announcements/' + encodeURIComponent(id), {
