@@ -23,8 +23,8 @@
         </div>
       </header>
       <div class="admin-content">
-        <h1 class="page-title">All partners</h1>
-        <p class="page-sub">Activate, suspend, or reset partner admin passwords.</p>
+        <h1 class="page-title">Partners</h1>
+        <p class="page-sub">Manage workspaces, access, and admin passwords.</p>
         <div id="error" class="alert alert-error" style="display:none"></div>
         <div id="info" class="alert alert-ok" style="display:none"></div>
         <div class="toolbar">
@@ -57,43 +57,45 @@
   <div id="reset-modal" class="modal-backdrop hidden">
     <div class="modal">
       <div class="modal-head">
-        <h3>Reset partner admin password</h3><button type="button" class="btn btn-ghost btn-sm" data-close>×</button>
+        <h3>Reset partner admin password</h3>
+        <button type="button" class="btn btn-ghost btn-sm" data-close-reset>×</button>
       </div>
       <div class="modal-body">
         <p class="muted" id="reset-label"></p>
-        <div class="field"><label>Admin email (optional filter)</label><input id="reset-email" type="email" /></div>
+        <div class="field"><label>Admin email (optional)</label><input id="reset-email" type="email" /></div>
         <div class="field"><label>New temporary password</label><input id="reset-password" type="text" minlength="8"
             required /></div>
       </div>
       <div class="modal-foot">
-        <button type="button" class="btn btn-ghost btn-sm" data-close>Cancel</button>
+        <button type="button" class="btn btn-ghost btn-sm" data-close-reset>Cancel</button>
         <button type="button" class="btn btn-primary btn-sm" id="confirm-reset">Reset password</button>
       </div>
     </div>
   </div>
 
-
-  <div class="modal-backdrop" id="limits-modal" style="display:none">
+  <div id="limits-modal" class="modal-backdrop hidden">
     <div class="modal" style="max-width:440px">
       <div class="modal-head">
-        <h3>Partner app limits</h3>
+        <h3>Workspace limits</h3>
         <button type="button" class="btn btn-ghost btn-sm" data-close-limits>×</button>
       </div>
       <div class="modal-body">
         <p class="muted" id="limits-partner-label" style="margin-top:0"></p>
-        <label class="muted" style="display:flex;gap:.5rem;align-items:center;margin:.5rem 0">
+        <label style="display:flex;gap:.5rem;align-items:center;margin:.5rem 0">
           <input type="checkbox" id="lm-app" checked /> App enabled
         </label>
-        <label class="muted" style="display:flex;gap:.5rem;align-items:center;margin:.5rem 0">
+        <label style="display:flex;gap:.5rem;align-items:center;margin:.5rem 0">
           <input type="checkbox" id="lm-subs" checked /> Landowner subscriptions
         </label>
-        <label class="muted" style="display:flex;gap:.5rem;align-items:center;margin:.5rem 0">
+        <label style="display:flex;gap:.5rem;align-items:center;margin:.5rem 0">
           <input type="checkbox" id="lm-applications" checked /> Lease applications
         </label>
-        <div class="field"><label>Max landowners (-1 = ∞)</label><input id="lm-max-lo" type="number" value="-1" /></div>
-        <div class="field"><label>Max properties (-1 = ∞)</label><input id="lm-max-prop" type="number" value="-1" />
+        <div class="field"><label>Max landowners (−1 = unlimited)</label><input id="lm-max-lo" type="number"
+            value="-1" /></div>
+        <div class="field"><label>Max properties (−1 = unlimited)</label><input id="lm-max-prop" type="number"
+            value="-1" /></div>
+        <div class="field"><label>Max units (−1 = unlimited)</label><input id="lm-max-units" type="number" value="-1" />
         </div>
-        <div class="field"><label>Max units (-1 = ∞)</label><input id="lm-max-units" type="number" value="-1" /></div>
       </div>
       <div class="modal-foot">
         <button type="button" class="btn btn-ghost btn-sm" data-close-limits>Cancel</button>
@@ -109,12 +111,17 @@
   <script>
     if (!AdminGuard.requireAuth()) throw 0;
     AdminShell.mount('partners-list.html');
+
     let all = [];
     let resetPartnerId = null;
+    let limitsPartnerId = null;
 
     async function load() {
-      const data = await AdminGuard.api(() => NeztMateApi.listPartners({ activeOnly: 'false' }), { partners: [] });
+      const data = await AdminGuard.api(() => NeztMateApi.listPartners({ activeOnly: 'false' }), {
+        partners: [],
+      });
       all = data.partners || data || [];
+      if (!Array.isArray(all)) all = [];
       render();
     }
 
@@ -129,28 +136,63 @@
         tb.innerHTML = '<tr><td colspan="5" class="empty-state">No partners</td></tr>';
         return;
       }
-      tb.innerHTML = list.map((p) => `
-        <tr>
-          <td>
-            <strong>${AdminGuard.esc(p.name)}</strong>
-            ${p.tagline ? '<br/><span class="muted" style="font-size:.8rem">' + AdminGuard.esc(p.tagline) + '</span>' : ''}
-          </td>
-          <td><code>${AdminGuard.esc(p.slug)}</code></td>
-          <td>${AdminGuard.badge(p.isActive === false ? 'inactive' : 'active')}</td>
-          <td>${AdminGuard.esc(p.supportEmail || '—')}</td>
-          <td class="actions">
-            <button class="btn btn-ghost btn-sm" data-toggle="${AdminGuard.esc(p.id)}" data-active="${p.isActive !== false}">
-              ${p.isActive === false ? 'Activate' : 'Suspend'}
-            </button>
-            <button class="btn btn-ghost btn-sm" data-limits="${AdminGuard.esc(p.id)}">Limits</button>
-            <button class="btn btn-ghost btn-sm" data-reset="${AdminGuard.esc(p.id)}" data-name="${AdminGuard.esc(p.name)}">Reset password</button>
-          </td>
-        </tr>`).join('');
+      tb.innerHTML = list
+        .map((p) => {
+          const L = p.limits || {};
+          const caps =
+            'LO ' +
+            (L.maxLandowners != null ? L.maxLandowners : '∞') +
+            ' · Prop ' +
+            (L.maxProperties != null ? L.maxProperties : '∞');
+          return (
+            '<tr>' +
+            '<td><strong>' +
+            AdminGuard.esc(p.name) +
+            '</strong>' +
+            (p.tagline
+              ? '<br/><span class="muted" style="font-size:.8rem">' +
+              AdminGuard.esc(p.tagline) +
+              '</span>'
+              : '') +
+            '<br/><span class="muted" style="font-size:.75rem">' +
+            AdminGuard.esc(caps) +
+            '</span></td>' +
+            '<td><code>' +
+            AdminGuard.esc(p.slug) +
+            '</code></td>' +
+            '<td>' +
+            AdminGuard.badge(p.isActive === false ? 'inactive' : 'active') +
+            '</td>' +
+            '<td>' +
+            AdminGuard.esc(p.supportEmail || '—') +
+            '</td>' +
+            '<td class="actions">' +
+            '<button class="btn btn-ghost btn-sm" data-toggle="' +
+            AdminGuard.esc(p.id) +
+            '" data-active="' +
+            (p.isActive !== false) +
+            '">' +
+            (p.isActive === false ? 'Activate' : 'Suspend') +
+            '</button> ' +
+            '<button class="btn btn-ghost btn-sm" data-limits="' +
+            AdminGuard.esc(p.id) +
+            '">Limits</button> ' +
+            '<button class="btn btn-ghost btn-sm" data-reset="' +
+            AdminGuard.esc(p.id) +
+            '" data-name="' +
+            AdminGuard.esc(p.name) +
+            '">Reset password</button>' +
+            '</td></tr>'
+          );
+        })
+        .join('');
     }
 
     document.getElementById('tbody').onclick = async (e) => {
       const tog = e.target.closest('[data-toggle]');
       const rst = e.target.closest('[data-reset]');
+      const lim = e.target.closest('[data-limits]');
+
       if (tog) {
         const id = tog.getAttribute('data-toggle');
         const currentlyActive = tog.getAttribute('data-active') === 'true';
@@ -161,12 +203,56 @@
         } catch (err) {
           AdminGuard.showError(err.message);
         }
+        return;
       }
+
+      if (lim) {
+        limitsPartnerId = lim.getAttribute('data-limits');
+        const p = all.find((x) => x.id === limitsPartnerId) || {};
+        const L = p.limits || {};
+        document.getElementById('limits-partner-label').textContent = p.name || p.slug || limitsPartnerId;
+        document.getElementById('lm-app').checked = L.appEnabled !== false && p.isActive !== false;
+        document.getElementById('lm-subs').checked = L.subscriptionsEnabled !== false;
+        document.getElementById('lm-applications').checked = L.applicationsEnabled !== false;
+        document.getElementById('lm-max-lo').value = L.maxLandowners != null ? L.maxLandowners : -1;
+        document.getElementById('lm-max-prop').value = L.maxProperties != null ? L.maxProperties : -1;
+        document.getElementById('lm-max-units').value = L.maxUnits != null ? L.maxUnits : -1;
+        AdminGuard.openModal('limits-modal');
+        return;
+      }
+
       if (rst) {
         resetPartnerId = rst.getAttribute('data-reset');
         document.getElementById('reset-label').textContent = 'Partner: ' + rst.getAttribute('data-name');
         document.getElementById('reset-password').value = '';
+        document.getElementById('reset-email').value = '';
         AdminGuard.openModal('reset-modal');
+      }
+    };
+
+    document.getElementById('lm-save').onclick = async () => {
+      if (!limitsPartnerId) return;
+      const appEnabled = document.getElementById('lm-app').checked;
+      try {
+        await NeztMateApi.updatePartner(limitsPartnerId, {
+          isActive: appEnabled,
+          limits: {
+            appEnabled: appEnabled,
+            subscriptionsEnabled: document.getElementById('lm-subs').checked,
+            applicationsEnabled: document.getElementById('lm-applications').checked,
+            maxLandowners: Number(document.getElementById('lm-max-lo').value),
+            maxProperties: Number(document.getElementById('lm-max-prop').value),
+            maxUnits: Number(document.getElementById('lm-max-units').value),
+          },
+        });
+        try {
+          await NeztMateApi.setPartnerStatus(limitsPartnerId, { isActive: appEnabled });
+        } catch (_) { }
+        AdminGuard.showOk('Limits saved');
+        AdminGuard.closeModal('limits-modal');
+        load();
+      } catch (err) {
+        AdminGuard.showError(err.message || 'Failed to save limits');
       }
     };
 
@@ -182,14 +268,17 @@
           adminEmail: document.getElementById('reset-email').value.trim() || undefined,
         });
         AdminGuard.closeModal('reset-modal');
-        AdminGuard.showOk('Password reset. Share the new password securely.');
+        AdminGuard.showOk('Password reset');
       } catch (err) {
         AdminGuard.showError(err.message);
       }
     };
 
-    document.querySelectorAll('[data-close]').forEach((b) => {
+    document.querySelectorAll('[data-close-reset]').forEach((b) => {
       b.onclick = () => AdminGuard.closeModal('reset-modal');
+    });
+    document.querySelectorAll('[data-close-limits]').forEach((b) => {
+      b.onclick = () => AdminGuard.closeModal('limits-modal');
     });
     document.getElementById('q').oninput = render;
     load();

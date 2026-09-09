@@ -409,8 +409,21 @@ class PartnerHandler {
       var partner = await partnerRepository.getPartnerById(id);
 
       if (partner == null) {
+        // optional: resolve by slug
+        partner = await partnerRepository.getPartnerBySlug(id);
+      }
+      if (partner == null) {
         return _json({'message': 'Partner not found'}, status: 404);
       }
+
+      Map<String, dynamic>? nextLimits;
+      if (body['limits'] is Map) {
+        nextLimits = Map<String, dynamic>.from(body['limits'] as Map);
+        // merge with existing so partial updates don't wipe keys
+        nextLimits = {...partner.limits, ...nextLimits};
+      }
+
+      final isActive = body['isActive'] as bool?;
 
       partner = partner.copyWith(
         name: (body['name'] as String?)?.trim() ?? partner.name,
@@ -422,12 +435,23 @@ class PartnerHandler {
         supportPhone: body['supportPhone'] as String? ?? partner.supportPhone,
         website: body['website'] as String? ?? partner.website,
         domain: body['domain'] as String? ?? partner.domain,
+        isActive: isActive ?? partner.isActive,
         features: body['features'] != null
             ? Map<String, dynamic>.from(body['features'] as Map)
             : partner.features,
         fees: body['fees'] != null ? Map<String, dynamic>.from(body['fees'] as Map) : partner.fees,
+        limits: nextLimits ?? partner.limits,
         updatedAt: DateTime.now(),
       );
+
+      // Keep limits.appEnabled in sync with isActive when platform toggles app
+      if (isActive != null || nextLimits != null) {
+        final L = Map<String, dynamic>.from(partner.limits);
+        if (isActive != null) {
+          L['appEnabled'] = isActive;
+        }
+        partner = partner.copyWith(limits: L);
+      }
 
       final updated = await partnerRepository.updatePartner(partner);
       return _json({'message': 'Partner updated', 'partner': updated.toMap()});
@@ -527,6 +551,16 @@ class PartnerHandler {
               isActive: true,
               createdAt: DateTime.now(),
               updatedAt: DateTime.now(),
+              limits: body['limits'] is Map
+                  ? Map<String, dynamic>.from(body['limits'] as Map)
+                  : {
+                      'appEnabled': true,
+                      'subscriptionsEnabled': true,
+                      'applicationsEnabled': true,
+                      'maxLandowners': -1,
+                      'maxProperties': -1,
+                      'maxUnits': -1,
+                    },
             ),
           );
         } on ValidationException {
@@ -659,6 +693,16 @@ class PartnerHandler {
           isActive: true,
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
+          limits: body['limits'] is Map
+              ? Map<String, dynamic>.from(body['limits'] as Map)
+              : {
+                  'appEnabled': true,
+                  'subscriptionsEnabled': true,
+                  'applicationsEnabled': true,
+                  'maxLandowners': -1,
+                  'maxProperties': -1,
+                  'maxUnits': -1,
+                },
         ),
       );
 
@@ -740,6 +784,16 @@ class PartnerHandler {
           isActive: true,
           createdAt: DateTime.now(),
           updatedAt: DateTime.now(),
+          limits: body['limits'] is Map
+              ? Map<String, dynamic>.from(body['limits'] as Map)
+              : {
+                  'appEnabled': true,
+                  'subscriptionsEnabled': true,
+                  'applicationsEnabled': true,
+                  'maxLandowners': -1,
+                  'maxProperties': -1,
+                  'maxUnits': -1,
+                },
         ),
       );
 

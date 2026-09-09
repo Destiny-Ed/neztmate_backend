@@ -20,113 +20,125 @@
                 <button type="button" class="theme-toggle" id="theme-toggle">🌙</button>
             </header>
             <div class="admin-content billing-page">
-                <h1 class="page-title">Billing &amp; plans</h1>
-                <p class="page-sub" id="page-sub">Landowner subscription plans for this workspace.</p>
+                <h1 class="page-title">Plans for landowners</h1>
+                <p class="page-sub" id="page-sub">Create and manage subscription plans landowners can buy in your
+                    workspace.</p>
                 <div id="error" class="alert alert-error" style="display:none"></div>
                 <div id="info" class="alert alert-ok" style="display:none"></div>
 
-                <!-- Platform: partner scope + partner app limits -->
-                <div class="toolbar" id="platform-toolbar" style="display:none">
+                <!-- Platform toolbar -->
+                <div class="toolbar" id="platform-toolbar"
+                    style="display:none;flex-wrap:wrap;gap:.75rem;align-items:center">
                     <label class="muted" style="font-size:.85rem">Workspace</label>
                     <select id="partner-select" class="search" style="max-width:260px">
                         <option value="">Select partner…</option>
                     </select>
-                    <button type="button" class="btn btn-primary btn-sm" id="btn-new-plan">New landowner plan</button>
-                    <button type="button" class="btn btn-ghost btn-sm" id="btn-partner-limits">Partner app
-                        limits</button>
+                    <button type="button" class="btn btn-primary btn-sm" id="btn-new-plan">New plan</button>
+                    <button type="button" class="btn btn-ghost btn-sm" id="btn-partner-limits">Workspace limits</button>
                     <button type="button" class="btn btn-ghost btn-sm" id="refresh">Refresh</button>
                 </div>
 
-                <div class="panel" id="partner-limits-panel" style="display:none;margin-bottom:1.25rem">
-                    <div class="panel-head">
-                        <h3>Partner app limits (platform → partner)</h3>
-                    </div>
-                    <div class="panel-body" id="partner-limits-body">
-                        <p class="muted" style="margin-top:0">Controls whether this partner’s app is live and high-level
-                            caps. Separate from landowner plans below.</p>
-                        <label class="muted" style="display:flex;gap:.5rem;align-items:center;margin:.5rem 0">
-                            <input type="checkbox" id="pl-app-enabled" checked /> App enabled (partners / users can sign
-                            in)
-                        </label>
-                        <label class="muted" style="display:flex;gap:.5rem;align-items:center;margin:.5rem 0">
-                            <input type="checkbox" id="pl-subs-enabled" checked /> Landowner subscriptions enabled
-                        </label>
-                        <label class="muted" style="display:flex;gap:.5rem;align-items:center;margin:.5rem 0">
-                            <input type="checkbox" id="pl-apps-enabled" checked /> Lease applications enabled
-                        </label>
-                        <div class="field"><label>Max landowners (-1 unlimited)</label><input id="pl-max-landowners"
-                                type="number" value="-1" /></div>
-                        <div class="field"><label>Max properties across workspace (-1 unlimited)</label><input
-                                id="pl-max-properties" type="number" value="-1" /></div>
-                        <div class="field"><label>Max units across workspace (-1 unlimited)</label><input
-                                id="pl-max-units" type="number" value="-1" /></div>
-                        <button type="button" class="btn btn-primary btn-sm" id="pl-save">Save partner limits</button>
-                    </div>
-                </div>
-
-                <!-- Partner admin: catalog only (no self-subscribe) -->
-                <div class="panel" style="margin-bottom:1.25rem;display:none" id="status-panel"></div>
-
-                <div class="toolbar" id="partner-cycle-bar" style="display:none">
+                <!-- Partner admin toolbar -->
+                <div class="toolbar" id="partner-toolbar"
+                    style="display:none;flex-wrap:wrap;gap:.75rem;align-items:center">
+                    <button type="button" class="btn btn-primary btn-sm" id="btn-new-plan-partner">New plan</button>
                     <button type="button" class="btn btn-ghost btn-sm" id="refresh-partner">Refresh</button>
                 </div>
 
-                <h2 class="page-title" style="font-size:1.1rem;margin:1rem 0 .75rem" id="plans-heading">Landowner plans
-                </h2>
-                <p class="muted" id="plans-note" style="margin:-0.5rem 0 1rem;font-size:.9rem"></p>
-                <div class="grid-3" id="plans-grid">
+                <!-- Platform: workspace limits panel -->
+                <div class="panel" id="partner-limits-panel" style="display:none;margin:1rem 0 1.25rem">
+                    <div class="panel-head"
+                        style="display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap">
+                        <h3 style="margin:0">Workspace limits</h3>
+                        <span class="muted" style="font-size:.85rem" id="limits-workspace-label"></span>
+                    </div>
+                    <div class="panel-body" style="display:grid;gap:.75rem;max-width:520px">
+                        <p class="muted" style="margin:0">Controls access for this partner brand. Separate from
+                            landowner plan prices below.</p>
+                        <label style="display:flex;gap:.5rem;align-items:center"><input type="checkbox"
+                                id="pl-app-enabled" checked /> App enabled</label>
+                        <label style="display:flex;gap:.5rem;align-items:center"><input type="checkbox"
+                                id="pl-subs-enabled" checked /> Landowner subscriptions enabled</label>
+                        <label style="display:flex;gap:.5rem;align-items:center"><input type="checkbox"
+                                id="pl-apps-enabled" checked /> Lease applications enabled</label>
+                        <div class="field"><label>Max landowners (−1 = unlimited)</label><input id="pl-max-landowners"
+                                type="number" value="-1" /></div>
+                        <div class="field"><label>Max properties (−1 = unlimited)</label><input id="pl-max-properties"
+                                type="number" value="-1" /></div>
+                        <div class="field"><label>Max units (−1 = unlimited)</label><input id="pl-max-units"
+                                type="number" value="-1" /></div>
+                        <div>
+                            <button type="button" class="btn btn-primary btn-sm" id="pl-save">Save limits</button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="toolbar" style="margin-top:.5rem;align-items:center;gap:.75rem">
+                    <span class="muted" style="font-size:.85rem">Price display</span>
+                    <select id="cycle" class="search" style="max-width:140px">
+                        <option value="monthly">Monthly</option>
+                        <option value="yearly">Yearly</option>
+                    </select>
+                </div>
+
+                <div class="grid-3" id="plans-grid" style="margin-top:1rem">
                     <div class="card empty-state" style="grid-column:1/-1">Loading…</div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- Create / edit plan modal -->
     <div id="plan-modal" class="modal-backdrop hidden">
-        <div class="modal" style="max-width:440px">
+        <div class="modal" style="max-width:480px">
             <div class="modal-head">
                 <h3 id="plan-modal-title">New plan</h3>
                 <button type="button" class="btn btn-ghost btn-sm" data-close-plan>×</button>
             </div>
             <div class="modal-body">
-                <div class="field"><label>Name (id)</label>
+                <div class="field"><label>Plan</label>
                     <select id="plan-name">
-                        <option value="free">free</option>
-                        <option value="basic">basic</option>
-                        <option value="pro">pro</option>
-                        <option value="premium">premium</option>
-                        <option value="business">business</option>
-                        <option value="enterprise">enterprise</option>
+                        <option value="free">Free</option>
+                        <option value="basic">Basic</option>
+                        <option value="pro">Pro</option>
+                        <option value="premium">Premium</option>
+                        <option value="business">Business</option>
+                        <option value="enterprise">Enterprise</option>
                     </select>
                 </div>
                 <div class="field"><label>Description</label>
                     <textarea id="plan-description" rows="2"
-                        placeholder="Short plan summary for pricing page"></textarea>
+                        placeholder="Shown on pricing / subscribe pages"></textarea>
                 </div>
-                <div class="field"><label>Monthly price (₦)</label><input id="plan-monthly" type="number" min="0"
-                        step="1" value="0" /></div>
-                <div class="field"><label>Yearly price (₦)</label><input id="plan-yearly" type="number" min="0" step="1"
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+                    <div class="field"><label>Monthly (₦)</label><input id="plan-monthly" type="number" min="0" step="1"
+                            value="0" /></div>
+                    <div class="field"><label>Yearly (₦)</label><input id="plan-yearly" type="number" min="0" step="1"
+                            value="0" /></div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+                    <div class="field"><label>Max units (−1 ∞)</label><input id="plan-max-units" type="number"
+                            value="3" /></div>
+                    <div class="field"><label>Max listings (−1 ∞)</label><input id="plan-max" type="number" value="3" />
+                    </div>
+                </div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:.75rem">
+                    <div class="field"><label>Max properties (−1 ∞)</label><input id="plan-max-properties" type="number"
+                            value="1" /></div>
+                    <div class="field"><label>Max managers (0 off)</label><input id="plan-max-managers" type="number"
+                            value="0" /></div>
+                </div>
+                <div class="field"><label>Max artisans (0 off, −1 ∞)</label><input id="plan-max-artisans" type="number"
                         value="0" /></div>
-                <div class="field"><label>Max units (-1 = unlimited)</label><input id="plan-max-units" type="number"
-                        value="3" /></div>
-                <div class="field"><label>Max listings (-1 = unlimited)</label><input id="plan-max" type="number"
-                        value="3" /></div>
-                <div class="field"><label>Max properties (-1 = unlimited)</label><input id="plan-max-properties"
-                        type="number" value="1" /></div>
-                <div class="field"><label>Max managers (0 = off, -1 = unlimited)</label><input id="plan-max-managers"
-                        type="number" value="0" /></div>
-                <div class="field"><label>Max artisans (0 = off, -1 = unlimited)</label><input id="plan-max-artisans"
-                        type="number" value="0" /></div>
-                <label class="muted" style="display:flex;gap:.5rem;align-items:center;margin:.4rem 0"><input
-                        type="checkbox" id="plan-agent" /> Agent assignment</label>
-                <label class="muted" style="display:flex;gap:.5rem;align-items:center;margin:.4rem 0"><input
-                        type="checkbox" id="plan-screening" /> Advanced screening</label>
-                <label class="muted" style="display:flex;gap:.5rem;align-items:center;margin:.4rem 0"><input
-                        type="checkbox" id="plan-analytics" /> Analytics</label>
-                <label class="muted" style="display:flex;gap:.5rem;align-items:center;margin:.4rem 0"><input
-                        type="checkbox" id="plan-support" /> Priority support</label>
-                <label class="muted" style="display:flex;gap:.5rem;align-items:center;margin:.4rem 0"><input
-                        type="checkbox" id="plan-active" checked /> Active (shown on pricing)</label>
+                <label style="display:flex;gap:.5rem;align-items:center;margin:.35rem 0"><input type="checkbox"
+                        id="plan-agent" /> Manager / artisan invites</label>
+                <label style="display:flex;gap:.5rem;align-items:center;margin:.35rem 0"><input type="checkbox"
+                        id="plan-screening" /> Advanced screening</label>
+                <label style="display:flex;gap:.5rem;align-items:center;margin:.35rem 0"><input type="checkbox"
+                        id="plan-analytics" /> Analytics</label>
+                <label style="display:flex;gap:.5rem;align-items:center;margin:.35rem 0"><input type="checkbox"
+                        id="plan-support" /> Priority support</label>
+                <label style="display:flex;gap:.5rem;align-items:center;margin:.35rem 0"><input type="checkbox"
+                        id="plan-active" checked /> Active</label>
             </div>
             <div class="modal-foot">
                 <button type="button" class="btn btn-ghost btn-sm" data-close-plan>Cancel</button>
@@ -145,25 +157,17 @@
 
         const isPlatform = AdminGuard.isPlatform();
         let plans = [];
-        let current = null;
         let partners = [];
         let editingPlanId = null;
 
-        document.getElementById('page-sub').textContent = isPlatform
-            ? 'Landowner plans (sold to property owners) and partner-level app limits for each workspace.'
-            : 'Landowner plan catalog for your brand. Landowners subscribe in the mobile app or /subscribe.html — partner admins do not subscribe here.';
-
         if (isPlatform) {
             document.getElementById('platform-toolbar').style.display = 'flex';
-            document.getElementById('plans-heading').textContent = 'Landowner plans for selected workspace';
-            document.getElementById('plans-note').textContent =
-                'These plans are for landowners. Partner app on/off and workspace caps are under Partner app limits.';
+            document.getElementById('page-sub').textContent =
+                'Manage landowner plans per partner workspace. Use Workspace limits to enable or cap a partner brand.';
         } else {
-            document.getElementById('status-panel').style.display = 'block';
-            document.getElementById('partner-cycle-bar').style.display = 'flex';
-            document.getElementById('plans-heading').textContent = 'Landowner plan catalog';
-            document.getElementById('plans-note').textContent =
-                'View-only for partner admins. Landowners buy these plans; you do not subscribe as partner admin.';
+            document.getElementById('partner-toolbar').style.display = 'flex';
+            document.getElementById('page-sub').textContent =
+                'Plans landowners can subscribe to in your app. You manage the catalog; landowners purchase from the mobile app.';
         }
 
         function money(n) {
@@ -181,81 +185,32 @@
             const payload = NeztMateApi.getTokenPayload() || {};
             return u.partnerId || payload.partnerId || '';
         }
+        function canManagePlans() {
+            return isPlatform || !isPlatform; // both platform + partner admin
+        }
 
-        function paintStatus() {
-            if (isPlatform) return;
-            const el = document.getElementById('status-panel');
-            // Partner admin is not the subscriber — landowner plans only
-            el.innerHTML =
-                '<h3 style="margin:0 0 .35rem">Landowner billing</h3>' +
-                '<p class="muted" style="margin:0">Plans below are sold to <strong>landowners</strong> in your workspace. ' +
-                'They subscribe in the app or on the public subscribe page. ' +
-                'Partner-level access (app on/off) is controlled by the platform.</p>';
-            return;
-            if (!current || !current.planId) {
-                el.innerHTML =
-                    '<h3 style="margin:0 0 .35rem">No active paid plan</h3><p class="muted" style="margin:0">You are on the free tier. Choose a plan below to upgrade.</p>';
-                return;
-            }
-            const st = String(current.status || '').toLowerCase();
-            el.innerHTML =
-                '<div style="display:flex;flex-wrap:wrap;gap:1rem;justify-content:space-between;align-items:flex-start">' +
-                '<div><h3 style="margin:0 0 .35rem">Current: <span style="text-transform:capitalize">' +
-                AdminGuard.esc(current.planId) +
-                '</span></h3><p style="margin:0">' +
-                AdminGuard.badge(current.status) +
-                ' <span class="muted">' +
-                AdminGuard.esc(current.billingCycle || '') +
-                '</span></p><p class="muted" style="margin:.5rem 0 0;font-size:.9rem">' +
-                (st === 'cancelled' ? 'Access until' : 'Ends') +
-                ': <strong>' +
-                (current.endDate ? new Date(current.endDate).toLocaleDateString() : '—') +
-                '</strong></p></div>' +
-                (st === 'active'
-                    ? '<button type="button" class="btn btn-ghost btn-sm" id="btn-cancel">Cancel at period end</button>'
-                    : '') +
-                '</div>';
-            const cancelBtn = document.getElementById('btn-cancel');
-            if (cancelBtn) {
-                cancelBtn.onclick = async () => {
-                    if (!confirm('Cancel subscription? Access continues until the period ends.')) return;
-                    try {
-                        const res = await NeztMateApi.cancelSubscription();
-                        AdminGuard.showOk(res.message || 'Cancellation scheduled');
-                        await loadPartner();
-                    } catch (e) {
-                        AdminGuard.showError(e.message || 'Cancel failed');
-                    }
-                };
-            }
+        function lim(n, label) {
+            if (n === -1 || n === '-1') return 'Unlimited ' + label;
+            if (n === 0 || n === '0') return null;
+            if (n == null) return null;
+            return 'Up to ' + n + ' ' + label;
         }
 
         function paintPlans() {
             const grid = document.getElementById('plans-grid');
+            if (!selectedPartnerId() && isPlatform) {
+                grid.innerHTML =
+                    '<div class="card empty-state" style="grid-column:1/-1">Select a workspace to view plans.</div>';
+                return;
+            }
             if (!plans.length) {
                 grid.innerHTML =
-                    '<div class="card empty-state" style="grid-column:1/-1">' +
-                    (isPlatform
-                        ? 'No plans for this workspace yet. Click <strong>New plan</strong> to create one.'
-                        : 'No plans available yet. Contact support if this persists.') +
-                    '</div>';
+                    '<div class="card empty-state" style="grid-column:1/-1">No plans yet. Click <strong>New plan</strong> to create one.</div>';
                 return;
             }
             grid.innerHTML = plans
                 .map((p) => {
                     const price = priceOf(p);
-                    const cur =
-                        !isPlatform &&
-                        current &&
-                        String(current.status).toLowerCase() === 'active' &&
-                        (String(current.planId).toLowerCase() === String(p.id).toLowerCase() ||
-                            String(current.planId).toLowerCase() === String(p.name).toLowerCase());
-                    function lim(n, label) {
-                        if (n === -1 || n === '-1') return 'Unlimited ' + label;
-                        if (n === 0 || n === '0') return null;
-                        if (n == null) return null;
-                        return 'Up to ' + n + ' ' + label;
-                    }
                     const feats = [
                         p.description || null,
                         lim(p.maxUnits != null ? p.maxUnits : p.maxListings, 'units'),
@@ -263,36 +218,32 @@
                         lim(p.maxProperties, 'properties'),
                         lim(p.maxManagers, 'managers'),
                         lim(p.maxArtisans, 'artisans'),
-                        p.hasAgentAssignment ? 'Agent assignment' : null,
+                        p.hasAgentAssignment ? 'Team invites' : null,
                         p.hasAdvancedScreening ? 'Advanced screening' : null,
                         p.hasAnalytics ? 'Analytics' : null,
                         p.hasPrioritySupport ? 'Priority support' : null,
                         p.isActive === false ? 'Inactive' : null,
                     ].filter(Boolean);
 
-                    let actions = '';
-                    if (isPlatform) {
-                        actions =
-                            '<div style="display:flex;gap:.4rem;margin-top:auto">' +
-                            '<button type="button" class="btn btn-ghost btn-sm" data-edit="' +
-                            AdminGuard.esc(p.id) +
-                            '">Edit</button>' +
-                            '<button type="button" class="btn btn-ghost btn-sm" data-delete="' +
-                            AdminGuard.esc(p.id) +
-                            '">Delete</button>' +
-                            '</div>';
-                    } else {
-                        // Partner admin: catalog only — no self-subscribe
-                        actions =
-                            '<p class="muted" style="margin-top:auto;font-size:.8rem">For landowners only</p>';
-                    }
+                    const actions =
+                        '<div style="display:flex;gap:.4rem;margin-top:auto;flex-wrap:wrap">' +
+                        '<button type="button" class="btn btn-ghost btn-sm" data-edit="' +
+                        AdminGuard.esc(p.id) +
+                        '">Edit</button>' +
+                        '<button type="button" class="btn btn-ghost btn-sm" data-delete="' +
+                        AdminGuard.esc(p.id) +
+                        '">Deactivate</button>' +
+                        '</div>';
 
                     return (
-                        '<div class="card" style="display:flex;flex-direction:column">' +
-                        '<h3 style="margin:0 0 .25rem;text-transform:capitalize">' +
+                        '<div class="card" style="display:flex;flex-direction:column;gap:.35rem">' +
+                        '<div style="display:flex;justify-content:space-between;gap:.5rem;align-items:flex-start">' +
+                        '<h3 style="margin:0;text-transform:capitalize">' +
                         AdminGuard.esc(p.name || p.id) +
                         '</h3>' +
-                        '<p style="margin:0 0 .75rem;font-size:1.25rem;font-weight:800">' +
+                        (p.isActive === false ? AdminGuard.badge('inactive') : AdminGuard.badge('active')) +
+                        '</div>' +
+                        '<p style="margin:0;font-size:1.25rem;font-weight:800">' +
                         (price === 0 ? 'Free' : money(price)) +
                         (price > 0
                             ? ' <span class="muted" style="font-size:.8rem;font-weight:500">/' +
@@ -300,7 +251,7 @@
                             '</span>'
                             : '') +
                         '</p>' +
-                        '<ul style="margin:0 0 1rem;padding-left:1.1rem;font-size:.9rem">' +
+                        '<ul style="margin:0 0 .5rem;padding-left:1.1rem;font-size:.9rem">' +
                         feats.map((f) => '<li>' + AdminGuard.esc(f) + '</li>').join('') +
                         '</ul>' +
                         actions +
@@ -334,7 +285,7 @@
         async function savePlan() {
             const partnerId = selectedPartnerId();
             if (!partnerId) {
-                AdminGuard.showError('Select a partner workspace first');
+                AdminGuard.showError(isPlatform ? 'Select a workspace first' : 'Workspace missing from your account');
                 return;
             }
             const body = {
@@ -363,14 +314,13 @@
                     AdminGuard.showOk('Plan created');
                 }
                 AdminGuard.closeModal('plan-modal');
-                await loadPlatform();
+                await reloadPlans();
             } catch (e) {
-                AdminGuard.showError(e.message || 'Save failed');
+                AdminGuard.showError(e.message || 'Failed to save plan');
             }
         }
 
-        async function loadPlatform() {
-            AdminGuard.clearAlerts();
+        async function reloadPlans() {
             const partnerId = selectedPartnerId();
             if (!partnerId) {
                 plans = [];
@@ -381,29 +331,49 @@
                 () => NeztMateApi.getSubscriptionPlans({ partnerId }),
                 { plans: [] }
             );
-            plans = data.plans || [];
+            plans = data.plans || data || [];
             if (!Array.isArray(plans)) plans = [];
-            plans.sort((a, b) => Number(a.monthlyPrice || 0) - Number(b.monthlyPrice || 0));
             paintPlans();
         }
 
-        async function loadPartner() {
-            AdminGuard.clearAlerts();
-            const [plansRes, subRes] = await Promise.all([
-                AdminGuard.api(() => NeztMateApi.getSubscriptionPlans(), { plans: [] }),
-                AdminGuard.api(() => NeztMateApi.getMySubscription(), {}),
-            ]);
-            plans = plansRes.plans || [];
-            if (!Array.isArray(plans)) plans = [];
-            plans.sort((a, b) => Number(a.monthlyPrice || 0) - Number(b.monthlyPrice || 0));
-            current = subRes.subscription || (subRes.planId ? subRes : null);
-            if (subRes.status === 'free') current = null;
-            paintStatus();
-            paintPlans();
+        function limitsOf(p) {
+            const L = (p && p.limits) || {};
+            return {
+                appEnabled: L.appEnabled !== false && p.isActive !== false,
+                subscriptionsEnabled: L.subscriptionsEnabled !== false,
+                applicationsEnabled: L.applicationsEnabled !== false,
+                maxLandowners: L.maxLandowners != null ? L.maxLandowners : -1,
+                maxProperties: L.maxProperties != null ? L.maxProperties : -1,
+                maxUnits: L.maxUnits != null ? L.maxUnits : -1,
+            };
+        }
+
+        async function loadPartnerLimitsForm() {
+            const partnerId = selectedPartnerId();
+            if (!partnerId) return;
+            let p = partners.find((x) => x.id === partnerId);
+            if (!p) {
+                try {
+                    const one = await NeztMateApi.getPartnerById(partnerId);
+                    p = one.partner || one;
+                } catch (_) {
+                    p = {};
+                }
+            }
+            const L = limitsOf(p || {});
+            document.getElementById('limits-workspace-label').textContent = p.name || p.slug || partnerId;
+            document.getElementById('pl-app-enabled').checked = L.appEnabled;
+            document.getElementById('pl-subs-enabled').checked = L.subscriptionsEnabled;
+            document.getElementById('pl-apps-enabled').checked = L.applicationsEnabled;
+            document.getElementById('pl-max-landowners').value = L.maxLandowners;
+            document.getElementById('pl-max-properties').value = L.maxProperties;
+            document.getElementById('pl-max-units').value = L.maxUnits;
         }
 
         async function loadPartnersList() {
-            const data = await AdminGuard.api(() => NeztMateApi.listPartners(), { partners: [] });
+            const data = await AdminGuard.api(() => NeztMateApi.listPartners({ activeOnly: 'false' }), {
+                partners: [],
+            });
             partners = data.partners || data || [];
             if (!Array.isArray(partners)) partners = [];
             const sel = document.getElementById('partner-select');
@@ -415,74 +385,58 @@
                             '<option value="' +
                             AdminGuard.esc(p.id) +
                             '">' +
-                            AdminGuard.esc(p.name || p.slug || p.id) +
+                            AdminGuard.esc(p.name || p.slug) +
                             '</option>'
                     )
                     .join('');
-            // Prefer neztmate / first active
-            const main = partners.find((p) => String(p.slug).toLowerCase() === 'neztmate') || partners[0];
+            const main =
+                partners.find((p) => String(p.slug).toLowerCase() === 'neztmate') || partners[0];
             if (main) {
                 sel.value = main.id;
-                await loadPlatform();
+                await reloadPlans();
             }
         }
 
         document.getElementById('plans-grid').onclick = async (e) => {
-            const sub = e.target.closest('[data-subscribe]');
             const edit = e.target.closest('[data-edit]');
             const del = e.target.closest('[data-delete]');
-
-            if (sub && !isPlatform) {
-                const planId = sub.getAttribute('data-subscribe');
-                if (!confirm('Continue with plan "' + planId + '"?')) return;
-                try {
-                    const res = await NeztMateApi.subscribeToPlan({ planId, billingCycle: cycle() });
-                    if (res.requiresPayment && res.authorizationUrl) {
-                        AdminGuard.showOk('Complete payment in the Paystack window.');
-                        window.open(res.authorizationUrl, '_blank', 'noopener');
-                    } else {
-                        AdminGuard.showOk(res.message || 'Plan activated');
-                        await loadPartner();
-                    }
-                } catch (err) {
-                    AdminGuard.showError(err.message || 'Subscribe failed');
-                }
-                return;
-            }
-
-            if (edit && isPlatform) {
+            if (edit) {
                 const id = edit.getAttribute('data-edit');
-                const plan = plans.find((p) => p.id === id);
-                openPlanModal(plan);
+                openPlanModal(plans.find((p) => p.id === id));
                 return;
             }
-
-            if (del && isPlatform) {
+            if (del) {
                 const id = del.getAttribute('data-delete');
-                if (!confirm('Deactivate / delete plan "' + id + '"?')) return;
+                if (!confirm('Deactivate plan "' + id + '"?')) return;
                 try {
                     await NeztMateApi.deleteSubscriptionPlan(id, { partnerId: selectedPartnerId() });
-                    AdminGuard.showOk('Plan removed');
-                    await loadPlatform();
+                    AdminGuard.showOk('Plan deactivated');
                 } catch (err) {
-                    // Fallback: soft-deactivate via PATCH if DELETE not implemented
                     try {
                         await NeztMateApi.updateSubscriptionPlan(id, {
                             isActive: false,
                             partnerId: selectedPartnerId(),
                         });
                         AdminGuard.showOk('Plan deactivated');
-                        await loadPlatform();
                     } catch (e2) {
-                        AdminGuard.showError(err.message || e2.message || 'Delete failed');
+                        AdminGuard.showError(err.message || e2.message || 'Failed');
+                        return;
                     }
                 }
+                await reloadPlans();
             }
         };
 
         document.getElementById('btn-new-plan')?.addEventListener('click', () => {
             if (!selectedPartnerId()) {
-                AdminGuard.showError('Select a partner first');
+                AdminGuard.showError('Select a workspace first');
+                return;
+            }
+            openPlanModal(null);
+        });
+        document.getElementById('btn-new-plan-partner')?.addEventListener('click', () => {
+            if (!selectedPartnerId()) {
+                AdminGuard.showError('Workspace missing from your session');
                 return;
             }
             openPlanModal(null);
@@ -491,19 +445,63 @@
         document.querySelectorAll('[data-close-plan]').forEach((b) => {
             b.onclick = () => AdminGuard.closeModal('plan-modal');
         });
-        document.getElementById('partner-select')?.addEventListener('change', loadPlatform);
-        document.getElementById('refresh')?.addEventListener('click', loadPlatform);
-        document.getElementById('refresh-partner')?.addEventListener('click', loadPartner);
-        document.getElementById('cycle')?.addEventListener('change', paintPlans);
-        document.addEventListener('visibilitychange', () => {
-            if (document.visibilityState === 'visible') {
-                if (isPlatform) loadPlatform();
-                else loadPartner();
+
+        document.getElementById('btn-partner-limits')?.addEventListener('click', async () => {
+            if (!selectedPartnerId()) {
+                AdminGuard.showError('Select a workspace first');
+                return;
+            }
+            const panel = document.getElementById('partner-limits-panel');
+            const show = panel.style.display === 'none' || !panel.style.display;
+            panel.style.display = show ? 'block' : 'none';
+            if (show) await loadPartnerLimitsForm();
+        });
+
+        document.getElementById('pl-save')?.addEventListener('click', async () => {
+            const partnerId = selectedPartnerId();
+            if (!partnerId) return;
+            AdminGuard.clearAlerts();
+            const appEnabled = document.getElementById('pl-app-enabled').checked;
+            const body = {
+                isActive: appEnabled,
+                limits: {
+                    appEnabled: appEnabled,
+                    subscriptionsEnabled: document.getElementById('pl-subs-enabled').checked,
+                    applicationsEnabled: document.getElementById('pl-apps-enabled').checked,
+                    maxLandowners: Number(document.getElementById('pl-max-landowners').value),
+                    maxProperties: Number(document.getElementById('pl-max-properties').value),
+                    maxUnits: Number(document.getElementById('pl-max-units').value),
+                },
+            };
+            try {
+                await NeztMateApi.updatePartner(partnerId, body);
+                // also try status endpoint if backend splits isActive
+                try {
+                    await NeztMateApi.setPartnerStatus(partnerId, { isActive: appEnabled });
+                } catch (_) { }
+                AdminGuard.showOk('Workspace limits saved');
+                const data = await AdminGuard.api(() => NeztMateApi.listPartners({ activeOnly: 'false' }), {
+                    partners: [],
+                });
+                partners = data.partners || data || [];
+                await loadPartnerLimitsForm();
+            } catch (e) {
+                AdminGuard.showError(e.message || 'Failed to save limits');
             }
         });
 
+        document.getElementById('partner-select')?.addEventListener('change', async () => {
+            document.getElementById('partner-limits-panel').style.display = 'none';
+            await reloadPlans();
+        });
+        document.getElementById('refresh')?.addEventListener('click', async () => {
+            await loadPartnersList();
+        });
+        document.getElementById('refresh-partner')?.addEventListener('click', reloadPlans);
+        document.getElementById('cycle')?.addEventListener('change', paintPlans);
+
         if (isPlatform) loadPartnersList();
-        else loadPartner();
+        else reloadPlans();
     </script>
 </body>
 
