@@ -66,7 +66,9 @@ class UnitHandler {
       final propertyType = q['propertyType'];
 
       if (role == 'tenant' || role == null) {
-        final applicationFee = await getCurrentApplicationFee();
+        final fee = await getCurrentApplicationFee(partnerId);
+
+        final int applicationFee = fee.enabled ? fee.amount.toInt() : 0;
 
         final unitsWithProperty = await unitRepository.getAvailableUnitsWithProperty(
           partnerId: partnerId,

@@ -1,3 +1,7 @@
+
+/**
+ * NeztMate Admin shell — role-aware, no auto-logout on API errors.
+ */
 const AdminGuard = {
   requireAuth() {
     if (!window.NeztMateApi || !NeztMateApi.getToken()) {
@@ -45,11 +49,12 @@ const AdminGuard = {
     const roleBadge = document.getElementById('role-badge');
     if (el) el.textContent = user.fullName || user.email || 'Signed in';
     if (partnerLabel) {
-      partnerLabel.textContent = this.isPlatform()
-        ? '· Platform'
-        : user.partnerId
-          ? '· ' + user.partnerId
-          : '';
+      if (this.isPlatform()) {
+        partnerLabel.textContent = '· Platform';
+      } else {
+        const label = user.partnerName || user.partnerSlug || user.partnerId || '';
+        partnerLabel.textContent = label ? '· ' + label : '';
+      }
     }
     if (roleBadge) {
       roleBadge.textContent = this.isPlatform() ? 'Platform admin' : 'Partner admin';

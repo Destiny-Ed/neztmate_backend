@@ -55,6 +55,11 @@ import 'package:neztmate_backend/features/messages/datasource/remote_datasource.
 import 'package:neztmate_backend/features/messages/handler/messages_handler.dart';
 import 'package:neztmate_backend/features/messages/repository/message_repo.dart';
 import 'package:neztmate_backend/features/messages/repository_impl/messages_repo_impl.dart';
+import 'package:neztmate_backend/features/metrics/datasource/firebase/firestore_metrics_datasource.dart';
+import 'package:neztmate_backend/features/metrics/datasource/metric_remote_datasource.dart';
+import 'package:neztmate_backend/features/metrics/handler/metric_settings_handler.dart';
+import 'package:neztmate_backend/features/metrics/repository/metrics_repository.dart';
+import 'package:neztmate_backend/features/metrics/reposotory_impl/metrics_impl.dart';
 import 'package:neztmate_backend/features/notifications/datasource/firestore/firestore_remote_datasource.dart';
 import 'package:neztmate_backend/features/notifications/datasource/remote_datasource.dart';
 import 'package:neztmate_backend/features/notifications/handler/handler.dart';
@@ -468,4 +473,13 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
   );
   injector.registerLazySingleton<AnnouncementRepository>(() => AnnouncementRepositoryImpl(injector()));
   injector.registerLazySingleton(() => AnnouncementHandler(injector()));
+
+  /// Metrics Settings
+  injector.registerLazySingleton<MetricsRemoteDataSource>(
+    () => FirestoreMetricsDataSource(injector<Firestore>()),
+  );
+  injector.registerLazySingleton<MetricsRepository>(() => MetricsRepositoryImpl(injector()));
+  injector.registerLazySingleton(
+    () => MetricsSettingsHandler(partnerRepository: injector(), metricsRepository: injector()),
+  );
 }

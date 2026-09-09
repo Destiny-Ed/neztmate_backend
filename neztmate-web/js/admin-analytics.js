@@ -129,14 +129,14 @@
 
     const barItems = Object.keys(byType).length
       ? Object.entries(byType).map(([label, value]) => ({
-          label: label.slice(0, 10),
-          value: value,
-        }))
+        label: label.slice(0, 10),
+        value: value,
+      }))
       : [
-          { label: 'Received', value: Number(s.totalReceived) || 0 },
-          { label: 'Paid out', value: Number(s.totalPaid) || 0 },
-          { label: 'Withdrawn', value: Number(s.totalWithdrawn) || 0 },
-        ];
+        { label: 'Received', value: Number(s.totalReceived) || 0 },
+        { label: 'Paid out', value: Number(s.totalPaid) || 0 },
+        { label: 'Withdrawn', value: Number(s.totalWithdrawn) || 0 },
+      ];
     renderBars(barItems);
 
     renderBreakdown([

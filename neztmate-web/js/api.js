@@ -408,6 +408,29 @@ const Api = {
     return this.request('/platform/analytics');
   },
 
+  /** Revenue / growth metrics (platform or partner-scoped) */
+  getRevenueMetrics(params = {}) {
+    const q = new URLSearchParams();
+    Object.entries(params || {}).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') q.set(k, v);
+    });
+    const qs = q.toString();
+    return this.request('/metrics/revenue' + (qs ? '?' + qs : ''));
+  },
+
+  getApplicationFeeSettings(params = {}) {
+    const q = new URLSearchParams();
+    Object.entries(params || {}).forEach(([k, v]) => {
+      if (v !== undefined && v !== null && v !== '') q.set(k, v);
+    });
+    const qs = q.toString();
+    return this.request('/settings/application-fee' + (qs ? '?' + qs : ''));
+  },
+
+  updateApplicationFeeSettings(body) {
+    return this.request('/settings/application-fee', { method: 'PUT', body });
+  },
+
   getHistory() {
     return this.request('/history');
   },

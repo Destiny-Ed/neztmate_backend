@@ -4,9 +4,8 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
-  <title>Admin login · NeztMate</title>
   <link rel="icon" type="image/png" href="assets/logo_bg.png" sizes="192x192" />
-
+  <title>Admin login · NeztMate</title>
   <link
     href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap"
     rel="stylesheet" />
@@ -115,11 +114,11 @@
           <input id="password" type="password" required minlength="6" autocomplete="current-password" />
         </div>
         <div class="field" id="partner-field">
-          <label for="partnerId">Partner ID</label>
-          <input id="partnerId" value="neztmate" placeholder="neztmate" />
+          <label for="partnerId">Partner ID or slug</label>
+          <input id="partnerId" value="" placeholder="your-workspace-slug" autocomplete="organization" />
         </div>
         <p class="muted" style="font-size: 0.8rem; margin: -0.4rem 0 1rem" id="login-hint">
-          Partner admins must include partnerId. A web FCM token is sent automatically.
+          Use the exact partner ID or slug for your workspace. A missing or wrong value will not fall back to NeztMate.
         </p>
         <button class="btn btn-primary" style="width: 100%" type="submit" id="submit-btn">Sign in</button>
       </form>
@@ -290,6 +289,50 @@
 
     googleBtn.addEventListener('click', signInWithGoogleFirebase);
 
+    /**
+     * Resolve partner id/slug before login. Fails hard if workspace does not exist.
+     * Never fall back to NeztMate.
+     */
+    async function resolvePartnerWorkspace(raw) {
+      const key = (raw || '').trim();
+      if (!key) {
+        throw new Error('Partner ID or slug is required');
+      }
+
+      try {
+        const cfg = await NeztMateApi.getPartnerConfig(key);
+        const p = cfg.partner || cfg;
+        const id = p.id || p.partnerId || cfg.id;
+        const slug = (p.slug || key).toLowerCase();
+        if (!id) throw new Error('Partner config missing id');
+        if (p.isActive === false) {
+          throw new Error('This workspace is inactive. Contact support.');
+        }
+        return { id: String(id), slug, name: p.name || slug, raw: p };
+      } catch (e) {
+        if (e && e.status === 404) {
+          throw new Error('No workspace found for "' + key + '". Check the partner ID or slug.');
+        }
+        const msg = (e && e.message) || '';
+        throw new Error(
+          msg && !/not authenticated/i.test(msg)
+            ? msg
+            : 'No workspace found for "' + key + '". Check the partner ID or slug.'
+        );
+      }
+    }
+
+    function partnerIdFromToken(accessToken) {
+      try {
+        const part = accessToken.split('.')[1];
+        const json = atob(part.replace(/-/g, '+').replace(/_/g, '/'));
+        const payload = JSON.parse(json);
+        return payload.partnerId || payload.partner_id || null;
+      } catch (_) {
+        return null;
+      }
+    }
+
     document.getElementById('login-form').addEventListener('submit', async (e) => {
       e.preventDefault();
       const btn = document.getElementById('submit-btn');
@@ -297,10 +340,18 @@
       btn.disabled = true;
       btn.textContent = 'Signing in…';
       try {
+        let resolvedPartner = null;
+        let partnerIdForLogin = undefined;
+
+        if (!isPlatform) {
+          resolvedPartner = await resolvePartnerWorkspace(document.getElementById('partnerId').value);
+          partnerIdForLogin = resolvedPartner.id;
+        }
+
         const data = await NeztMateApi.login({
           email: document.getElementById('email').value.trim(),
           password: document.getElementById('password').value,
-          partnerId: isPlatform ? undefined : document.getElementById('partnerId').value.trim(),
+          partnerId: partnerIdForLogin,
           isPlatformAdmin: isPlatform,
           fcmToken: 'web-admin-' + Date.now(),
         });
@@ -324,9 +375,47 @@
         } else {
           user.isPlatformAdmin = false;
         }
-        if (!isPlatform && !user.partnerId) {
-          user.partnerId = document.getElementById('partnerId').value.trim();
+
+        const tokenPartnerId = accessToken ? partnerIdFromToken(accessToken) : null;
+        const serverPartnerId = user.partnerId || data.partnerId || tokenPartnerId || null;
+
+        if (!isPlatform) {
+          if (!serverPartnerId) {
+            throw new Error(
+              'Login succeeded but no partnerId was returned. Backend must attach partnerId for partner admins.'
+            );
+          }
+          if (
+            resolvedPartner &&
+            String(serverPartnerId) !== String(resolvedPartner.id) &&
+            String(serverPartnerId).toLowerCase() !== String(resolvedPartner.slug).toLowerCase()
+          ) {
+            NeztMateApi.clearSession();
+            throw new Error(
+              'This account does not belong to workspace "' +
+              (resolvedPartner.name || resolvedPartner.slug) +
+              '". Server partnerId: ' +
+              serverPartnerId
+            );
+          }
+          user.partnerId = serverPartnerId;
+          user.partnerSlug = resolvedPartner ? resolvedPartner.slug : user.partnerSlug;
+          user.partnerName = resolvedPartner ? resolvedPartner.name : user.partnerName;
+          try {
+            localStorage.setItem('neztmate_partner_slug', user.partnerSlug || '');
+            if (resolvedPartner) {
+              localStorage.setItem(
+                'neztmate_partner_cache',
+                JSON.stringify({
+                  id: resolvedPartner.id,
+                  slug: resolvedPartner.slug,
+                  name: resolvedPartner.name,
+                })
+              );
+            }
+          } catch (_) { }
         }
+
         if (!accessToken) throw new Error(data.message || 'No access token');
         NeztMateApi.setSession({ accessToken, refreshToken, user });
         location.href = 'index.html';

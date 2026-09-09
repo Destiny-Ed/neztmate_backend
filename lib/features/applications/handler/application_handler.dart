@@ -110,13 +110,15 @@ class ApplicationHandler {
         );
       }
 
-      final int applicationFee = await getCurrentApplicationFee();
-
       // Check for Fee Pending applications
       final feePendingApplication = existingApplications.cast<ApplicationModel?>().firstWhere(
         (app) => app?.unitId == unitId && app?.status.toLowerCase() == 'fee_pending',
         orElse: () => null,
       );
+
+      final fee = await getCurrentApplicationFee(feePendingApplication?.partnerId ?? partnerId ?? "");
+
+      final int applicationFee = fee.enabled ? fee.amount.toInt() : 0;
 
       if (feePendingApplication != null) {
         // Resume payment for existing fee-pending application
@@ -908,8 +910,9 @@ class ApplicationHandler {
 
       final application = await applicationRepository.getApplicationById(applicationId);
 
-      // === Get current application fee (configurable) ===
-      final int applicationFee = await getCurrentApplicationFee(); // From config or DB
+      final fee = await getCurrentApplicationFee(application.partnerId);
+
+      final int applicationFee = fee.enabled ? fee.amount.toInt() : 0;
 
       if (application.tenantId != tenantId) {
         return Response(403, body: jsonEncode({'message': 'This application does not belong to you'}));

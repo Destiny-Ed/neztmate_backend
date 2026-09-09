@@ -23,6 +23,7 @@ import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
 import 'package:neztmate_backend/features/location/handler/location_handler.dart';
 import 'package:neztmate_backend/features/maintenance/handler/maintenance_handler.dart';
 import 'package:neztmate_backend/features/messages/handler/messages_handler.dart';
+import 'package:neztmate_backend/features/metrics/handler/metric_settings_handler.dart';
 import 'package:neztmate_backend/features/notifications/handler/handler.dart';
 import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
 import 'package:neztmate_backend/features/partners/handler/partner_handler.dart';
@@ -49,6 +50,7 @@ import 'package:neztmate_backend/routes/lease_routes.dart';
 import 'package:neztmate_backend/routes/location_routes.dart';
 import 'package:neztmate_backend/routes/maintenance_routes.dart';
 import 'package:neztmate_backend/routes/message_routes.dart';
+import 'package:neztmate_backend/routes/metric_settings_routes.dart';
 import 'package:neztmate_backend/routes/notifications_routes.dart';
 import 'package:neztmate_backend/routes/partner_routes.dart';
 import 'package:neztmate_backend/routes/payment_routes.dart';
@@ -262,6 +264,21 @@ void main() async {
     Pipeline()
         .addMiddleware(authMiddleWare)
         .addHandler(announcementRoutes(injector<AnnouncementHandler>()).call),
+  );
+
+  // Metrics routes
+  router.mount(
+    '/settings/',
+    Pipeline()
+        .addMiddleware(authMiddleWare)
+        .addHandler(settingsRoutes(injector<MetricsSettingsHandler>()).call),
+  );
+
+  router.mount(
+    '/metrics/',
+    Pipeline()
+        .addMiddleware(authMiddleWare)
+        .addHandler(metricsRoutes(injector<MetricsSettingsHandler>()).call),
   );
 
   //  SWAGGER UI SETUP

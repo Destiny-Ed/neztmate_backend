@@ -1,12 +1,16 @@
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>Settings · NeztMate Admin</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet" />
+  <link
+    href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap"
+    rel="stylesheet" />
   <link rel="stylesheet" href="../css/styles.css" />
 </head>
+
 <body class="admin-body">
   <div class="admin-shell">
     <aside class="sidebar" id="sidebar"></aside>
@@ -21,18 +25,48 @@
         <div id="error" class="alert alert-error" style="display:none"></div>
         <div id="info" class="alert alert-ok" style="display:none"></div>
         <div class="panel" style="max-width:520px">
-          <div class="panel-head"><h3>Change password</h3></div>
+          <div class="panel-head">
+            <h3>Change password</h3>
+          </div>
           <div class="panel-body">
             <form id="pw-form">
-              <div class="field"><label>Current password</label><input type="password" id="currentPassword" required autocomplete="current-password" /></div>
-              <div class="field"><label>New password</label><input type="password" id="newPassword" required minlength="8" autocomplete="new-password" /></div>
-              <div class="field"><label>Confirm new password</label><input type="password" id="confirmPassword" required minlength="8" autocomplete="new-password" /></div>
+              <div class="field"><label>Current password</label><input type="password" id="currentPassword" required
+                  autocomplete="current-password" /></div>
+              <div class="field"><label>New password</label><input type="password" id="newPassword" required
+                  minlength="8" autocomplete="new-password" /></div>
+              <div class="field"><label>Confirm new password</label><input type="password" id="confirmPassword" required
+                  minlength="8" autocomplete="new-password" /></div>
               <button class="btn btn-primary" type="submit">Update password</button>
             </form>
           </div>
         </div>
+        <div class="panel" style="max-width:520px" id="fee-panel">
+          <div class="panel-head">
+            <h3>Application fee</h3>
+          </div>
+          <div class="panel-body">
+            <p class="muted" style="margin-top:0;font-size:.9rem" id="fee-help">
+              Charge tenants a fee when they submit a lease application. Set to 0 or turn off to make applications free.
+            </p>
+            <div class="field" id="fee-partner-wrap" style="display:none">
+              <label>Workspace</label>
+              <select id="fee-partner"></select>
+            </div>
+            <label class="muted" style="display:flex;gap:.5rem;align-items:center;margin:.5rem 0 1rem">
+              <input type="checkbox" id="fee-enabled" /> Enable application fee
+            </label>
+            <div class="field">
+              <label>Amount (₦)</label>
+              <input id="fee-amount" type="number" min="0" step="100" value="0" />
+            </div>
+            <button type="button" class="btn btn-primary" id="fee-save">Save fee settings</button>
+          </div>
+        </div>
+
         <div class="panel" style="max-width:520px" data-partner-only>
-          <div class="panel-head"><h3>Partner contact</h3></div>
+          <div class="panel-head">
+            <h3>Partner contact</h3>
+          </div>
           <div class="panel-body">
             <form id="partner-form">
               <div class="field"><label>Support email</label><input id="supportEmail" type="email" /></div>
@@ -52,7 +86,7 @@
   <script>
     if (!AdminGuard.requireAuth()) throw 0;
     AdminShell.mount('settings.html');
-    document.getElementById('pw-form').onsubmit = async function(e) {
+    document.getElementById('pw-form').onsubmit = async function (e) {
       e.preventDefault();
       AdminGuard.clearAlerts();
       var currentPassword = document.getElementById('currentPassword').value;
@@ -66,14 +100,14 @@
       } catch (err) { AdminGuard.showError(err.message); }
     };
     if (!AdminGuard.isPlatform()) {
-      (async function() {
-        var data = await AdminGuard.api(function(){ return NeztMateApi.request('/partners/me'); }, {});
+      (async function () {
+        var data = await AdminGuard.api(function () { return NeztMateApi.request('/partners/me'); }, {});
         var p = data.partner || data || {};
         document.getElementById('supportEmail').value = p.supportEmail || '';
         document.getElementById('supportPhone').value = p.supportPhone || '';
         document.getElementById('website').value = p.website || '';
       })();
-      document.getElementById('partner-form').onsubmit = async function(e) {
+      document.getElementById('partner-form').onsubmit = async function (e) {
         e.preventDefault();
         try {
           await NeztMateApi.updateMyPartner({
@@ -85,6 +119,62 @@
         } catch (err) { AdminGuard.showError(err.message); }
       };
     }
+
+    // Application fee settings
+    (async function feeSettings() {
+      const isPlatform = AdminGuard.isPlatform();
+      const partnerWrap = document.getElementById('fee-partner-wrap');
+      if (isPlatform) {
+        partnerWrap.style.display = '';
+        document.getElementById('fee-help').textContent =
+          'Platform: set application fee per workspace. Select a partner, then save.';
+        const data = await AdminGuard.api(() => NeztMateApi.listPartners(), { partners: [] });
+        const partners = data.partners || [];
+        const sel = document.getElementById('fee-partner');
+        sel.innerHTML = partners.map(function (p) {
+          return '<option value="' + AdminGuard.esc(p.id) + '">' + AdminGuard.esc(p.name || p.slug || p.id) + '</option>';
+        }).join('');
+        sel.onchange = loadFee;
+      }
+
+      async function loadFee() {
+        const params = {};
+        if (isPlatform) {
+          const pid = document.getElementById('fee-partner').value;
+          if (!pid) return;
+          params.partnerId = pid;
+        }
+        const data = await AdminGuard.api(() => NeztMateApi.getApplicationFeeSettings(params), {
+          enabled: false,
+          amount: 0,
+        });
+        document.getElementById('fee-enabled').checked = data.enabled === true || data.applicationFeeEnabled === true;
+        document.getElementById('fee-amount').value =
+          data.amount ?? data.applicationFeeAmount ?? data.fee ?? 0;
+      }
+
+      document.getElementById('fee-save').onclick = async function () {
+        AdminGuard.clearAlerts();
+        const body = {
+          enabled: document.getElementById('fee-enabled').checked,
+          amount: Number(document.getElementById('fee-amount').value) || 0,
+        };
+        if (isPlatform) {
+          body.partnerId = document.getElementById('fee-partner').value;
+          if (!body.partnerId) { AdminGuard.showError('Select a partner'); return; }
+        }
+        try {
+          await NeztMateApi.updateApplicationFeeSettings(body);
+          AdminGuard.showOk('Application fee settings saved');
+          await loadFee();
+        } catch (e) {
+          AdminGuard.showError(e.message || 'Failed to save');
+        }
+      };
+
+      await loadFee();
+    })();
   </script>
 </body>
+
 </html>

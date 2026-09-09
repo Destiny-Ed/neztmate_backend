@@ -176,3 +176,15 @@ class PartnerModel {
     'isActive': isActive,
   };
 }
+
+extension PartnerFeesX on PartnerModel {
+  bool get applicationFeeEnabled => fees['applicationFeeEnabled'] == true;
+  double get applicationFeeAmount => (fees['applicationFeeAmount'] as num?)?.toDouble() ?? 0.0;
+
+  PartnerModel withApplicationFee({required bool enabled, required double amount}) {
+    final next = Map<String, dynamic>.from(fees)
+      ..['applicationFeeEnabled'] = enabled
+      ..['applicationFeeAmount'] = amount;
+    return copyWith(fees: next, updatedAt: DateTime.now());
+  }
+}

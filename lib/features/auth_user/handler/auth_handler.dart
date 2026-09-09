@@ -103,33 +103,130 @@ class AuthHandler {
 
   Future<Response> login(Request req) async {
     try {
-      final body = jsonDecode(await req.readAsString());
+      final body = jsonDecode(await req.readAsString()) as Map<String, dynamic>;
       final request = LoginRequest.fromJson(body);
 
-      // Basic validation
       if (request.email.isEmpty || !request.email.contains('@')) {
         return badRequest('Invalid email format');
       }
       if (request.password.length < 6) {
         return badRequest('Password must be at least 6 characters');
       }
-
       if (request.fcmToken.isEmpty) {
-        throw ValidationException('Fcm Token is required ');
+        throw ValidationException('Fcm Token is required');
       }
+
+      final loginAs = (body['loginAs'] as String?)?.toLowerCase().trim();
+      final isPlatformLogin = loginAs == 'platform_admin' || loginAs == 'super_admin';
+
+      final rawPartnerKey =
+          (body['partnerId'] as String?)?.trim() ?? (body['partnerSlug'] as String?)?.trim();
 
       final user = await authRepository.loginUser(request);
 
-      final accessToken = jwtService.generateAccessToken(user.id, user.role, partnerId: user.partnerId);
-      final refreshToken = jwtService.generateRefreshToken(user.id);
+      final roleLower = user.role.toLowerCase();
+      final rolesLower = user.roles.map((r) => r.toLowerCase()).toList();
+      final userIsPlatform =
+          roleLower == 'platform_admin' ||
+          roleLower == 'super_admin' ||
+          rolesLower.contains('platform_admin') ||
+          rolesLower.contains('super_admin');
 
+      // ── Platform admin (no partner) ──
+      if (isPlatformLogin) {
+        if (!userIsPlatform) {
+          return Response(403, body: jsonEncode({'message': 'This account is not a platform admin'}));
+        }
+
+        final accessToken = jwtService.generateAccessToken(user.id, 'platform_admin');
+        final refreshToken = jwtService.generateRefreshToken(user.id);
+        await authRepository.saveRefreshToken(user.id, refreshToken);
+
+        return Response.ok(
+          jsonEncode({
+            'accessToken': accessToken,
+            'refreshToken': refreshToken,
+            'user': {
+              'id': user.id,
+              'email': user.email,
+              'fullName': user.fullName,
+              'role': 'platform_admin',
+              'roles': user.roles,
+            },
+            'message': 'Login successful',
+          }),
+          headers: {'Content-Type': 'application/json'},
+        );
+      }
+
+      // ── Partner / normal login ──
+      final needsPartner = roleLower == 'partner_admin' || roleLower == 'admin' || rawPartnerKey != null;
+
+      if (needsPartner && (rawPartnerKey == null || rawPartnerKey.isEmpty)) {
+        throw ValidationException('partnerId or partnerSlug is required');
+      }
+
+      String? resolvedPartnerId = user.partnerId;
+      String? partnerSlugOut;
+      String? partnerNameOut;
+
+      if (rawPartnerKey != null && rawPartnerKey.isNotEmpty) {
+        var partner = await partnerRepository.getPartnerById(rawPartnerKey);
+        partner ??= await partnerRepository.getPartnerBySlug(rawPartnerKey);
+
+        if (partner == null) {
+          throw NotFoundException('Partner', rawPartnerKey);
+        }
+        if (partner.isActive == false) {
+          throw ValidationException('This workspace is inactive');
+        }
+
+        resolvedPartnerId = partner.id;
+        partnerSlugOut = partner.slug;
+        partnerNameOut = partner.name;
+
+        if (user.partnerId == null || user.partnerId.isEmpty) {
+          throw ValidationException('This account is not linked to any workspace');
+        }
+        if (user.partnerId != partner.id) {
+          return Response(
+            403,
+            body: jsonEncode({'message': 'This account does not belong to the selected workspace'}),
+          );
+        }
+      } else if (user.partnerId != null && user.partnerId.isNotEmpty) {
+        final partner = await partnerRepository.getPartnerById(user.partnerId);
+        if (partner != null) {
+          resolvedPartnerId = partner.id;
+          partnerSlugOut = partner.slug;
+          partnerNameOut = partner.name;
+        }
+      }
+
+      if ((roleLower == 'partner_admin' || roleLower == 'admin') &&
+          (resolvedPartnerId == null || resolvedPartnerId.isEmpty)) {
+        throw ValidationException('Partner workspace could not be resolved');
+      }
+
+      final accessToken = jwtService.generateAccessToken(user.id, user.role, partnerId: resolvedPartnerId);
+      final refreshToken = jwtService.generateRefreshToken(user.id);
       await authRepository.saveRefreshToken(user.id, refreshToken);
 
       return Response.ok(
         jsonEncode({
           'accessToken': accessToken,
           'refreshToken': refreshToken,
-          'user': {'id': user.id, 'email': user.email, 'fullName': user.fullName, 'role': user.role},
+          'partnerId': resolvedPartnerId,
+          'user': {
+            'id': user.id,
+            'email': user.email,
+            'fullName': user.fullName,
+            'role': user.role,
+            'roles': user.roles,
+            'partnerId': resolvedPartnerId,
+            'partnerSlug': partnerSlugOut,
+            'partnerName': partnerNameOut,
+          },
           'message': 'Login successful',
         }),
         headers: {'Content-Type': 'application/json'},

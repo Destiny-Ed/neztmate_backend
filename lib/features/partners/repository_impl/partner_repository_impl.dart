@@ -1,3 +1,4 @@
+import 'package:neztmate_backend/core/error.dart';
 import 'package:neztmate_backend/features/notifications/models/notification_model.dart';
 import 'package:neztmate_backend/features/partners/datasource/partner_remote_datasource.dart';
 import 'package:neztmate_backend/features/partners/model/partner_model.dart';
@@ -65,4 +66,35 @@ class PartnerRepositoryImpl implements PartnerRepository {
 
   @override
   Future<Map<String, dynamic>> getPlatformAnalytics() => dataSource.getPlatformAnalytics();
+
+  // Application fee methods
+
+  Future<({bool enabled, double amount})> getApplicationFee(String partnerId) async {
+    final partner = await getPartnerById(partnerId);
+    if (partner == null) {
+      return (enabled: false, amount: 0.0);
+    }
+    final enabled = partner.fees['applicationFeeEnabled'] == true;
+    final amount = (partner.fees['applicationFeeAmount'] as num?)?.toDouble() ?? 0.0;
+    if (!enabled || amount <= 0) {
+      return (enabled: false, amount: 0.0);
+    }
+    return (enabled: true, amount: amount);
+  }
+
+  Future<PartnerModel> setApplicationFee({
+    required String partnerId,
+    required bool enabled,
+    required double amount,
+  }) async {
+    final partner = await getPartnerById(partnerId);
+    if (partner == null) throw NotFoundException('Partner', partnerId);
+
+    final fees = Map<String, dynamic>.from(partner.fees)
+      ..['applicationFeeEnabled'] = enabled
+      ..['applicationFeeAmount'] = amount < 0 ? 0 : amount;
+
+    final updated = partner.copyWith(fees: fees, updatedAt: DateTime.now());
+    return updatePartner(updated);
+  }
 }
