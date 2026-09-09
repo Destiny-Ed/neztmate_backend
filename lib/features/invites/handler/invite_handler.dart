@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:neztmate_backend/core/di/injector.dart';
+import 'package:neztmate_backend/core/services/subscription/subscription_limit_service.dart';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
 import 'package:neztmate_backend/features/invites/models/invites_model.dart';
 import 'package:neztmate_backend/features/invites/repository/invite_repo.dart';
@@ -7,7 +9,6 @@ import 'package:neztmate_backend/features/notifications/repository/notification_
 import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
 import 'package:neztmate_backend/features/properties/models/property_model.dart';
 import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
-import 'package:neztmate_backend/features/subscriptions/repository/subscription_repository.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf_router/shelf_router.dart';
 
@@ -17,6 +18,7 @@ class InviteHandler {
   final PropertyRepository propertyRepository;
   final PaymentRepository paymentRepository;
   final NotificationRepository notificationRepository;
+  final SubscriptionLimitService subscriptionLimits;
 
   InviteHandler(
     this.repository,
@@ -24,6 +26,7 @@ class InviteHandler {
     this.propertyRepository,
     this.notificationRepository,
     this.paymentRepository,
+    this.subscriptionLimits,
   );
 
   /// POST /invites - Send new invite (expires in 5 days) Send new invite with duplicate check
@@ -61,46 +64,18 @@ class InviteHandler {
       }
 
       //  SUBSCRIPTION RESTRICTION
-      final plan = subscriptionPlan;
 
-      if (plan == 'free') {
-        return Response(
-          403,
-          body: jsonEncode({
-            'message': 'Inviting managers or artisans is not available on the Free plan. Please upgrade.',
-            'upgradeUrl': '/subscriptions/plans',
-          }),
+      try {
+        await subscriptionLimits.assertCanInvite(
+          request: request,
+          inviteeRole: inviteeRole,
+          countManagers: () => propertyRepository.countManagersByOwner(userId),
+          countArtisans: () => propertyRepository.countArtisansByOwner(userId),
         );
-      }
-
-      if (plan == 'basic') {
-        final inviteeRole = body['inviteeRole'] as String?;
-
-        if (inviteeRole == 'manager') {
-          final managerCount = await propertyRepository.countManagersByOwner(userId);
-          if (managerCount >= 1) {
-            return Response(
-              403,
-              body: jsonEncode({
-                'message': 'Basic plan allows only 1 manager. Upgrade to Premium for unlimited managers.',
-                'upgradeUrl': '/subscriptions/plans',
-              }),
-            );
-          }
-        }
-
-        if (inviteeRole == 'artisan') {
-          final artisanCount = await propertyRepository.countArtisansByOwner(userId);
-          if (artisanCount >= 2) {
-            return Response(
-              403,
-              body: jsonEncode({
-                'message': 'Basic plan allows only 2 artisans. Upgrade to Premium for unlimited artisans.',
-                'upgradeUrl': '/subscriptions/plans',
-              }),
-            );
-          }
-        }
+      } on SubscriptionLimitException catch (e) {
+        return e.toResponse();
+      } on SubscriptionFeatureException catch (e) {
+        return e.toResponse();
       }
 
       final normalizedEmail = inviteeEmail.toLowerCase();

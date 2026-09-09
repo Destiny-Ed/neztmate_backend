@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:neztmate_backend/core/di/injector.dart';
+import 'package:neztmate_backend/core/services/subscription/subscription_limit_service.dart';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
 import 'package:neztmate_backend/features/leases/models/lease_request_model.dart';
 import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
@@ -23,6 +25,7 @@ class PropertyHandler {
   final PaymentRepository paymentRepository;
   final NotificationRepository notificationRepository;
   final LeaseRepository leaseRepository;
+  final SubscriptionLimitService subscriptionLimits;
 
   PropertyHandler(
     this.propertyRepository,
@@ -32,6 +35,7 @@ class PropertyHandler {
     this.unitRepository,
     this.paymentRepository,
     this.leaseRepository,
+    this.subscriptionLimits,
   );
 
   // GET /properties (my properties)
@@ -285,22 +289,11 @@ class PropertyHandler {
       }
 
       // Subscription limit
-      final currentPropertyCount = await propertyRepository.countByOwner(landownerId, partnerId: partnerId);
-      final maxProperties = _getMaxProperties(subscriptionPlan);
-      if (currentPropertyCount >= maxProperties) {
-        return Response(
-          403,
-          body: jsonEncode({
-            'message':
-                'You have reached the maximum number of properties allowed on the $subscriptionPlan plan ($maxProperties). Please upgrade.',
-            'currentCount': currentPropertyCount,
-            'maxAllowed': maxProperties,
-            'plan': subscriptionPlan,
-            'upgradeUrl': '/subscriptions/plans',
-          }),
-          headers: {'Content-Type': 'application/json'},
-        );
-      }
+
+      await subscriptionLimits.assertCanCreateProperty(
+        request: request,
+        countProperties: () => propertyRepository.countByOwner(landownerId, partnerId: partnerId),
+      );
 
       // Optional: require payout account
       final payout = await paymentRepository.getDefaultPayoutAccount(landownerId);
@@ -777,18 +770,4 @@ class PropertyHandler {
   }
 
   Response _unauthorized() => Response(401, body: jsonEncode({'message': 'Unauthorized'}));
-}
-
-int _getMaxProperties(String plan) {
-  switch (plan.toLowerCase()) {
-    case 'basic':
-      return 10;
-    case 'premium':
-      return 9999; // practically unlimited
-    case 'enterprise':
-      return 9999;
-    case 'free':
-    default:
-      return 2;
-  }
 }

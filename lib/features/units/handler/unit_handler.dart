@@ -1,4 +1,6 @@
 import 'dart:convert';
+import 'package:neztmate_backend/core/di/injector.dart';
+import 'package:neztmate_backend/core/services/subscription/subscription_limit_service.dart';
 import 'package:neztmate_backend/core/utils.dart';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
 import 'package:neztmate_backend/features/leases/service/lease_payment_calculator_service.dart';
@@ -15,6 +17,8 @@ class UnitHandler {
   final UserRepository userRepository;
 
   UnitHandler(this.unitRepository, this.userRepository);
+
+  final subscriptionLimits = injector<SubscriptionLimitService>();
 
   /// GET /units/property/<propertyId>
   Future<Response> getUnitsByProperty(Request request) async {
@@ -172,22 +176,10 @@ class UnitHandler {
 
       //  SUBSCRIPTION RESTRICTION
 
-      final currentUnitCount = await unitRepository.countByOwner(userId, partnerId: partnerId);
-      final maxUnits = _getMaxUnits(subscriptionPlan);
-
-      if (currentUnitCount >= maxUnits) {
-        return Response(
-          403,
-          body: jsonEncode({
-            'message':
-                'You have reached the maximum number of units allowed on the $subscriptionPlan plan ($maxUnits). Please upgrade.',
-            'currentCount': currentUnitCount,
-            'maxAllowed': maxUnits,
-            'plan': subscriptionPlan,
-            'upgradeUrl': '/subscriptions/plans',
-          }),
-        );
-      }
+      await subscriptionLimits.assertCanCreateUnit(
+        request: request,
+        countUnits: () => unitRepository.countByOwner(userId, partnerId: partnerId),
+      );
 
       body['createdAt'] = DateTime.now().toIso8601String();
       body['updatedAt'] = DateTime.now().toIso8601String();
@@ -276,6 +268,7 @@ class UnitHandler {
     try {
       final userId = request.context['userId'] as String?;
       final role = request.context['role'] as String?;
+      final partnerId = request.context['partnerId'] as String?;
       final subscriptionPlan = request.context['subscriptionPlan'] as String;
 
       final unitId = request.params['id'];
@@ -301,22 +294,10 @@ class UnitHandler {
       if (isListed) {
         // ========== SUBSCRIPTION RESTRICTION ==========
 
-        final currentListedCount = await unitRepository.countListedByOwner(userId);
-        final maxListings = _getMaxListings(subscriptionPlan);
-
-        if (currentListedCount >= maxListings) {
-          return Response(
-            403,
-            body: jsonEncode({
-              'message':
-                  'You have reached the maximum number of active listings on the $subscriptionPlan plan ($maxListings). Please upgrade to list more units.',
-              'currentCount': currentListedCount,
-              'maxAllowed': maxListings,
-              'plan': subscriptionPlan,
-              'upgradeUrl': '/subscriptions/plans',
-            }),
-          );
-        }
+        await subscriptionLimits.assertCanListUnit(
+          request: request,
+          countListed: () => unitRepository.countByOwner(userId, partnerId: partnerId),
+        );
       }
 
       await unitRepository.toggleUnitListing(unitId, isListed);
@@ -492,31 +473,5 @@ class UnitHandler {
     // }
 
     return errors;
-  }
-}
-
-int _getMaxUnits(String plan) {
-  switch (plan.toLowerCase()) {
-    case 'basic':
-      return 50;
-    case 'premium':
-    case 'enterprise':
-      return 9999;
-    case 'free':
-    default:
-      return 5;
-  }
-}
-
-int _getMaxListings(String plan) {
-  switch (plan.toLowerCase()) {
-    case 'basic':
-      return 20;
-    case 'premium':
-    case 'enterprise':
-      return 9999;
-    case 'free':
-    default:
-      return 3;
   }
 }

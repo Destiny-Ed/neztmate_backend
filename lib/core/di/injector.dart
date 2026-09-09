@@ -10,6 +10,7 @@ import 'package:neztmate_backend/core/services/database/firebase/firebase.dart';
 import 'package:neztmate_backend/core/services/push_notification/fcm_auth.dart';
 import 'package:neztmate_backend/core/services/push_notification/push_notification_service.dart';
 import 'package:neztmate_backend/core/services/reputation/reputation_service.dart';
+import 'package:neztmate_backend/core/services/subscription/subscription_limit_service.dart';
 import 'package:neztmate_backend/core/services/verification/providers/veriff_service.dart';
 import 'package:neztmate_backend/core/services/verification/providers/you_verify_service.dart';
 import 'package:neztmate_backend/core/services/verification/verification_service.dart';
@@ -156,6 +157,7 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
       injector<UnitRepository>(),
       injector<PaymentRepository>(),
       injector<LeaseRepository>(),
+      injector<SubscriptionLimitService>(),
     ),
   );
 
@@ -317,6 +319,7 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
       injector<PropertyRepository>(),
       injector<NotificationRepository>(),
       injector<PaymentRepository>(),
+      injector<SubscriptionLimitService>(),
     ),
   );
 
@@ -463,6 +466,10 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
       injector<PaymentRepository>(),
       injector<PartnerRepository>(),
     ),
+  );
+
+  injector.registerLazySingleton<SubscriptionLimitService>(
+    () => SubscriptionLimitService(injector<SubscriptionRepository>()),
   );
 
   //Subscription and affiliate ends
