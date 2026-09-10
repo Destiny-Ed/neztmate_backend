@@ -309,7 +309,8 @@ void main() async {
           headers: {
             ACCESS_CONTROL_ALLOW_ORIGIN: '*', // or your specific domain
             ACCESS_CONTROL_ALLOW_METHODS: 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
-            ACCESS_CONTROL_ALLOW_HEADERS: 'Origin, Content-Type, Authorization, Accept, X-Requested-With',
+            ACCESS_CONTROL_ALLOW_HEADERS:
+                'Origin, Content-Type, Authorization, Accept, X-Requested-With, x-partner-slug',
             ACCESS_CONTROL_ALLOW_CREDENTIALS: 'false', // only if needed
           },
         ),
