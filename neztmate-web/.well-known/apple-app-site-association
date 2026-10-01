@@ -1,0 +1,14 @@
+{
+  "applinks": {
+    "apps": [],
+    "details": [
+      {
+        "appID": "U5AGMC93W4.com.nextmate.app",
+        "paths": [
+          "/u/*",
+          "/u/*/"
+        ]
+      }
+    ]
+  }
+}
