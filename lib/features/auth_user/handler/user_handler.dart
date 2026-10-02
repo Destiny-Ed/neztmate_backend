@@ -401,6 +401,8 @@ class UserHandler {
     'id': user.id,
     'email': user.email,
     'fullName': user.fullName,
+    'address': user.address,
+    'bio': user.bio,
     'primaryRole': user.primaryRole,
     'role': user.role,
     'roles': user.roles,
