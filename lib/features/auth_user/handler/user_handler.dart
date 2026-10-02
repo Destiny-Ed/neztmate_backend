@@ -184,6 +184,8 @@ class UserHandler {
       final updatedUser = user.copyWith(
         fullName: body['fullName'] as String?,
         phone: body['phone'] as String?,
+        address: body['address'] as String?,
+        bio: body['bio'] as String?,
         profilePhotoUrl: body['profilePhotoUrl'] as String?,
         yearsExperience: body['yearsExperience'] as int?,
         primarySkill: body['primarySkill'] as String?,
@@ -199,6 +201,8 @@ class UserHandler {
             'id': updatedUser.id,
             'fullName': updatedUser.fullName,
             'phone': updatedUser.phone,
+            'address': updatedUser.address,
+            'bio': updatedUser.bio,
             'profilePhotoUrl': updatedUser.profilePhotoUrl,
           },
         }),
