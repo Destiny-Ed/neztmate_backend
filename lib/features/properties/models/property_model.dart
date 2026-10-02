@@ -28,6 +28,10 @@ class PropertyModel {
   final double? latitude;
   final double? longitude;
 
+  /// NIPOST national digital postcode (building-level), e.g. EK-01-A03-FK-01
+  /// Optional. See https://postcode.gov.ng
+  final String? digitalPostcode;
+
   PropertyModel({
     required this.id,
     required this.name,
@@ -54,7 +58,24 @@ class PropertyModel {
     this.lga,
     this.latitude,
     this.longitude,
+    this.digitalPostcode,
   });
+
+  /// Normalize NIPOST digital postcode to canonical AA-99-H77-BB-55 when possible.
+  static String? normalizeDigitalPostcode(String? raw) {
+    if (raw == null) return null;
+    final cleaned = raw.trim().toUpperCase().replaceAll(RegExp(r'[\s\-]+'), '');
+    if (cleaned.isEmpty) return null;
+    // Expected 11 chars: AA + 99 + H77 + BB + 55
+    if (cleaned.length == 11) {
+      return '${cleaned.substring(0, 2)}-'
+          '${cleaned.substring(2, 4)}-'
+          '${cleaned.substring(4, 7)}-'
+          '${cleaned.substring(7, 9)}-'
+          '${cleaned.substring(9, 11)}';
+    }
+    return raw.trim().toUpperCase();
+  }
 
   factory PropertyModel.fromMap(Map<String, dynamic> map) {
     return PropertyModel(
@@ -83,6 +104,7 @@ class PropertyModel {
       lga: map['lga'] as String?,
       latitude: (map['latitude'] as num?)?.toDouble(),
       longitude: (map['longitude'] as num?)?.toDouble(),
+      digitalPostcode: map['digitalPostcode'] as String?,
     );
   }
 
@@ -112,6 +134,7 @@ class PropertyModel {
     'lga': lga,
     'latitude': latitude,
     'longitude': longitude,
+    'digitalPostcode': digitalPostcode,
   };
 
   PropertyModel copyWith({
@@ -140,6 +163,7 @@ class PropertyModel {
     String? lga,
     double? latitude,
     double? longitude,
+    String? digitalPostcode,
   }) {
     return PropertyModel(
       id: id ?? this.id,
@@ -167,6 +191,7 @@ class PropertyModel {
       lga: lga ?? this.lga,
       latitude: latitude ?? this.latitude,
       longitude: longitude ?? this.longitude,
+      digitalPostcode: digitalPostcode ?? this.digitalPostcode,
     );
   }
 }

@@ -335,6 +335,7 @@ class PropertyHandler {
         rentPaymentMode: (body['rentPaymentMode'] as String?) ?? 'offline',
         createdAt: now,
         updatedAt: now,
+        digitalPostcode: PropertyModel.normalizeDigitalPostcode(body['digitalPostcode'] as String?),
         state: state,
         city: city,
         lga: lga,
@@ -431,6 +432,7 @@ class PropertyHandler {
         lga: lga,
         latitude: latitude,
         longitude: longitude,
+        digitalPostcode: PropertyModel.normalizeDigitalPostcode(body['digitalPostcode'] as String?) ?? existing.digitalPostcode,
         managerCommissionType: body['managerCommissionType'] as String? ?? existing.managerCommissionType,
         managerCommissionRate: body['managerCommissionRate'] != null
             ? (body['managerCommissionRate'] as num).toDouble()
