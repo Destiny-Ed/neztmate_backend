@@ -189,7 +189,7 @@ class UserHandler {
         profilePhotoUrl: body['profilePhotoUrl'] as String?,
         yearsExperience: body['yearsExperience'] as int?,
         primarySkill: body['primarySkill'] as String?,
-        verifiedIdentity:true, //TODO: This should be handled by a separate verification process, not directly by the user. REMOVE THIS LINE AFTER VERIFF IS CONFIGURED
+        verifiedIdentity: true, //TODO: This should be handled by a separate verification process, not directly by the user. REMOVE THIS LINE AFTER VERIFF IS CONFIGURED
         // Add more allowed fields if needed
       );
 
