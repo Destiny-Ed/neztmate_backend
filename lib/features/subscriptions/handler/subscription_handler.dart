@@ -165,8 +165,8 @@ class SubscriptionHandler {
     final maxManagers = (body['maxManagers'] as num?)?.toInt() ?? existing.maxManagers;
     final maxArtisans = (body['maxArtisans'] as num?)?.toInt() ?? existing.maxArtisans;
 
-    if (monthlyPrice < 0 || yearlyPrice < 0 || maxListings < 0 || maxManagers < 0 || maxArtisans < 0) {
-      return badRequest('Prices and max values must be non-negative');
+    if (monthlyPrice < 0 || yearlyPrice < 0) {
+      return badRequest('Prices must be non-negative');
     }
 
     final updated = existing.copyWith(
