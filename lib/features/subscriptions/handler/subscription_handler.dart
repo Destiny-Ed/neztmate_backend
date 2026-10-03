@@ -63,6 +63,8 @@ class SubscriptionHandler {
       final monthlyPrice = (body['monthlyPrice'] as num?)?.toDouble();
       final yearlyPrice = (body['yearlyPrice'] as num?)?.toDouble();
       final maxListings = body['maxListings'] as int?;
+      final maxManagers = body['maxManagers'] as int?;
+      final maxArtisans = body['maxArtisans'] as int?;
 
       if (name == null || name.isEmpty) {
         return badRequest('name is required');
@@ -79,6 +81,12 @@ class SubscriptionHandler {
       if (maxListings == null) {
         return badRequest('maxListings is required (-1 for unlimited)');
       }
+      if (maxManagers == null) {
+        return badRequest('maxManagers is required (-1 for unlimited)');
+      }
+      if (maxArtisans == null) {
+        return badRequest('maxArtisans is required (-1 for unlimited)');
+      }
 
       final existing = await subscriptionRepository.getPlanById(name, partnerId: partnerId);
       if (existing != null) {
@@ -92,6 +100,8 @@ class SubscriptionHandler {
         partnerId: partnerId,
         yearlyPrice: yearlyPrice,
         maxListings: maxListings,
+        maxManagers: maxManagers,
+        maxArtisans: maxArtisans,
         hasAgentAssignment: body['hasAgentAssignment'] as bool? ?? false,
         hasAdvancedScreening: body['hasAdvancedScreening'] as bool? ?? false,
         hasAnalytics: body['hasAnalytics'] as bool? ?? false,
@@ -152,21 +162,28 @@ class SubscriptionHandler {
     final monthlyPrice = (body['monthlyPrice'] as num?)?.toDouble() ?? existing.monthlyPrice;
     final yearlyPrice = (body['yearlyPrice'] as num?)?.toDouble() ?? existing.yearlyPrice;
     final maxListings = (body['maxListings'] as num?)?.toInt() ?? existing.maxListings;
+    final maxManagers = (body['maxManagers'] as num?)?.toInt() ?? existing.maxManagers;
+    final maxArtisans = (body['maxArtisans'] as num?)?.toInt() ?? existing.maxArtisans;
 
-    if (monthlyPrice < 0 || yearlyPrice < 0 || maxListings < 0) {
-      return badRequest('Prices and maxListings must be non-negative');
+    if (monthlyPrice < 0 || yearlyPrice < 0 || maxListings < 0 || maxManagers < 0 || maxArtisans < 0) {
+      return badRequest('Prices and max values must be non-negative');
     }
 
     final updated = existing.copyWith(
       monthlyPrice: monthlyPrice,
       yearlyPrice: yearlyPrice,
       maxListings: maxListings,
+      maxManagers: maxManagers,
+      maxArtisans: maxArtisans,
+
       hasAgentAssignment: body['hasAgentAssignment'] as bool? ?? existing.hasAgentAssignment,
       hasAdvancedScreening: body['hasAdvancedScreening'] as bool? ?? existing.hasAdvancedScreening,
       hasAnalytics: body['hasAnalytics'] as bool? ?? existing.hasAnalytics,
       hasPrioritySupport: body['hasPrioritySupport'] as bool? ?? existing.hasPrioritySupport,
       isActive: body['isActive'] as bool? ?? existing.isActive,
+
     );
+
 
     await subscriptionRepository.updatePlan(updated);
 
