@@ -114,62 +114,76 @@ class SubscriptionHandler {
     }
   }
 
-  /// PATCH /subscriptions/plans/<id>  (admin)
   Future<Response> updatePlan(Request request) async {
-    try {
-      final role = request.context['role'] as String?;
-      final planId = request.params['id'];
+  try {
+    final role = request.context['role'] as String?;
+    final planId = request.params['id'];
 
-      if (planId == null || planId.isEmpty) {
-        return badRequest('Plan id is required');
-      }
+    if (planId == null || planId.isEmpty) {
+      return badRequest('Plan id is required');
+    }
 
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+    if (!isPlatformAdmin(role) && role != 'partner_admin') {
+      return Response(403, body: jsonEncode({'message': 'Only admins can manage plans'}));
+    }
 
-      // Accept platform_admin
-      if (!isPlatformAdmin(role) && role != 'partner_admin') {
-        return Response(403, body: jsonEncode({'message': 'Only admins can manage plans'}));
-      }
+    final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+    final contextPartnerId = request.context['partnerId'] as String?;
 
-      // partnerId: body or context
-      final partnerId = body['partnerId'] as String? ?? request.context['partnerId'] as String?;
-      if (partnerId == null || partnerId.isEmpty) {
+    late final String partnerId;
+    if (role == 'partner_admin') {
+      if (contextPartnerId == null || contextPartnerId.isEmpty) {
         return badRequest('partnerId is required');
       }
-
-      final existing = await subscriptionRepository.getPlanById(planId, partnerId: partnerId);
-
-      if (existing == null) {
-        return Response(404, body: jsonEncode({'message': 'Plan not found'}));
+      partnerId = contextPartnerId;
+    } else {
+      final pid = body['partnerId'] as String? ?? contextPartnerId;
+      if (pid == null || pid.isEmpty) {
+        return badRequest('partnerId is required');
       }
-
-      final updated = SubscriptionPlanModel(
-        id: existing.id,
-        name: existing.name, // name/id should not change after create
-        monthlyPrice: (body['monthlyPrice'] as num?)?.toDouble() ?? existing.monthlyPrice,
-        yearlyPrice: (body['yearlyPrice'] as num?)?.toDouble() ?? existing.yearlyPrice,
-        maxListings: body['maxListings'] as int? ?? existing.maxListings,
-        hasAgentAssignment: body['hasAgentAssignment'] as bool? ?? existing.hasAgentAssignment,
-        hasAdvancedScreening: body['hasAdvancedScreening'] as bool? ?? existing.hasAdvancedScreening,
-        hasAnalytics: body['hasAnalytics'] as bool? ?? existing.hasAnalytics,
-        hasPrioritySupport: body['hasPrioritySupport'] as bool? ?? existing.hasPrioritySupport,
-        isActive: body['isActive'] as bool? ?? existing.isActive,
-      );
-
-      await subscriptionRepository.updatePlan(updated);
-
-      return Response.ok(
-        jsonEncode({
-          'message': 'Plan updated successfully',
-          'plan': {'id': updated.id, ...updated.toMap()},
-        }),
-        headers: {'Content-Type': 'application/json'},
-      );
-    } catch (e, stack) {
-      print('Update plan error: $e\n$stack');
-      return Response.internalServerError(body: jsonEncode({'message': 'Failed to update plan'}));
+      partnerId = pid;
     }
+
+    final existing = await subscriptionRepository.getPlanById(planId, partnerId: partnerId);
+    if (existing == null) {
+      return Response(404, body: jsonEncode({'message': 'Plan not found'}));
+    }
+
+    final monthlyPrice = (body['monthlyPrice'] as num?)?.toDouble() ?? existing.monthlyPrice;
+    final yearlyPrice = (body['yearlyPrice'] as num?)?.toDouble() ?? existing.yearlyPrice;
+    final maxListings = (body['maxListings'] as num?)?.toInt() ?? existing.maxListings;
+
+    if (monthlyPrice < 0 || yearlyPrice < 0 || maxListings < 0) {
+      return badRequest('Prices and maxListings must be non-negative');
+    }
+
+    final updated = existing.copyWith(
+      monthlyPrice: monthlyPrice,
+      yearlyPrice: yearlyPrice,
+      maxListings: maxListings,
+      hasAgentAssignment: body['hasAgentAssignment'] as bool? ?? existing.hasAgentAssignment,
+      hasAdvancedScreening: body['hasAdvancedScreening'] as bool? ?? existing.hasAdvancedScreening,
+      hasAnalytics: body['hasAnalytics'] as bool? ?? existing.hasAnalytics,
+      hasPrioritySupport: body['hasPrioritySupport'] as bool? ?? existing.hasPrioritySupport,
+      isActive: body['isActive'] as bool? ?? existing.isActive,
+    );
+
+    await subscriptionRepository.updatePlan(updated);
+
+    return Response.ok(
+      jsonEncode({
+        'message': 'Plan updated successfully',
+        'plan': updated.toMap(),
+      }),
+      headers: {'Content-Type': 'application/json'},
+    );
+  } catch (e, stack) {
+    print('Update plan error: $e\n$stack');
+    return Response.internalServerError(
+      body: jsonEncode({'message': 'Failed to update plan'}),
+    );
   }
+}
 
   /// DELETE /subscriptions/plans/<id>?partnerId=
   Future<Response> deletePlan(Request request) async {
