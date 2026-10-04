@@ -173,6 +173,8 @@ class PropertyHandler {
             'profilePhotoUrl': artisanUser.profilePhotoUrl,
             'role': artisanUser.role,
             'activeTasksCount': activeTasks.length,
+            'primarySkill' : artisanUser.primarySkill,
+            'rating' : artisanUser.rating,
           });
         }
       }

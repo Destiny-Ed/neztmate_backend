@@ -261,7 +261,9 @@ class PartnerHandler {
         secondaryColor: (secondary == null || secondary.isEmpty) ? null : secondary,
         logoUrl: nextOptional('logoUrl', partner.logoUrl),
         supportEmail: nextOptional('supportEmail', partner.supportEmail),
+        whatsappUrl: nextOptional('whatsappUrl', partner.whatsappUrl),
         playStoreUrl: nextOptional('playStoreUrl', partner.playStoreUrl),
+        
         appStoreUrl: nextOptional('appStoreUrl', partner.appStoreUrl),
         privacyUrl: nextOptional('privacyUrl', partner.privacyUrl),
         termsUrl: nextOptional('termsUrl', partner.termsUrl),
