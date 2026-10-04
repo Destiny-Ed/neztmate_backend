@@ -30,6 +30,7 @@ window.NeztMateConfig = {
   defaultSupportEmail: 'support@neztmate.com',
 
   playStoreUrl: 'https://play.google.com/store/apps/details?id=com.neztmate.app',
+  whatsappUrl: 'https://wa.me/message/7FMADXAVLSFIL1',
   appStoreUrl: 'https://apps.apple.com/app/neztmate/id0000000000',
 
   samplePartners: {

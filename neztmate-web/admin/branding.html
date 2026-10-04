@@ -34,6 +34,7 @@
               </div>
               <div class="field"><label>Logo URL</label><input id="logoUrl" placeholder="https://..." /></div>
               <div class="field"><label>Support email</label><input id="supportEmail" type="email" /></div>
+              <div class="field"><label>WhatsApp URL</label><input id="whatsappUrl" placeholder="https://wa.me/..." /></div>
 
               <hr style="border:none;border-top:1px solid var(--line);margin:1.25rem 0" />
               <h3 style="margin:0 0 .35rem;font-size:1rem">App stores</h3>
@@ -68,7 +69,7 @@
     AdminShell.mount('branding.html');
 
     var FIELDS = [
-      'name', 'tagline', 'primaryColor', 'secondaryColor', 'logoUrl', 'supportEmail',
+      'name', 'tagline', 'primaryColor', 'secondaryColor', 'logoUrl', 'supportEmail', 'whatsappUrl',
       'playStoreUrl', 'appStoreUrl', 'privacyUrl', 'termsUrl', 'copyright'
     ];
 
@@ -99,6 +100,7 @@
           secondaryColor: emptyToNull(document.getElementById('secondaryColor').value),
           logoUrl: emptyToNull(document.getElementById('logoUrl').value),
           supportEmail: emptyToNull(document.getElementById('supportEmail').value),
+          whatsappUrl: emptyToNull(document.getElementById('whatsappUrl').value),       
           playStoreUrl: emptyToNull(document.getElementById('playStoreUrl').value),
           appStoreUrl: emptyToNull(document.getElementById('appStoreUrl').value),
           privacyUrl: emptyToNull(document.getElementById('privacyUrl').value),
