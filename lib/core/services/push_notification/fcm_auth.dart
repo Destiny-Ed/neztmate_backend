@@ -16,11 +16,15 @@ class FcmAuth {
 
     final Map<String, dynamic> serviceAccountJson = await _loadServiceAccountJson();
 
+    print('Loaded Firebase service account for project: ${serviceAccountJson}');
+
     final creds = ServiceAccountCredentials.fromJson(serviceAccountJson);
 
     _client = await clientViaServiceAccount(creds, const [
       'https://www.googleapis.com/auth/firebase.messaging',
     ]);
+
+    print('Obtained new FCM access token: ${_client!.credentials.accessToken.data}');
 
     return _client!.credentials.accessToken.data;
   }
