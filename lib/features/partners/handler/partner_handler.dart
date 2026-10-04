@@ -71,6 +71,7 @@ class PartnerHandler {
       final cities = (body['cities'] as String?)?.trim() ?? '';
       final message = (body['message'] as String?)?.trim() ?? '';
 
+
       if (companyName.isEmpty || contactName.isEmpty || email.isEmpty || phone.isEmpty) {
         return _json({'message': 'companyName, contactName, email and phone are required'}, status: 400);
       }
@@ -193,6 +194,7 @@ class PartnerHandler {
         supportPhone: body['supportPhone'] as String? ?? partner.supportPhone,
         website: body['website'] as String? ?? partner.website,
         supportEmail: body['supportEmail'] as String? ?? partner.supportEmail,
+        whatsappUrl: body['whatsappUrl'] as String? ?? partner.whatsappUrl,
         domain: body['domain'] as String? ?? partner.domain,
         updatedAt: DateTime.now(),
       );
@@ -376,6 +378,7 @@ class PartnerHandler {
         primaryColor: primary,
         secondaryColor: body['secondaryColor'] as String?,
         supportEmail: body['supportEmail'] as String?,
+        whatsappUrl: body['whatsappUrl'] as String?,
         supportPhone: body['supportPhone'] as String?,
         website: body['website'] as String?,
         domain: body['domain'] as String?,
@@ -689,6 +692,7 @@ class PartnerHandler {
           logoUrl: body['logoUrl'] as String?,
           supportEmail: body['supportEmail'] as String?,
           supportPhone: body['supportPhone'] as String?,
+          whatsappUrl: body['whatsappUrl'] as String?,
           website: body['websiteUrl'] as String?,
           isActive: true,
           createdAt: DateTime.now(),

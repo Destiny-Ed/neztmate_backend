@@ -4,6 +4,7 @@ class PartnerModel {
   final String name;
   final String? tagline;
   final String? logoUrl;
+  final String? whatsappUrl;
   final String primaryColor;
   final String? secondaryColor;
   final String? supportEmail;
@@ -37,6 +38,7 @@ class PartnerModel {
     this.logoUrl,
     this.primaryColor = '#0d9488',
     this.secondaryColor,
+    this.whatsappUrl,
     this.supportEmail,
     this.supportPhone,
     this.website,
@@ -71,6 +73,7 @@ class PartnerModel {
       name: map['name'] as String? ?? '',
       tagline: map['tagline'] as String?,
       logoUrl: map['logoUrl'] as String?,
+      whatsappUrl: map['whatsappUrl'] as String?,
       primaryColor: map['primaryColor'] as String? ?? '#0d9488',
       secondaryColor: map['secondaryColor'] as String?,
       supportEmail: map['supportEmail'] as String?,
@@ -98,6 +101,7 @@ class PartnerModel {
     'tagline': tagline,
     'logoUrl': logoUrl,
     'primaryColor': primaryColor,
+    'whatsappUrl': whatsappUrl,
     'secondaryColor': secondaryColor,
     'supportEmail': supportEmail,
     'supportPhone': supportPhone,
@@ -123,6 +127,7 @@ class PartnerModel {
     String? tagline,
     String? logoUrl,
     String? primaryColor,
+    String? whatsappUrl,
     String? secondaryColor,
     String? supportEmail,
     String? supportPhone,
@@ -146,6 +151,7 @@ class PartnerModel {
       name: name ?? this.name,
       tagline: tagline ?? this.tagline,
       logoUrl: logoUrl ?? this.logoUrl,
+      whatsappUrl: whatsappUrl ?? this.whatsappUrl,
       primaryColor: primaryColor ?? this.primaryColor,
       secondaryColor: secondaryColor ?? this.secondaryColor,
       supportEmail: supportEmail ?? this.supportEmail,
@@ -174,6 +180,7 @@ class PartnerModel {
     'logoUrl': logoUrl,
     'primaryColor': primaryColor,
     'secondaryColor': secondaryColor,
+    'whatsappUrl': whatsappUrl,
     'supportEmail': supportEmail,
     'supportPhone': supportPhone,
     'website': website,
