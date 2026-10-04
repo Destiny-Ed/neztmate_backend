@@ -154,7 +154,7 @@ class PropertyHandler {
 
       // Artisans list (visible to Landowner & Manager)
       List<Map<String, dynamic>> artisansWithTasks = [];
-      if (['landowner', 'manager'].contains(userRole) &&
+      if (['landowner', 'manager', 'artisan'].contains(userRole) &&
           property.artisanIds != null &&
           property.artisanIds!.isNotEmpty) {
         for (var artisanId in property.artisanIds!) {

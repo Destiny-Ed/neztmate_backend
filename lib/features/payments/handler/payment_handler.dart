@@ -1072,10 +1072,10 @@ class PaymentHandler {
       final role = request.context['role'] as String?;
       final partnerId = request.context['partnerId'] as String?;
 
-      if (userId == null || partnerId == null || !['landowner', 'manager'].contains(role)) {
+      if (userId == null || partnerId == null || !['landowner', 'manager', 'artisan'].contains(role)) {
         return Response(
           403,
-          body: jsonEncode({'message': 'Only landowners/managers can save payout accounts'}),
+          body: jsonEncode({'message': 'You are not authorized to save payout accounts. Please contact support.'}),
         );
       }
 
