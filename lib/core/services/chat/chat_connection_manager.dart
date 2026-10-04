@@ -2,7 +2,8 @@ import 'dart:convert';
 import 'package:web_socket_channel/web_socket_channel.dart';
 
 class ChatConnectionManager {
-  static final ChatConnectionManager _instance = ChatConnectionManager._internal();
+  static final ChatConnectionManager _instance =
+      ChatConnectionManager._internal();
   factory ChatConnectionManager() => _instance;
   ChatConnectionManager._internal();
 
@@ -13,7 +14,9 @@ class ChatConnectionManager {
   void addConnection(String userId, WebSocketChannel channel) {
     _connections.putIfAbsent(userId, () => []).add(channel);
     _channelToUser[channel] = userId;
-    print('✅ WebSocket connected: $userId | Total: ${_connections[userId]!.length}');
+    print(
+      '✅ WebSocket connected: $userId | Total: ${_connections[userId]!.length}',
+    );
   }
 
   void removeConnection(WebSocketChannel channel) {
@@ -28,17 +31,27 @@ class ChatConnectionManager {
   }
 
   void broadcastToUser(String userId, Map<String, dynamic> message) {
-    final connections = _connections[userId] ?? [];
+    final connections = List<WebSocketChannel>.from(_connections[userId] ?? []);
     final encoded = jsonEncode(message);
 
-    for (var channel in connections) {
-      if (channel.closeCode == null) {
-        channel.sink.add(encoded);
+    for (final channel in connections) {
+      try {
+        if (channel.closeCode == null) {
+          channel.sink.add(encoded);
+        } else {
+          removeConnection(channel);
+        }
+      } catch (_) {
+        removeConnection(channel);
       }
     }
   }
 
-  void broadcastToChat(String user1, String user2, Map<String, dynamic> message) {
+  void broadcastToChat(
+    String user1,
+    String user2,
+    Map<String, dynamic> message,
+  ) {
     broadcastToUser(user1, message);
     broadcastToUser(user2, message);
   }

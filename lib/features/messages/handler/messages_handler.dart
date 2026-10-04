@@ -139,128 +139,128 @@ class MessageHandler {
   ///Websocket
   /// WebSocket: /messages/ws?userId=xxx&token=yyy
   FutureOr<Response> getWebSocketHandler(Request request) async {
-    return webSocketHandler((webSocket, protocol) {
-      // HEARTBEAT (Ping/Pong)
-      Timer? heartbeatTimer;
+  return webSocketHandler((webSocket, _) {
+    Timer? heartbeatTimer;
+    String userId = '';
+    String? partnerId;
 
-      void startHeartbeat() {
-        heartbeatTimer = Timer.periodic(const Duration(seconds: 30), (_) {
-          if (webSocket.closeCode == null) {
-            try {
-              webSocket.sink.add(jsonEncode({'type': 'ping', 'timestamp': DateTime.now().toIso8601String()}));
-            } catch (_) {
-              heartbeatTimer?.cancel();
-            }
+    void startHeartbeat() {
+      heartbeatTimer?.cancel();
+      heartbeatTimer = Timer.periodic(const Duration(seconds: 25), (_) {
+        try {
+          if (webSocket.closeCode != null) {
+            heartbeatTimer?.cancel();
+            return;
           }
-        });
-      }
+          webSocket.sink.add(jsonEncode({
+            'type': 'ping',
+            'timestamp': DateTime.now().toIso8601String(),
+          }));
+        } catch (_) {
+          heartbeatTimer?.cancel();
+          _connectionManager.removeConnection(webSocket);
+        }
+      });
+    }
 
-      String userId = '';
+    webSocket.stream.listen(
+      (dynamic raw) async {
+        try {
+          final data = jsonDecode(raw as String) as Map<String, dynamic>;
+          final type = data['type'] as String?;
 
-      // Handle incoming messages
-      webSocket.stream.listen(
-        (dynamic message) async {
-          try {
-            final data = jsonDecode(message as String) as Map<String, dynamic>;
-            final type = data['type'] as String?;
+          if (type == 'auth') {
+            final token = data['token'] as String?;
+            if (token == null || token.isEmpty) {
+              webSocket.sink.add(jsonEncode({'error': 'Authentication token is required'}));
+              await webSocket.sink.close(4001, 'Missing token');
+              return;
+            }
 
-            if (type == 'auth') {
-              final token = data['token'];
-              final userIdFromQuery = data['userId'];
-
-              // AUTHENTICATION
-              if (token == null || token.isEmpty) {
-                webSocket.sink.add(jsonEncode({'error': 'Authentication token is required'}));
-                webSocket.sink.close(4001, 'Missing token');
-                return;
+            try {
+              final jwt = jwtService.verify(token);
+              final authenticatedUserId = jwt.payload['sub'] as String?;
+              if (authenticatedUserId == null) {
+                throw Exception('Invalid token payload');
               }
 
-              String? authenticatedUserId;
-              try {
-                final jwt = jwtService.verify(token ?? "");
-                authenticatedUserId = jwt.payload['sub'] as String?;
-
-                if (authenticatedUserId == null) {
-                  print('Invalid token payload: ${jwt.payload}');
-
-                  throw Exception('Invalid token payload');
-                }
-
-                // Optional: Validate userId from query matches token
-                if (userIdFromQuery != null && userIdFromQuery != authenticatedUserId) {
-                  webSocket.sink.add(jsonEncode({'error': 'User ID mismatch'}));
-                  webSocket.sink.close(4003, 'Unauthorized');
-                  print("User ID mismatch $userIdFromQuery ---- $authenticatedUserId");
-                  // return;
-                }
-              } catch (e) {
-                webSocket.sink.add(jsonEncode({'error': 'Invalid or expired token'}));
-                webSocket.sink.close(4001, 'Authentication failed');
-                print('Invalid or expired token');
-
+              final queryUserId = data['userId'] as String?;
+              if (queryUserId != null && queryUserId != authenticatedUserId) {
+                webSocket.sink.add(jsonEncode({'error': 'User ID mismatch'}));
+                await webSocket.sink.close(4003, 'Unauthorized');
                 return;
               }
 
               userId = authenticatedUserId;
+              partnerId = jwt.payload['partnerId'] as String?; // match your claim
               _connectionManager.addConnection(userId, webSocket);
 
-              print('WebSocket authenticated for user: $userId');
-
-              // Send connection success
-              webSocket.sink.add(
-                jsonEncode({
-                  'type': 'connected',
-                  'userId': userId,
-                  'timestamp': DateTime.now().toIso8601String(),
-                }),
-              );
+              webSocket.sink.add(jsonEncode({
+                'type': 'connected',
+                'userId': userId,
+                'timestamp': DateTime.now().toIso8601String(),
+              }));
+              startHeartbeat();
+            } catch (e) {
+              webSocket.sink.add(jsonEncode({'error': 'Invalid or expired token'}));
+              await webSocket.sink.close(4001, 'Authentication failed');
             }
+            return;
+          }
 
-            startHeartbeat();
+          if (type == 'pong') return;
 
-            // Handle pong response
-            if (type == 'pong') {
-              // Connection is alive - can log last activity if needed
+          if (type == 'send') {
+            if (userId.isEmpty) {
+              webSocket.sink.add(jsonEncode({'error': 'Not authenticated'}));
               return;
             }
 
-            if (type == 'send') {
-              final receiverId = data['receiverId'] as String?;
-              final content = data['content'] as String?;
-              final propertyId = data['propertyId'] as String?;
+            final receiverId = data['receiverId'] as String?;
+            final content = (data['content'] as String?)?.trim();
+            final propertyId = data['propertyId'] as String?;
 
-              if (receiverId == null || content == null || content.trim().isEmpty) {
-                webSocket.sink.add(jsonEncode({'error': 'receiverId and content are required'}));
-                return;
-              }
+            if (receiverId == null || content == null || content.isEmpty) {
+              webSocket.sink.add(jsonEncode({'error': 'receiverId and content are required'}));
+              return;
+            }
 
-              final newMessage = MessageModel(
+            final saved = await repository.sendMessage(
+              MessageModel(
                 id: '',
                 senderId: userId,
                 receiverId: receiverId,
-                content: content.trim(),
+                partnerId: partnerId ?? '',
+                content: content,
                 propertyId: propertyId,
                 createdAt: DateTime.now(),
-              );
+              ),
+            );
 
-              final savedMessage = await repository.sendMessage(newMessage);
-
-              final payload = {'type': 'new_message', 'message': savedMessage.toMap()};
-
-              _connectionManager.broadcastToChat(userId, receiverId, payload);
-            }
-          } catch (e, stack) {
-            print('WebSocket message error: $e\n$stack');
-            webSocket.sink.add(jsonEncode({'error': 'Invalid message format'}));
+            _connectionManager.broadcastToChat(
+              userId,
+              receiverId,
+              {'type': 'new_message', 'message': saved.toMap()},
+            );
           }
-        },
-        onError: (error) => print('WebSocket error for $userId: $error'),
-        onDone: () {
-          print('WebSocket onDone ');
-          heartbeatTimer?.cancel();
-          _connectionManager.removeConnection(webSocket);
-        },
-      );
-    })(request);
-  }
+        } catch (e, stack) {
+          print('WebSocket message error: $e\n$stack');
+          try {
+            webSocket.sink.add(jsonEncode({'error': 'Failed to process message'}));
+          } catch (_) {}
+        }
+      },
+      onError: (e) {
+        print('WebSocket error for $userId: $e');
+        heartbeatTimer?.cancel();
+        _connectionManager.removeConnection(webSocket);
+      },
+      onDone: () {
+        print('WebSocket closed for $userId');
+        heartbeatTimer?.cancel();
+        _connectionManager.removeConnection(webSocket);
+      },
+    );
+  })(request);
+}
 }
