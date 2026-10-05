@@ -503,10 +503,18 @@ class MaintenanceHandler {
       final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final summary = body['summary'] as String?;
       final actualCost = (body['actualCost'] as num?)?.toDouble();
+      //validate and get before and after images
+      final beforeImages = body['beforeImages'] as List<dynamic>?;
+      final afterImages = body['afterImages'] as List<dynamic>?;
+
+      if(afterImages != null && afterImages.isNotEmpty && beforeImages == null) {
+        return badRequest('beforeImages are required when afterImages are provided');
+      }
+
 
       if (summary == null) return badRequest('summary is required');
 
-      await maintenanceRepository.completeTask(taskId, summary, actualCost);
+      await maintenanceRepository.completeTask(taskId, summary, actualCost, beforeImages: beforeImages, afterImages: afterImages);
 
       return Response.ok(jsonEncode({'message': 'Task completed successfully'}));
     } catch (e) {

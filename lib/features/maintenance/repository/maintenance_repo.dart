@@ -24,7 +24,7 @@ abstract class MaintenanceRepository {
   Future<void> updateTask(MaintenanceTaskModel task);
   Future<void> acceptTask(String taskId, String artisanId);
   Future<void> declineTask(String taskId, String artisanId);
-  Future<void> completeTask(String taskId, String summary, double? actualCost);
+  Future<void> completeTask(String taskId, String summary, double? actualCost, {List<dynamic>? beforeImages, List<dynamic>? afterImages}  );
 
   Future<List<MaintenanceTaskModel>> getActiveTasksByArtisanAndProperty({
     required String artisanId,

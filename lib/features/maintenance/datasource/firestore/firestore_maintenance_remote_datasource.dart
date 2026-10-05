@@ -143,11 +143,13 @@ class FirestoreMaintenanceDataSource implements MaintenanceRemoteDataSource {
   }
 
   @override
-  Future<void> completeTask(String taskId, String summary, double? actualCost) async {
+  Future<void> completeTask(String taskId, String summary, double? actualCost, {List<dynamic>? beforeImages, List<dynamic>? afterImages}) async {
     await _tasks.doc(taskId).update({
       'status': 'Completed',
       'summary': summary,
       'actualCost': actualCost,
+      'beforeImages': beforeImages,
+      'afterImages': afterImages,
       'completedAt': DateTime.now().toIso8601String(),
       'updatedAt': DateTime.now().toIso8601String(),
     });

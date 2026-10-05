@@ -58,8 +58,8 @@ class MaintenanceRepositoryImpl implements MaintenanceRepository {
   }
 
   @override
-  Future<void> completeTask(String taskId, String summary, double? actualCost) =>
-      dataSource.completeTask(taskId, summary, actualCost);
+  Future<void> completeTask(String taskId, String summary, double? actualCost, {List<dynamic>? beforeImages, List<dynamic>? afterImages}) =>
+      dataSource.completeTask(taskId, summary, actualCost, beforeImages: beforeImages, afterImages: afterImages);
 
   @override
   Future<List<MaintenanceTaskModel>> getActiveTasksByArtisanAndProperty({
