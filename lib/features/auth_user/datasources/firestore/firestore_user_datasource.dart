@@ -142,7 +142,7 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
 
         // 5. Tasks (Submitted & Completed)
         final tasksSnap = await firestore
-            .collection('tasks')
+            .collection('maintenance_tasks')
             .where(propertyField, WhereFilter.equal, userId)
             .get();
         submittedTasks = tasksSnap.docs.length;
@@ -187,7 +187,7 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
         maintenanceRequests = requestsSnap.docs.length;
 
         final tasksSnap = await firestore
-            .collection('tasks')
+            .collection('maintenance_tasks')
             .where('tenantId', WhereFilter.equal, userId) // if applicable
             .get();
         submittedTasks = tasksSnap.docs.length;
@@ -196,7 +196,7 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
       // ARTISAN STATS
       else if (role.toLowerCase() == 'artisan') {
         final tasksSnap = await firestore
-            .collection('tasks')
+            .collection('maintenance_tasks')
             .where('artisanId', WhereFilter.equal, userId)
             .get();
 
@@ -223,28 +223,27 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
         }
 
         // Payment ledger where artisan is receiver
-          final paymentsSnap = await firestore
-              .collection('payments')
-              .where('receiverId', WhereFilter.equal, userId)
-              .get();
+        final paymentsSnap = await firestore
+            .collection('payments')
+            .where('receiverId', WhereFilter.equal, userId)
+            .get();
 
-          double fromPayments = 0.0;
-          for (var doc in paymentsSnap.docs) {
-            final data = doc.data() as Map<String, dynamic>;
-            final st = (data['status'] as String? ?? '').toLowerCase();
-            final type = (data['type'] as String? ?? '').toLowerCase();
-            if (st != 'paid') continue;
-            if (type == 'task' ||
-                type == 'maintenance' ||
-                type == 'repair' ||
-                data['taskId'] != null) {
-              fromPayments += (data['amount'] as num?)?.toDouble() ?? 0.0;
-            }
+        double fromPayments = 0.0;
+        for (var doc in paymentsSnap.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final st = (data['status'] as String? ?? '').toLowerCase();
+          final type = (data['type'] as String? ?? '').toLowerCase();
+          if (st != 'paid') continue;
+          if (type == 'task' ||
+              type == 'maintenance' ||
+              type == 'repair' ||
+              data['taskId'] != null) {
+            fromPayments += (data['amount'] as num?)?.toDouble() ?? 0.0;
           }
-          if (fromPayments > totalCommissionEarned) {
-            totalCommissionEarned = fromPayments;
-          }
-        
+        }
+        if (fromPayments > totalCommissionEarned) {
+          totalCommissionEarned = fromPayments;
+        }
 
         final withdrawalsSnap = await firestore
             .collection('withdrawals')
