@@ -663,7 +663,7 @@ class MaintenanceHandler {
 
       final task = await maintenanceRepository.getTaskById(taskId);
 
-      if (task.status != 'completed') {
+      if (task.status.toLowerCase() != 'completed') {
         return Response(
           400,
           body: jsonEncode({
@@ -672,7 +672,7 @@ class MaintenanceHandler {
         );
       }
 
-      if (task.paymentStatus == 'paid') {
+      if (task.paymentStatus?.toLowerCase() == 'paid') {
         return Response(400, body: jsonEncode({'message': 'Payment already approved'}));
       }
 

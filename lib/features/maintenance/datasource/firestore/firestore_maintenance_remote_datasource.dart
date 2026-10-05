@@ -181,10 +181,10 @@ class FirestoreMaintenanceDataSource implements MaintenanceRemoteDataSource {
 
     if (tasks.isEmpty) return 'pending';
 
-    final hasInProgress = tasks.any((t) => t.status == 'in_progress');
-    final hasCompleted = tasks.any((t) => t.status == 'completed');
-    final allCompleted = tasks.every((t) => t.status == 'completed');
-    final hasPending = tasks.any((t) => t.status == 'pending' || t.status == 'accepted');
+    final hasInProgress = tasks.any((t) => t.status.toLowerCase() == 'in_progress');
+    final hasCompleted = tasks.any((t) => t.status.toLowerCase() == 'completed');
+    final allCompleted = tasks.every((t) => t.status.toLowerCase() == 'completed');
+    final hasPending = tasks.any((t) => t.status.toLowerCase() == 'pending' || t.status.toLowerCase() == 'accepted');
 
     if (allCompleted) return 'completed';
     if (hasInProgress) return 'in_progress';
