@@ -36,6 +36,10 @@ class PaymentRepositoryImpl implements PaymentRepository {
   }
 
   @override
+  Future<void> updatePaymentReceiver(String paymentId, String receiverId) =>
+      dataSource.updatePaymentReceiver(paymentId, receiverId);
+
+  @override
   Future<void> markAsPaid(String id, String receiptUrl, String? transactionRef) =>
       dataSource.markAsPaid(id, receiptUrl, transactionRef);
 
@@ -67,10 +71,6 @@ class PaymentRepositoryImpl implements PaymentRepository {
   Future<void> approveWithdrawal(String withdrawalId, String processedBy) =>
       dataSource.approveWithdrawal(withdrawalId, processedBy);
 
-  // @override
-  // Future<Map<String, dynamic>> getPaymentSummary(String userId, String role) =>
-  //     dataSource.getPaymentSummary(userId, role);
-
   @override
   Future<List<PaymentModel>> getPaymentsByProperty(String propertyId) =>
       dataSource.getPaymentsByProperty(propertyId);
@@ -78,9 +78,6 @@ class PaymentRepositoryImpl implements PaymentRepository {
   @override
   Future<List<PaymentModel>> getPaymentsByUnit(String unitId) => dataSource.getPaymentsByUnit(unitId);
 
-  // @override
-  // Future<Map<String, dynamic>> getPropertyPaymentSummary(String propertyId) =>
-  //     dataSource.getPropertyPaymentSummary(propertyId);
   @override
   Future<void> rejectWithdrawal(String withdrawalId, String processedBy, String? reason) =>
       dataSource.rejectWithdrawal(withdrawalId, processedBy, reason);
