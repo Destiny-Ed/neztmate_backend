@@ -505,7 +505,7 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
     q = _withPartner(q, partnerId);
     final snap = await q.get();
     for (final doc in snap.docs) {
-      await doc.reference.update({
+      await doc.ref.update({
         'status': 'withdrawn',
         'withdrawalReference': withdrawalReference,
         'withdrawnAt': DateTime.now().toIso8601String(),
@@ -540,7 +540,7 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
     q = _withPartner(q, partnerId);
     final snap = await q.get();
     return snap.docs
-        .map((d) => ManagerCommissionModel.fromMap(d.data() as Map<String, dynamic>))
+        .map((d) => ManagerCommissionModel.fromMap(d.data() as Map<String, dynamic>, d.id))
         .toList();
   }
 
@@ -559,7 +559,7 @@ class FirestorePaymentDataSource implements PaymentRemoteDataSource {
     q = _withPartner(q, partnerId);
     final snap = await q.get();
     return snap.docs
-        .map((d) => ManagerCommissionModel.fromMap(d.data() as Map<String, dynamic>))
+        .map((d) => ManagerCommissionModel.fromMap(d.data() as Map<String, dynamic>, d.id))
         .toList();
   }
 }
