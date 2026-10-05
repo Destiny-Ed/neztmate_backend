@@ -52,6 +52,10 @@ class MaintenanceHandler {
       final description = body['description'] as String?;
       final category = body['category'] as String?;
       final priority = body['priority'] as String? ?? 'Medium';
+      final beforeImages = body['beforeImages'] as List<dynamic>?;
+      final afterImages = body['afterImages'] as List<dynamic>?;
+
+
 
       if (propertyId == null || unitId == null || title == null || description == null || category == null) {
         return badRequest('propertyId, unitId, title, description and category are required');
@@ -69,6 +73,8 @@ class MaintenanceHandler {
         priority: priority,
         status: 'pending',
         createdAt: DateTime.now(),
+        beforeImages: beforeImages,
+        afterImages: afterImages,
       );
 
       final created = await maintenanceRepository.createRequest(requestModel);
@@ -361,6 +367,21 @@ class MaintenanceHandler {
         ),
       );
 
+       // Send notification to tenant
+      await notificationRepository.create(
+        NotificationModel(
+          userId: maintenanceRequest.tenantId,
+          type: 'task_assigned',
+          partnerId: partnerId,
+          title: 'Maintenance Task Assigned To Artisan',
+          body: '${maintenanceRequest.title} - ${propertyRequest.name}',
+          relatedId: createdTask.id,
+          relatedCollection: 'maintenance_tasks',
+          createdAt: DateTime.now(),
+          id: '',
+        ),
+      );
+
       // Optional: Log to history
       // await historyRepository.createHistoryEntry(...);
 
@@ -507,7 +528,7 @@ class MaintenanceHandler {
       final beforeImages = body['beforeImages'] as List<dynamic>?;
       final afterImages = body['afterImages'] as List<dynamic>?;
 
-      if(afterImages != null && afterImages.isNotEmpty && beforeImages == null) {
+      if(afterImages == null && afterImages!.isEmpty && beforeImages == null && beforeImages!.isEmpty) {
         return badRequest('beforeImages are required when afterImages are provided');
       }
 

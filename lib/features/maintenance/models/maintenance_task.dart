@@ -34,6 +34,10 @@ class MaintenanceTaskModel {
   final String? paymentApprovedBy;
   final String partnerId;
 
+  //ADD PHOTOS BEFORE AND AFTER TASK COMPLETION
+  final List<dynamic>? beforeImages;
+  final List<dynamic>? afterImages;
+
   MaintenanceTaskModel({
     required this.id,
     required this.maintenanceRequestId,
@@ -60,6 +64,8 @@ class MaintenanceTaskModel {
     this.paymentApprovedAt,
     this.paymentApprovedBy,
     this.partnerId = '',
+    this.beforeImages,
+    this.afterImages,
   });
 
   factory MaintenanceTaskModel.fromMap(Map<String, dynamic> map, {String? id}) {
@@ -91,6 +97,8 @@ class MaintenanceTaskModel {
       paymentApprovedAt: map['paymentApprovedAt'] != null ? DateTime.parse(map['paymentApprovedAt']) : null,
       paymentApprovedBy: map['paymentApprovedBy'] as String?,
       partnerId: map['partnerId'] as String? ?? '',
+      beforeImages: (map['beforeImages'] as List<dynamic>?)?.cast<String>(),
+      afterImages: (map['afterImages'] as List<dynamic>?)?.cast<String>(),
     );
   }
 
@@ -123,6 +131,8 @@ class MaintenanceTaskModel {
       'paymentApprovedAt': paymentApprovedAt?.toIso8601String(),
       'paymentApprovedBy': paymentApprovedBy,
       'partnerId': partnerId,
+      'beforeImages': beforeImages,
+      'afterImages': afterImages,
     };
   }
 
@@ -142,6 +152,8 @@ class MaintenanceTaskModel {
     DateTime? paymentApprovedAt,
     String? paymentApprovedBy,
     String? partnerId,
+    List<dynamic>? beforeImages,
+    List<dynamic>? afterImages,
   }) {
     return MaintenanceTaskModel(
       id: id ?? this.id,
@@ -169,6 +181,8 @@ class MaintenanceTaskModel {
       paymentApprovedAt: paymentApprovedAt ?? this.paymentApprovedAt,
       paymentApprovedBy: paymentApprovedBy ?? this.paymentApprovedBy,
       partnerId: partnerId ?? this.partnerId,
+      beforeImages: beforeImages ?? this.beforeImages,
+      afterImages: afterImages ?? this.afterImages,
     );
   }
 }

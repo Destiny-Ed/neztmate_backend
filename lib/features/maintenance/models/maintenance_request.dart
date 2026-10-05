@@ -11,6 +11,8 @@ class MaintenanceRequestModel {
   final DateTime createdAt;
   final DateTime? updatedAt;
   final String partnerId;
+  final List<dynamic>? beforeImages;
+  final List<dynamic>? afterImages;
 
   MaintenanceRequestModel({
     required this.id,
@@ -25,6 +27,8 @@ class MaintenanceRequestModel {
     required this.createdAt,
     this.updatedAt,
     this.partnerId = '',
+    this.beforeImages,
+    this.afterImages,
   });
 
   factory MaintenanceRequestModel.fromMap(Map<String, dynamic> map) {
@@ -41,6 +45,8 @@ class MaintenanceRequestModel {
       createdAt: DateTime.parse(map['createdAt']),
       updatedAt: map['updatedAt'] != null ? DateTime.parse(map['updatedAt']) : null,
       partnerId: map['partnerId'] as String? ?? '',
+      beforeImages: (map['beforeImages'] as List<dynamic>?)?.cast<String>(),
+      afterImages: (map['afterImages'] as List<dynamic>?)?.cast<String>(),
     );
   }
 
@@ -57,6 +63,8 @@ class MaintenanceRequestModel {
     'createdAt': createdAt.toIso8601String(),
     'updatedAt': updatedAt?.toIso8601String(),
     'partnerId': partnerId,
+    'beforeImages': beforeImages,
+    'afterImages': afterImages,
   };
 
   MaintenanceRequestModel copyWith({
@@ -72,6 +80,8 @@ class MaintenanceRequestModel {
     DateTime? createdAt,
     DateTime? updatedAt,
     String? partnerId,
+    List<dynamic>? beforeImages,
+    List<dynamic>? afterImages,
   }) {
     return MaintenanceRequestModel(
       id: id ?? this.id,
@@ -86,6 +96,8 @@ class MaintenanceRequestModel {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       partnerId: partnerId ?? this.partnerId,
+      beforeImages: beforeImages ?? this.beforeImages,
+      afterImages: afterImages ?? this.afterImages,
     );
   }
 }
