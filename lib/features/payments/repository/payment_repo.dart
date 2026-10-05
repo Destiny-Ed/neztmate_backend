@@ -29,6 +29,9 @@ abstract class PaymentRepository {
 
   Future<void> markAsPaidByReference(String reference, String receiptUrl, String? transactionRef);
 
+  /// Set / backfill receiverId on an existing payment
+  Future<void> updatePaymentReceiver(String paymentId, String receiverId);
+
   Future<WithdrawalModel> createWithdrawal(WithdrawalModel withdrawal);
   Future<WithdrawalModel> getWithdrawalById(String id);
   Future<List<PayoutAccountModel>> getPayoutAccounts(String userId, {String? propertyId, String? partnerId});
