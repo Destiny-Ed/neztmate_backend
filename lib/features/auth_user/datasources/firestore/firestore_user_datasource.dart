@@ -40,7 +40,10 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
     final cached = AppCache().get<User>(cacheKey);
     if (cached != null) return cached;
 
-    final snapshot = await _users.where('email', WhereFilter.equal, email).limit(1).get();
+    final snapshot = await _users
+        .where('email', WhereFilter.equal, email)
+        .limit(1)
+        .get();
 
     if (snapshot.docs.isEmpty) {
       throw NotFoundException('User with email $email');
@@ -56,7 +59,10 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
 
   @override
   Future<User> createUser(User user) async {
-    final snapshot = await _users.where('email', WhereFilter.equal, user.email).limit(1).get();
+    final snapshot = await _users
+        .where('email', WhereFilter.equal, user.email)
+        .limit(1)
+        .get();
     if (snapshot.docs.isNotEmpty) {
       throw EmailAlreadyExistsException(user.email);
     }
@@ -108,7 +114,10 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
         final paymentsSnap = await firestore
             .collection('payments')
             .where('status', WhereFilter.equal, 'paid')
-            .where("type", WhereFilter.notIn, ['application_fee', 'subscription'])
+            .where("type", WhereFilter.notIn, [
+              'application_fee',
+              'subscription',
+            ])
             .get();
 
         for (var doc in paymentsSnap.docs) {
@@ -141,7 +150,8 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
         for (var doc in tasksSnap.docs) {
           final data = doc.data() as Map<String, dynamic>;
           if (data['status'] == 'completed') completedTasks++;
-          if (data['status'] == 'inprogress' || data['status'] == 'accepted') activeTasks++;
+          if (data['status'] == 'inprogress' || data['status'] == 'accepted')
+            activeTasks++;
         }
 
         // 6. Total Withdrawn
@@ -164,7 +174,8 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
 
         for (var doc in commissionsSnap.docs) {
           final data = doc.data() as Map<String, dynamic>;
-          totalCommissionEarned += (data['commissionAmount'] as num?)?.toDouble() ?? 0.0;
+          totalCommissionEarned +=
+              (data['commissionAmount'] as num?)?.toDouble() ?? 0.0;
         }
       }
       // TENANT STATS
@@ -182,7 +193,8 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
         submittedTasks = tasksSnap.docs.length;
       }
       // ARTISAN STATS
-      else if (role == 'artisan') {
+      // ARTISAN STATS
+      else if (role.toLowerCase() == 'artisan') {
         final tasksSnap = await firestore
             .collection('tasks')
             .where('artisanId', WhereFilter.equal, userId)
@@ -192,8 +204,59 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
 
         for (var doc in tasksSnap.docs) {
           final data = doc.data() as Map<String, dynamic>;
-          if (data['status'] == 'completed') completedTasks++;
-          if (data['status'] == 'inprogress' || data['status'] == 'accepted') activeTasks++;
+          final st = (data['status'] as String? ?? '').toLowerCase();
+          final paySt = (data['paymentStatus'] as String? ?? '').toLowerCase();
+
+          if (st == 'completed') completedTasks++;
+          if (['inprogress', 'accepted', 'pending', 'assigned'].contains(st)) {
+            activeTasks++;
+          }
+
+          // Earned when task payment is approved/paid
+          if (paySt == 'paid' || paySt == 'approved') {
+            final cost =
+                (data['actualCost'] as num?)?.toDouble() ??
+                (data['quotationAmount'] as num?)?.toDouble() ??
+                0.0;
+            totalCommissionEarned += cost;
+          }
+        }
+
+        // Payment ledger where artisan is receiver
+          final paymentsSnap = await firestore
+              .collection('payments')
+              .where('receiverId', WhereFilter.equal, userId)
+              .get();
+
+          double fromPayments = 0.0;
+          for (var doc in paymentsSnap.docs) {
+            final data = doc.data() as Map<String, dynamic>;
+            final st = (data['status'] as String? ?? '').toLowerCase();
+            final type = (data['type'] as String? ?? '').toLowerCase();
+            if (st != 'paid') continue;
+            if (type == 'task' ||
+                type == 'maintenance' ||
+                type == 'repair' ||
+                data['taskId'] != null) {
+              fromPayments += (data['amount'] as num?)?.toDouble() ?? 0.0;
+            }
+          }
+          if (fromPayments > totalCommissionEarned) {
+            totalCommissionEarned = fromPayments;
+          }
+        
+
+        final withdrawalsSnap = await firestore
+            .collection('withdrawals')
+            .where('userId', WhereFilter.equal, userId)
+            .get();
+
+        for (var doc in withdrawalsSnap.docs) {
+          final data = doc.data() as Map<String, dynamic>;
+          final st = (data['status'] as String? ?? '').toLowerCase();
+          if (['completed', 'paid', 'success'].contains(st)) {
+            totalWithdrawn += (data['amount'] as num?)?.toDouble() ?? 0.0;
+          }
         }
       }
 
@@ -220,7 +283,10 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
 
   @override
   Future<User?> getUserByVerificationId(String verificationId) async {
-    final snap = await _users.where('verificationId', WhereFilter.equal, verificationId).limit(1).get();
+    final snap = await _users
+        .where('verificationId', WhereFilter.equal, verificationId)
+        .limit(1)
+        .get();
 
     if (snap.docs.isEmpty) return null;
 
@@ -229,7 +295,11 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
   }
 
   @override
-  Future<List<User>> listUsers({String? partnerId, String? role, int limit = 100}) async {
+  Future<List<User>> listUsers({
+    String? partnerId,
+    String? role,
+    int limit = 100,
+  }) async {
     Query query = firestore.collection('users');
 
     if (partnerId != null && partnerId.isNotEmpty) {
@@ -247,7 +317,10 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
   }
 
   @override
-  Future<int> countByPartnerAndRole({required String partnerId, required String role}) async {
+  Future<int> countByPartnerAndRole({
+    required String partnerId,
+    required String role,
+  }) async {
     final snap = await firestore
         .collection('users')
         .where('partnerId', WhereFilter.equal, partnerId)
