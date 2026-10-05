@@ -278,13 +278,15 @@ class MessageHandler {
                 'message': saved.toMap(),
               });
 
+              final user = await userRepository.getUserById(userId);
+
               await notificationRepository.create(
                 NotificationModel(
                   id: '',
                   userId: receiverId,
                   partnerId: partnerId ?? '',
                   type: 'new_message',
-                  title: 'New message from ${userId}',
+                  title: 'New message from ${user.fullName}',
                   body: content,
                   relatedId: saved.id,
                   relatedCollection: 'messages',
