@@ -686,6 +686,7 @@ class MaintenanceHandler {
       final maintenanceRequest = await maintenanceRepository.getRequestById(task.maintenanceRequestId);
 
       if (paymentMethod == 'wallet') {
+        return badRequest('Wallet payment method is currently disabled. Please use link or external payment methods.');
         //check available balance
         final balance = await paymentRepository.getPropertyAvailableBalance(task.propertyId);
 
