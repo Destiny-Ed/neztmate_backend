@@ -705,6 +705,7 @@ class MaintenanceHandler {
           paymentStatus: 'paid',
           paymentMethod: 'wallet',
           actualCost: amount,
+          
           paymentApprovedAt: DateTime.now(),
           paymentApprovedBy: approverId,
         );
@@ -727,6 +728,7 @@ class MaintenanceHandler {
             'taskId': task.id,
             'propertyId': maintenanceRequest.propertyId,
             'type': 'task_payment',
+            'receiverId': task.artisanId,
             'approverId': approverId,
             'unitId': maintenanceRequest.unitId,
           },

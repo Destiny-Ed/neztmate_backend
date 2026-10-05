@@ -62,9 +62,11 @@ class PaymentHandler {
       final userId = request.context['userId'] as String?;
       final partnerId = request.context['partnerId'] as String?;
 
-      if (userId == null || partnerId == null) return unauthorized("User not found");
+      if (userId == null || partnerId == null)
+        return unauthorized("User not found");
 
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final body =
+          jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final leaseId = body['leaseId'] as String?;
       final propertyId = body['propertyId'] as String?;
       final unitId = body['unitId'] as String?;
@@ -72,8 +74,14 @@ class PaymentHandler {
       final email = (body['email'] as String?);
       final paymentType = (body['paymentType'] as String?);
 
-      if (leaseId == null || propertyId == null || email == null || unitId == null || amount < 0) {
-        return badRequest('leaseId, propertyId, email, unitId, amount are required');
+      if (leaseId == null ||
+          propertyId == null ||
+          email == null ||
+          unitId == null ||
+          amount < 0) {
+        return badRequest(
+          'leaseId, propertyId, email, unitId, amount are required',
+        );
       }
 
       if (!['rent', 'task', 'rent-renewal'].contains(paymentType)) {
@@ -90,7 +98,8 @@ class PaymentHandler {
         return Response(
           400,
           body: jsonEncode({
-            'message': 'This lease is set to offline payment. Use bank transfer and upload receipt.',
+            'message':
+                'This lease is set to offline payment. Use bank transfer and upload receipt.',
             'paymentMode': paymentMode,
           }),
         );
@@ -98,16 +107,22 @@ class PaymentHandler {
 
       // Amount
       final unit = await unitRepository.getUnitById(lease.unitId);
-      final summary = await LeasePaymentCalculatorService.calculateForLease(lease: lease, unit: unit);
+      final summary = await LeasePaymentCalculatorService.calculateForLease(
+        lease: lease,
+        unit: unit,
+      );
       final paymentAmount = paymentType == 'task'
           ? amount
           : paymentType == 'rent_renewal'
-          ? (summary['renewalPayment']?['total'] as num? ?? lease.monthlyRent).toDouble()
-          : (summary['firstPayment']?['total'] as num? ?? lease.monthlyRent).toDouble();
+          ? (summary['renewalPayment']?['total'] as num? ?? lease.monthlyRent)
+                .toDouble()
+          : (summary['firstPayment']?['total'] as num? ?? lease.monthlyRent)
+                .toDouble();
 
       final tenant = await userRepository.getUserById(userId);
 
-      final reference = 'nm_${paymentType}_${DateTime.now().millisecondsSinceEpoch}';
+      final reference =
+          'nm_${paymentType}_${DateTime.now().millisecondsSinceEpoch}';
 
       final initData = await paystackService.initializeTransaction(
         email: email ?? tenant.email,
@@ -167,7 +182,10 @@ class PaymentHandler {
 
       if (!paystackService.verifySignature(bodyString, signature)) {
         print('❌ Invalid Paystack signature');
-        return Response(400, body: jsonEncode({'message': 'Invalid signature'}));
+        return Response(
+          400,
+          body: jsonEncode({'message': 'Invalid signature'}),
+        );
       }
 
       final body = jsonDecode(bodyString);
@@ -182,7 +200,8 @@ class PaymentHandler {
       final data = body['data'] as Map<String, dynamic>;
       final metadata = data['metadata'] as Map<String, dynamic>;
       final reference = data['reference'] as String;
-      final amount = (data['amount'] as num) / 100.0; // Convert from Kobo to Naira
+      final amount =
+          (data['amount'] as num) / 100.0; // Convert from Kobo to Naira
       final receiptUrl = data['receipt_url'] as String?;
 
       final partnerId = metadata['partnerId'] as String?;
@@ -192,7 +211,8 @@ class PaymentHandler {
       print("metadata : $metadata");
 
       // === IDEMPOTENCY CHECK ===
-      final alreadyProcessed = await paymentRepository.isPaymentAlreadyProcessed(reference);
+      final alreadyProcessed = await paymentRepository
+          .isPaymentAlreadyProcessed(reference);
       if (alreadyProcessed) {
         print('⚠️ Payment already processed: $reference');
         return Response.ok('Already processed');
@@ -206,15 +226,24 @@ class PaymentHandler {
       await paymentRepository.markPaymentAsProcessed(reference);
 
       // Update main payment record
-      await paymentRepository.markAsPaidByReference(reference, receiptUrl ?? '', reference);
+      await paymentRepository.markAsPaidByReference(
+        reference,
+        receiptUrl ?? '',
+        reference,
+      );
 
       //  APPLICATION FEE
-      if (payment.type == 'application_fee' && metadata['applicationId'] != null) {
+      if (payment.type == 'application_fee' &&
+          metadata['applicationId'] != null) {
         final appId = metadata['applicationId'] as String;
 
-        final application = await applicationRepository.getApplicationById(appId);
+        final application = await applicationRepository.getApplicationById(
+          appId,
+        );
 
-        await applicationRepository.updateApplication(application.copyWith(status: 'pending'));
+        await applicationRepository.updateApplication(
+          application.copyWith(status: 'pending'),
+        );
 
         await notificationRepository.create(
           NotificationModel(
@@ -246,12 +275,19 @@ class PaymentHandler {
 
         UserSubscriptionModel? sub;
         if (subscriptionId != null && subscriptionId.isNotEmpty) {
-          sub = await subscriptionRepository.getSubscriptionById(subscriptionId);
+          sub = await subscriptionRepository.getSubscriptionById(
+            subscriptionId,
+          );
         }
-        sub ??= await subscriptionRepository.getSubscriptionByReference(reference);
+        sub ??= await subscriptionRepository.getSubscriptionByReference(
+          reference,
+        );
 
         if (sub != null && sub.status != 'active') {
-          await subscriptionRepository.activateSubscription(sub.id, amountPaid: amount);
+          await subscriptionRepository.activateSubscription(
+            sub.id,
+            amountPaid: amount,
+          );
 
           // Optional: cancel other active subs for same user
           await subscriptionRepository.deactivateOtherSubscriptions(
@@ -325,6 +361,13 @@ class PaymentHandler {
         if (managerId != null) {
           managerCommissionAmount = amount * 0.10; // 10% for tasks
         }
+
+        if (payment.receiverId == null || payment.receiverId!.isEmpty) {
+          await paymentRepository.updatePaymentReceiver(
+            payment.id,
+            recipientId,
+          );
+        }
         // Notifications & History
         await notificationRepository.create(
           NotificationModel(
@@ -364,9 +407,13 @@ class PaymentHandler {
 
         // Update lease & unit
         if (payment.type?.toLowerCase() == 'rent-renewal') {
-          final proposedRent = (metadata['proposedRent'] as num?)?.toDouble() ?? lease.monthlyRent;
+          final proposedRent =
+              (metadata['proposedRent'] as num?)?.toDouble() ??
+              lease.monthlyRent;
           final durationStr = metadata['renewalDuration'] as String?;
-          final durationMonths = parseDurationMonths(durationStr ?? '12 months');
+          final durationMonths = parseDurationMonths(
+            durationStr ?? '12 months',
+          );
           final newLease = await leaseRepository.renewLeaseAfterPayment(
             lease.copyWith(durationMonths: durationMonths),
             durationMonths,
@@ -390,7 +437,10 @@ class PaymentHandler {
             ),
           );
         } else {
-          await leaseRepository.confirmPaymentAndActivate(payment.leaseId!, 'paystack_webhook');
+          await leaseRepository.confirmPaymentAndActivate(
+            payment.leaseId!,
+            'paystack_webhook',
+          );
         }
 
         await unitRepository.updateUnitStatus(
@@ -406,17 +456,26 @@ class PaymentHandler {
 
         // Manager Commission for Rent
         if (managerId != null) {
-          final property = await propertyRepository.getPropertyById(lease.propertyId ?? '');
+          final property = await propertyRepository.getPropertyById(
+            lease.propertyId ?? '',
+          );
 
-          if (property.managerCommissionType == 'percentage' && property.managerCommissionRate != null) {
+          if (property.managerCommissionType == 'percentage' &&
+              property.managerCommissionRate != null) {
             managerCommissionAmount = amount * property.managerCommissionRate!;
             managerCommissionRate = property.managerCommissionRate!;
-          } else if (property.managerCommissionType == 'flat' && property.managerFlatFeeAmount != null) {
+          } else if (property.managerCommissionType == 'flat' &&
+              property.managerFlatFeeAmount != null) {
             managerCommissionAmount = property.managerFlatFeeAmount!;
           }
         }
 
-        await _sendRentSuccessNotifications(payment, lease, amount, partnerId ?? "");
+        await _sendRentSuccessNotifications(
+          payment,
+          lease,
+          amount,
+          partnerId ?? "",
+        );
       }
 
       // CREATE DISBURSEMENT (3 Days Holding)
@@ -434,7 +493,18 @@ class PaymentHandler {
         );
 
         await paymentRepository.createDisbursement(disbursement);
-        await paymentRepository.recordPlatformFee(payment.id, platformFee, payment.type ?? 'payment');
+        await paymentRepository.recordPlatformFee(
+          payment.id,
+          platformFee,
+          payment.type ?? 'payment',
+        );
+
+        if (payment.receiverId == null || payment.receiverId!.isEmpty) { //TODO: Track this and remove if there's any duplicate auditing
+          await paymentRepository.updatePaymentReceiver(
+            payment.id,
+            recipientId,
+          );
+        }
 
         print('📅 Disbursement scheduled for $recipientType after 3 days');
       }
@@ -504,7 +574,9 @@ class PaymentHandler {
       final propertyId = request.params['propertyId'];
       if (propertyId == null) return badRequest('propertyId required');
 
-      final payments = await paymentRepository.getPaymentsByProperty(propertyId);
+      final payments = await paymentRepository.getPaymentsByProperty(
+        propertyId,
+      );
 
       return Response.ok(
         jsonEncode({
@@ -526,7 +598,9 @@ class PaymentHandler {
 
       final payments = await paymentRepository.getPaymentsByUnit(unitId);
 
-      return Response.ok(jsonEncode({'payments': payments.map((p) => p.toMap()).toList()}));
+      return Response.ok(
+        jsonEncode({'payments': payments.map((p) => p.toMap()).toList()}),
+      );
     } catch (e) {
       return Response.internalServerError();
     }
@@ -540,7 +614,9 @@ class PaymentHandler {
 
       final payments = await paymentRepository.getPaymentsByLease(leaseId);
 
-      return Response.ok(jsonEncode({'payments': payments.map((p) => p.toMap()).toList()}));
+      return Response.ok(
+        jsonEncode({'payments': payments.map((p) => p.toMap()).toList()}),
+      );
     } catch (e) {
       return Response.internalServerError();
     }
@@ -563,13 +639,23 @@ class PaymentHandler {
       }
 
       if (!['admin'].contains(role)) {
-        return Response(403, body: jsonEncode({'message': 'Insufficient permission'}));
+        return Response(
+          403,
+          body: jsonEncode({'message': 'Insufficient permission'}),
+        );
       }
 
-      final withdrawal = await paymentRepository.getWithdrawalById(withdrawalId);
+      final withdrawal = await paymentRepository.getWithdrawalById(
+        withdrawalId,
+      );
 
       if (withdrawal.status != 'Pending') {
-        return Response(400, body: jsonEncode({'message': 'Only pending withdrawals can be approved'}));
+        return Response(
+          400,
+          body: jsonEncode({
+            'message': 'Only pending withdrawals can be approved',
+          }),
+        );
       }
 
       // Approve and mark as Completed
@@ -588,7 +674,10 @@ class PaymentHandler {
           relatedCollection: 'withdrawals',
           timestamp: DateTime.now(),
           id: '',
-          metadata: {'propertyId': withdrawal.propertyId, 'amount': withdrawal.amount},
+          metadata: {
+            'propertyId': withdrawal.propertyId,
+            'amount': withdrawal.amount,
+          },
         ),
       );
 
@@ -603,7 +692,9 @@ class PaymentHandler {
       );
     } catch (e, stack) {
       print('Approve withdrawal error: $e\n$stack');
-      return Response.internalServerError(body: jsonEncode({'message': 'Failed to approve withdrawal'}));
+      return Response.internalServerError(
+        body: jsonEncode({'message': 'Failed to approve withdrawal'}),
+      );
     }
   }
 
@@ -615,16 +706,26 @@ class PaymentHandler {
       final partnerId = request.context['partnerId'] as String?;
 
       if (!['admin'].contains(role) && userId == null || partnerId == null) {
-        return Response(403, body: jsonEncode({'message': 'Insufficient permission. Admin access required'}));
+        return Response(
+          403,
+          body: jsonEncode({
+            'message': 'Insufficient permission. Admin access required',
+          }),
+        );
       }
 
-      final totalFees = await paymentRepository.getTotalUnwithdrawnPlatformFees();
+      final totalFees = await paymentRepository
+          .getTotalUnwithdrawnPlatformFees();
 
       if (totalFees <= 0) {
-        return Response(400, body: jsonEncode({'message': 'No pending platform fees to withdraw'}));
+        return Response(
+          400,
+          body: jsonEncode({'message': 'No pending platform fees to withdraw'}),
+        );
       }
 
-      final reference = 'platform_withdrawal_${DateTime.now().millisecondsSinceEpoch}';
+      final reference =
+          'platform_withdrawal_${DateTime.now().millisecondsSinceEpoch}';
 
       final success = await paystackService.transferToBank(
         amount: totalFees,
@@ -645,7 +746,10 @@ class PaymentHandler {
           }),
         );
       } else {
-        return Response(500, body: jsonEncode({'message': 'Withdrawal failed on Paystack'}));
+        return Response(
+          500,
+          body: jsonEncode({'message': 'Withdrawal failed on Paystack'}),
+        );
       }
     } catch (e, stack) {
       print('Admin withdrawal error: $e\n$stack');
@@ -659,7 +763,8 @@ class PaymentHandler {
       final withdrawalId = request.params['id'];
       final processedBy = request.context['userId'] as String?;
       final partnerId = request.context['partnerId'] as String?;
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final body =
+          jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final reason = body['reason'] as String?;
 
       if (withdrawalId == null || processedBy == null) {
@@ -670,13 +775,24 @@ class PaymentHandler {
         return badRequest("PartnerId is required");
       }
 
-      final withdrawal = await paymentRepository.getWithdrawalById(withdrawalId);
+      final withdrawal = await paymentRepository.getWithdrawalById(
+        withdrawalId,
+      );
 
       if (withdrawal.status.toLowerCase() != 'pending') {
-        return Response(400, body: jsonEncode({'message': 'Only pending withdrawals can be rejected'}));
+        return Response(
+          400,
+          body: jsonEncode({
+            'message': 'Only pending withdrawals can be rejected',
+          }),
+        );
       }
 
-      await paymentRepository.rejectWithdrawal(withdrawalId, processedBy, reason);
+      await paymentRepository.rejectWithdrawal(
+        withdrawalId,
+        processedBy,
+        reason,
+      );
 
       // Log history
       await historyRepository.createHistoryEntry(
@@ -695,7 +811,8 @@ class PaymentHandler {
 
       return Response.ok(
         jsonEncode({
-          'message': 'Withdrawal rejected. Reserved amount has been released back.',
+          'message':
+              'Withdrawal rejected. Reserved amount has been released back.',
           'withdrawalId': withdrawalId,
         }),
       );
@@ -709,9 +826,11 @@ class PaymentHandler {
   Future<Response> markAsPaid(Request request) async {
     try {
       final id = request.params['id'];
-      if (id == null) return Response(400, body: jsonEncode({'message': 'Missing ID'}));
+      if (id == null)
+        return Response(400, body: jsonEncode({'message': 'Missing ID'}));
 
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final body =
+          jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final receiptUrl = body['receiptUrl'] as String?;
       final transactionRef = body['transactionRef'] as String?;
 
@@ -730,21 +849,27 @@ class PaymentHandler {
       final role = request.context['role'] as String?;
       final partnerId = request.context['partnerId'] as String?;
 
-      if (userId == null || partnerId == null || !['landowner', 'manager'].contains(role)) {
+      if (userId == null ||
+          partnerId == null ||
+          !['landowner', 'manager'].contains(role)) {
         return Response(
           403,
-          body: jsonEncode({'message': 'Only landowners and managers can request withdrawals'}),
+          body: jsonEncode({
+            'message': 'Only landowners and managers can request withdrawals',
+          }),
         );
       }
 
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final body =
+          jsonDecode(await request.readAsString()) as Map<String, dynamic>;
 
       final propertyId = body['propertyId'] as String?;
       final amount = (body['amount'] as num?)?.toDouble();
       final notes = body['notes'] as String?;
 
       if (propertyId == null) return badRequest('propertyId is required');
-      if (amount == null || amount <= 0) return badRequest('Valid amount is required');
+      if (amount == null || amount <= 0)
+        return badRequest('Valid amount is required');
 
       // Check if user has payout account
       final payoutAccounts = await paymentRepository.getPayoutAccounts(userId);
@@ -752,7 +877,8 @@ class PaymentHandler {
         return Response(
           400,
           body: jsonEncode({
-            'message': 'No payout account found. Please add a bank account first.',
+            'message':
+                'No payout account found. Please add a bank account first.',
             'action': 'add_payout_account',
           }),
         );
@@ -760,23 +886,30 @@ class PaymentHandler {
 
       // Check available commission for managers
       if (role == 'Manager') {
-        final pendingCommission = await paymentRepository.getTotalPendingCommission(userId);
+        final pendingCommission = await paymentRepository
+            .getTotalPendingCommission(userId);
         if (amount > pendingCommission) {
           return Response(
             400,
-            body: jsonEncode({'message': 'Insufficient commission balance', 'available': pendingCommission}),
+            body: jsonEncode({
+              'message': 'Insufficient commission balance',
+              'available': pendingCommission,
+            }),
           );
         }
       }
 
       // Get current withdrawable balance
-      final payments = await paymentRepository.getPaymentsByProperty(propertyId);
+      final payments = await paymentRepository.getPaymentsByProperty(
+        propertyId,
+      );
       final summary = await _calculatePropertySummary(payments, propertyId);
       if (amount > summary.withdrawableAmount) {
         return Response(
           400,
           body: jsonEncode({
-            'message': 'Insufficient balance. Available: ₦${summary.withdrawableAmount.toStringAsFixed(0)}',
+            'message':
+                'Insufficient balance. Available: ₦${summary.withdrawableAmount.toStringAsFixed(0)}',
           }),
         );
       }
@@ -816,11 +949,14 @@ class PaymentHandler {
   Future<Response> getMyWithdrawals(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
-      if (userId == null) return Response(401, body: jsonEncode({'message': 'Unauthorized'}));
+      if (userId == null)
+        return Response(401, body: jsonEncode({'message': 'Unauthorized'}));
 
       final withdrawals = await paymentRepository.getWithdrawalsByUser(userId);
 
-      return Response.ok(jsonEncode({'withdrawals': withdrawals.map((w) => w.toMap()).toList()}));
+      return Response.ok(
+        jsonEncode({'withdrawals': withdrawals.map((w) => w.toMap()).toList()}),
+      );
     } catch (e) {
       return Response.internalServerError();
     }
@@ -837,10 +973,18 @@ class PaymentHandler {
       final payments = await paymentRepository.getPaymentsByUser(userId);
       final withdrawals = await paymentRepository.getWithdrawalsByUser(userId);
 
-      final summary = _calculateUserSummary(payments, withdrawals, role, userId);
+      final summary = _calculateUserSummary(
+        payments,
+        withdrawals,
+        role,
+        userId,
+      );
 
       return Response.ok(
-        jsonEncode({'summary': summary.toMap(), 'message': 'Payment summary fetched successfully'}),
+        jsonEncode({
+          'summary': summary.toMap(),
+          'message': 'Payment summary fetched successfully',
+        }),
         headers: {'Content-Type': 'application/json'},
       );
     } catch (e, stack) {
@@ -860,7 +1004,9 @@ class PaymentHandler {
       }
       if (propertyId == null) return badRequest('propertyId is required');
 
-      final payments = await paymentRepository.getPaymentsByProperty(propertyId);
+      final payments = await paymentRepository.getPaymentsByProperty(
+        propertyId,
+      );
 
       final summary = await _calculatePropertySummary(payments, propertyId);
 
@@ -1024,7 +1170,9 @@ class PaymentHandler {
       }
     }
     // Get withdrawals linked to this property
-    final withdrawals = await paymentRepository.getWithdrawalsByProperty(propertyId);
+    final withdrawals = await paymentRepository.getWithdrawalsByProperty(
+      propertyId,
+    );
     // Process Withdrawals
     for (var w in withdrawals) {
       final status = w.status.toLowerCase();
@@ -1053,13 +1201,19 @@ class PaymentHandler {
     );
   }
 
-  Future<PaymentSummaryModel> _calculateLeaseSummary(List<PaymentModel> payments, String leaseId) async {
+  Future<PaymentSummaryModel> _calculateLeaseSummary(
+    List<PaymentModel> payments,
+    String leaseId,
+  ) async {
     final summary = await _calculatePropertySummary(payments, leaseId);
 
     return summary.copyWith(entityType: 'lease');
   }
 
-  Future<PaymentSummaryModel> _calculateUnitSummary(List<PaymentModel> payments, String unitId) async {
+  Future<PaymentSummaryModel> _calculateUnitSummary(
+    List<PaymentModel> payments,
+    String unitId,
+  ) async {
     final summary = await _calculatePropertySummary(payments, unitId);
 
     return summary.copyWith(entityType: 'unit');
@@ -1072,14 +1226,20 @@ class PaymentHandler {
       final role = request.context['role'] as String?;
       final partnerId = request.context['partnerId'] as String?;
 
-      if (userId == null || partnerId == null || !['landowner', 'manager', 'artisan'].contains(role)) {
+      if (userId == null ||
+          partnerId == null ||
+          !['landowner', 'manager', 'artisan'].contains(role)) {
         return Response(
           403,
-          body: jsonEncode({'message': 'You are not authorized to save payout accounts. Please contact support.'}),
+          body: jsonEncode({
+            'message':
+                'You are not authorized to save payout accounts. Please contact support.',
+          }),
         );
       }
 
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final body =
+          jsonDecode(await request.readAsString()) as Map<String, dynamic>;
 
       final propertyId = body['propertyId'] as String?;
       final accountName = body['accountName'] as String?;
@@ -1088,8 +1248,13 @@ class PaymentHandler {
       final bankCode = body['bankCode'] as String?;
       final isDefault = body['isDefault'] as bool? ?? false;
 
-      if (accountName == null || accountNumber == null || bankName == null || bankCode == null) {
-        return badRequest('accountName, accountNumber, bankName and bankCode are required');
+      if (accountName == null ||
+          accountNumber == null ||
+          bankName == null ||
+          bankCode == null) {
+        return badRequest(
+          'accountName, accountNumber, bankName and bankCode are required',
+        );
       }
 
       final accounts = await paymentRepository.getPayoutAccounts(userId);
@@ -1132,7 +1297,10 @@ class PaymentHandler {
       final saved = await paymentRepository.savePayoutAccount(account);
 
       return Response.ok(
-        jsonEncode({'message': 'Payout account saved successfully', 'account': saved.toMap()}),
+        jsonEncode({
+          'message': 'Payout account saved successfully',
+          'account': saved.toMap(),
+        }),
         headers: {'Content-Type': 'application/json'},
       );
     } catch (e, stack) {
@@ -1153,7 +1321,12 @@ class PaymentHandler {
 
       final account = await paymentRepository.getPayoutAccountById(accountId);
       if (account == null || account.userId != userId) {
-        return Response(403, body: jsonEncode({'message': 'Payout account not found or unauthorized'}));
+        return Response(
+          403,
+          body: jsonEncode({
+            'message': 'Payout account not found or unauthorized',
+          }),
+        );
       }
 
       if (account.isDefault) {
@@ -1168,15 +1341,21 @@ class PaymentHandler {
 
       // Delete subaccount from Paystack if it exists
       if (account.paystackSubaccountId != null) {
-        final deleted = await paystackService.deleteSubaccount(account.paystackSubaccountId!);
+        final deleted = await paystackService.deleteSubaccount(
+          account.paystackSubaccountId!,
+        );
         if (!deleted) {
-          print('⚠️ Failed to delete subaccount from Paystack: ${account.paystackSubaccountId}');
+          print(
+            '⚠️ Failed to delete subaccount from Paystack: ${account.paystackSubaccountId}',
+          );
         }
       }
 
       await paymentRepository.removePayoutAccount(accountId);
 
-      return Response.ok(jsonEncode({'message': 'Payout account removed successfully'}));
+      return Response.ok(
+        jsonEncode({'message': 'Payout account removed successfully'}),
+      );
     } catch (e, stack) {
       print('Remove payout account error: $e\n$stack');
       return Response.internalServerError();
@@ -1195,12 +1374,16 @@ class PaymentHandler {
 
       // Verify the account belongs to the user
       final accounts = await paymentRepository.getPayoutAccounts(userId);
-      final targetAccount = accounts.where((a) => a.id == accountId).firstOrNull;
+      final targetAccount = accounts
+          .where((a) => a.id == accountId)
+          .firstOrNull;
 
       if (targetAccount == null) {
         return Response(
           404,
-          body: jsonEncode({'message': 'Payout account not found or does not belong to you'}),
+          body: jsonEncode({
+            'message': 'Payout account not found or does not belong to you',
+          }),
         );
       }
 
@@ -1224,12 +1407,17 @@ class PaymentHandler {
       await paymentRepository.setDefaultPayoutAccount(accountId, userId);
 
       return Response.ok(
-        jsonEncode({'message': 'Account set as default successfully', 'accountId': accountId}),
+        jsonEncode({
+          'message': 'Account set as default successfully',
+          'accountId': accountId,
+        }),
         headers: {'Content-Type': 'application/json'},
       );
     } catch (e, stack) {
       print('Set default payout account error: $e\n$stack');
-      return Response.internalServerError(body: jsonEncode({'message': 'Failed to set default account'}));
+      return Response.internalServerError(
+        body: jsonEncode({'message': 'Failed to set default account'}),
+      );
     }
   }
 
@@ -1243,11 +1431,17 @@ class PaymentHandler {
         return badRequest('Account ID is required');
       }
 
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final body =
+          jsonDecode(await request.readAsString()) as Map<String, dynamic>;
 
       final existing = await paymentRepository.getPayoutAccountById(accountId);
       if (existing == null || existing.userId != userId) {
-        return Response(403, body: jsonEncode({'message': 'Payout account not found or unauthorized'}));
+        return Response(
+          403,
+          body: jsonEncode({
+            'message': 'Payout account not found or unauthorized',
+          }),
+        );
       }
 
       String? newSubaccountId;
@@ -1273,7 +1467,10 @@ class PaymentHandler {
       await paymentRepository.updatePayoutAccount(updatedAccount);
 
       return Response.ok(
-        jsonEncode({'message': 'Payout account updated successfully', 'account': updatedAccount.toMap()}),
+        jsonEncode({
+          'message': 'Payout account updated successfully',
+          'account': updatedAccount.toMap(),
+        }),
       );
     } catch (e, stack) {
       print('Update payout account error: $e\n$stack');
@@ -1311,7 +1508,9 @@ class PaymentHandler {
         propertyId: propertyId,
       );
 
-      return Response.ok(jsonEncode({'accounts': accounts.map((a) => a.toMap()).toList()}));
+      return Response.ok(
+        jsonEncode({'accounts': accounts.map((a) => a.toMap()).toList()}),
+      );
     } catch (e) {
       return Response.internalServerError();
     }
@@ -1320,7 +1519,8 @@ class PaymentHandler {
   /// POST /resolve-bank-account - Verify account without saving
   Future<Response> resolveBankAccount(Request request) async {
     try {
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final body =
+          jsonDecode(await request.readAsString()) as Map<String, dynamic>;
 
       final accountNumber = body['accountNumber'] as String?;
       final bankCode = body['bankCode'] as String?;
@@ -1343,7 +1543,9 @@ class PaymentHandler {
       );
     } catch (e, s) {
       print("error :::: $e\n$s");
-      return Response.internalServerError(body: jsonEncode({'message': 'Failed to resolve account'}));
+      return Response.internalServerError(
+        body: jsonEncode({'message': 'Failed to resolve account'}),
+      );
     }
   }
 
@@ -1358,7 +1560,9 @@ class PaymentHandler {
       );
     } catch (e, stack) {
       print('Get banks error: $e\n$stack');
-      return Response.internalServerError(body: jsonEncode({'message': 'Failed to fetch banks'}));
+      return Response.internalServerError(
+        body: jsonEncode({'message': 'Failed to fetch banks'}),
+      );
     }
   }
 
@@ -1407,7 +1611,8 @@ class PaymentHandler {
         type: payment.type ?? "payment-made",
         partnerId: partnerId,
         title: 'Rent Payment Successful',
-        description: '₦${amount.toStringAsFixed(0)} paid for lease ${payment.leaseId}',
+        description:
+            '₦${amount.toStringAsFixed(0)} paid for lease ${payment.leaseId}',
         relatedId: payment.id,
         relatedCollection: 'payments',
         timestamp: DateTime.now(),
