@@ -122,7 +122,7 @@ class FirestoreMaintenanceDataSource implements MaintenanceRemoteDataSource {
   @override
   Future<void> acceptTask(String taskId, String artisanId) async {
     await _tasks.doc(taskId).update({
-      'status': 'Accepted',
+      'status': 'accepted',
       'startedAt': DateTime.now().toIso8601String(),
       'updatedAt': DateTime.now().toIso8601String(),
     });
@@ -131,7 +131,7 @@ class FirestoreMaintenanceDataSource implements MaintenanceRemoteDataSource {
   @override
   Future<void> declineTask(String taskId, String artisanId) async {
     await _tasks.doc(taskId).update({
-      'status': 'Declined',
+      'status': 'declined',
       'updatedAt': DateTime.now().toIso8601String(),
       'startedAt': DateTime.now().toIso8601String(),
     });
@@ -145,7 +145,7 @@ class FirestoreMaintenanceDataSource implements MaintenanceRemoteDataSource {
   @override
   Future<void> completeTask(String taskId, String summary, double? actualCost, {List<dynamic>? beforeImages, List<dynamic>? afterImages}) async {
     await _tasks.doc(taskId).update({
-      'status': 'Completed',
+      'status': 'completed',
       'summary': summary,
       'actualCost': actualCost,
       'beforeImages': beforeImages,
@@ -164,7 +164,7 @@ class FirestoreMaintenanceDataSource implements MaintenanceRemoteDataSource {
       final snap = await _tasks
           .where('artisanId', WhereFilter.equal, artisanId)
           .where('propertyId', WhereFilter.equal, propertyId)
-          .where('status', WhereFilter.notEqual, 'Cancelled')
+          .where('status', WhereFilter.notEqual, 'cancelled')
           .orderBy('createdAt', descending: true)
           .get();
 
@@ -179,17 +179,17 @@ class FirestoreMaintenanceDataSource implements MaintenanceRemoteDataSource {
   Future<String> calculateRequestStatus(String requestId) async {
     final tasks = await getTasksByRequest(requestId);
 
-    if (tasks.isEmpty) return 'Pending';
+    if (tasks.isEmpty) return 'pending';
 
-    final hasInProgress = tasks.any((t) => t.status == 'InProgress');
-    final hasCompleted = tasks.any((t) => t.status == 'Completed');
-    final allCompleted = tasks.every((t) => t.status == 'Completed');
-    final hasPending = tasks.any((t) => t.status == 'Pending' || t.status == 'Accepted');
+    final hasInProgress = tasks.any((t) => t.status == 'in_progress');
+    final hasCompleted = tasks.any((t) => t.status == 'completed');
+    final allCompleted = tasks.every((t) => t.status == 'completed');
+    final hasPending = tasks.any((t) => t.status == 'pending' || t.status == 'accepted');
 
-    if (allCompleted) return 'Completed';
-    if (hasInProgress) return 'InProgress';
-    if (hasPending) return 'InProgress'; // or 'Pending' based on your preference
-    return 'Pending';
+    if (allCompleted) return 'completed';
+    if (hasInProgress) return 'in_progress';
+    if (hasPending) return 'in_progress'; // or 'pending' based on your preference
+    return 'pending';
   }
 
   @override

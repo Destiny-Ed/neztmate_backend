@@ -576,28 +576,7 @@ class MaintenanceHandler {
           : null;
 
       final response = {
-        'id': task.id,
-        'title': task.title,
-        'description': task.description,
-        'category': task.category,
-        'priority': task.priority,
-        'status': task.status,
-        'progressNotes': task.progressNotes,
-        'quotedAmount': task.quotationAmount,
-        'actualCost': task.actualCost,
-        'assignedAt': task.assignedAt?.toIso8601String(),
-        'startedAt': task.startedAt?.toIso8601String(),
-        'createdAt': task.createdAt.toIso8601String(),
-        'completedAt': task.completedAt?.toIso8601String(),
-        'updatedAt': task.updatedAt?.toIso8601String(),
-
-        // === Payment Information ===
-        'paymentStatus': task.paymentStatus, // Pending, Approved, Paid, Rejected
-        'paymentMethod': task.paymentMethod, // Wallet, External, Link
-        'paymentReference': task.paymentReference,
-        'paymentApprovedAt': task.paymentApprovedAt?.toIso8601String(),
-        'paymentApprovedBy': task.paymentApprovedBy,
-
+        ...task.toMap(),
         'tenant': {
           'id': tenant.id,
           'fullName': tenant.fullName,
