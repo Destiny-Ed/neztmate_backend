@@ -1,1 +1,202 @@
-SEE_FILE:/home/workdir/artifacts/injector.dart
+import 'dart:io';
+
+import 'package:dart_firebase_admin/auth.dart';
+import 'package:dart_firebase_admin/firestore.dart';
+import 'package:dotenv/dotenv.dart';
+import 'package:get_it/get_it.dart';
+import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
+import 'package:neztmate_backend/core/services/auth/password_service.dart';
+import 'package:neztmate_backend/core/services/database/firebase/firebase.dart';
+import 'package:neztmate_backend/core/services/push_notification/fcm_auth.dart';
+import 'package:neztmate_backend/core/services/push_notification/push_notification_service.dart';
+import 'package:neztmate_backend/core/services/reputation/reputation_service.dart';
+import 'package:neztmate_backend/core/services/subscription/partner_access_service.dart';
+import 'package:neztmate_backend/core/services/subscription/subscription_limit_service.dart';
+import 'package:neztmate_backend/core/services/verification/providers/veriff_service.dart';
+import 'package:neztmate_backend/core/services/verification/providers/you_verify_service.dart';
+import 'package:neztmate_backend/core/services/verification/verification_service.dart';
+import 'package:neztmate_backend/core/services/storage/storage_service.dart';
+import 'package:neztmate_backend/features/storage/handler/storage_handler.dart';
+import 'package:neztmate_backend/features/affiliates/datasource/firestore_affiliate_datasource.dart';
+import 'package:neztmate_backend/features/affiliates/handler/affliate_handler.dart';
+import 'package:neztmate_backend/features/affiliates/repository/affiliate_repository.dart';
+import 'package:neztmate_backend/features/announcement/datasource/announcement_remote_datasource.dart';
+import 'package:neztmate_backend/features/announcement/datasource/firestore/firestore_announcement_datasource.dart';
+import 'package:neztmate_backend/features/announcement/handler/announcement_handler.dart';
+import 'package:neztmate_backend/features/announcement/repository/announcement_repository.dart';
+import 'package:neztmate_backend/features/announcement/repository_impl/announcement_repo_impl.dart';
+import 'package:neztmate_backend/features/applications/datasource/application_remote_datasource.dart';
+import 'package:neztmate_backend/features/applications/datasource/firestore/firestore_remote_datasource.dart';
+import 'package:neztmate_backend/features/applications/handler/application_handler.dart';
+import 'package:neztmate_backend/features/applications/repository/application_repo.dart';
+import 'package:neztmate_backend/features/applications/repository_impl/repository_impl.dart';
+import 'package:neztmate_backend/features/auth_user/datasources/firestore/firestore_user_datasource.dart';
+import 'package:neztmate_backend/features/community/datasource/firestore/firestore_remote_datasource.dart';
+import 'package:neztmate_backend/features/community/datasource/remote_datasource.dart';
+import 'package:neztmate_backend/features/community/handler/community_handler.dart';
+import 'package:neztmate_backend/features/community/repository/community_post_repo.dart';
+import 'package:neztmate_backend/features/community/repository_impl/comunity_repo_impl.dart';
+import 'package:neztmate_backend/features/history/datasource/firestore/history_firestore_datasource.dart';
+import 'package:neztmate_backend/features/history/datasource/history_remote_datasource.dart';
+import 'package:neztmate_backend/features/history/handler/history_handler.dart';
+import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
+import 'package:neztmate_backend/features/history/repository_impl/history_repo_impl.dart';
+import 'package:neztmate_backend/features/invites/datasource/firestore/invite_firestore_datasource.dart';
+import 'package:neztmate_backend/features/invites/handler/invite_handler.dart';
+import 'package:neztmate_backend/features/invites/invite_repository_impl/invite_repo_impl.dart';
+import 'package:neztmate_backend/features/invites/repository/invite_repo.dart';
+import 'package:neztmate_backend/features/leases/datasource/firestore/firestore_lease_datasource.dart';
+import 'package:neztmate_backend/features/leases/datasource/lease_remote_datasource.dart';
+import 'package:neztmate_backend/features/leases/handler/lease_handler.dart';
+import 'package:neztmate_backend/features/leases/repository/lease_repo.dart';
+import 'package:neztmate_backend/features/leases/repository_impl/lease_repo_impl.dart';
+import 'package:neztmate_backend/features/maintenance/datasource/firestore/firestore_maintenance_remote_datasource.dart';
+import 'package:neztmate_backend/features/maintenance/handler/maintenance_handler.dart';
+import 'package:neztmate_backend/features/maintenance/repository/maintenance_repo.dart';
+import 'package:neztmate_backend/features/maintenance/repository_impl/repository_impl.dart';
+import 'package:neztmate_backend/features/messages/datasource/firestore/firestore_message_remote_datasource.dart';
+import 'package:neztmate_backend/features/messages/datasource/remote_datasource.dart';
+import 'package:neztmate_backend/features/messages/handler/messages_handler.dart';
+import 'package:neztmate_backend/features/messages/repository/message_repo.dart';
+import 'package:neztmate_backend/features/messages/repository_impl/messages_repo_impl.dart';
+import 'package:neztmate_backend/features/metrics/datasource/firebase/firestore_metrics_datasource.dart';
+import 'package:neztmate_backend/features/metrics/datasource/metric_remote_datasource.dart';
+import 'package:neztmate_backend/features/metrics/handler/metric_settings_handler.dart';
+import 'package:neztmate_backend/features/metrics/repository/metrics_repository.dart';
+import 'package:neztmate_backend/features/metrics/reposotory_impl/metrics_impl.dart';
+import 'package:neztmate_backend/features/notifications/datasource/firestore/firestore_remote_datasource.dart';
+import 'package:neztmate_backend/features/notifications/datasource/remote_datasource.dart';
+import 'package:neztmate_backend/features/notifications/handler/handler.dart';
+import 'package:neztmate_backend/features/notifications/repository/notification_repo.dart';
+import 'package:neztmate_backend/features/notifications/repository_impl/notification_repo_impl.dart';
+import 'package:neztmate_backend/features/partners/datasource/firestore/firestore_partner_datasource.dart';
+import 'package:neztmate_backend/features/partners/datasource/partner_remote_datasource.dart';
+import 'package:neztmate_backend/features/partners/handler/partner_handler.dart';
+import 'package:neztmate_backend/features/partners/repository/partner_repository.dart';
+import 'package:neztmate_backend/features/partners/repository_impl/partner_repository_impl.dart';
+import 'package:neztmate_backend/features/payments/datasource/firestore/firestore_remote_payment_datasource.dart';
+import 'package:neztmate_backend/features/payments/datasource/remote_datasource.dart';
+import 'package:neztmate_backend/features/payments/handler/payment_handler.dart';
+import 'package:neztmate_backend/features/payments/repository/payment_repo.dart';
+import 'package:neztmate_backend/features/payments/repository_impl/payment_repo_impl.dart';
+import 'package:neztmate_backend/features/properties/datasources/firestore/firestore_property_datasource.dart';
+import 'package:neztmate_backend/features/auth_user/datasources/user_remote_datasource.dart';
+import 'package:neztmate_backend/features/auth_user/handler/auth_handler.dart';
+import 'package:neztmate_backend/features/auth_user/handler/user_handler.dart';
+import 'package:neztmate_backend/features/auth_user/repositories/auth_repository.dart';
+import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
+import 'package:neztmate_backend/features/auth_user/repository_impl/firestore/auth_repository_impl.dart';
+import 'package:neztmate_backend/features/auth_user/repository_impl/firestore/user_repository_impl.dart';
+import 'package:neztmate_backend/features/properties/datasources/property_remote_datasource.dart';
+import 'package:neztmate_backend/features/properties/handler/property_handler.dart';
+import 'package:neztmate_backend/features/properties/repository/property_repo.dart';
+import 'package:neztmate_backend/features/properties/repository_impl/property_impl.dart';
+import 'package:neztmate_backend/features/reviews/datasource/firestore/firestore_review_datasource.dart';
+import 'package:neztmate_backend/features/reviews/datasource/review_remote_datasource.dart';
+import 'package:neztmate_backend/features/reviews/handler/user_review_handler.dart';
+import 'package:neztmate_backend/features/reviews/repository/review_repository.dart';
+import 'package:neztmate_backend/features/reviews/repository_impl/review_repository_impl.dart';
+import 'package:neztmate_backend/features/subscriptions/datasource/firestore_subscription_datasource.dart';
+import 'package:neztmate_backend/features/subscriptions/handler/subscription_handler.dart';
+import 'package:neztmate_backend/features/subscriptions/repository/subscription_repository.dart';
+import 'package:neztmate_backend/features/tenants/datasources/firestore/firestore_tenant_datasource.dart';
+import 'package:neztmate_backend/features/tenants/datasources/tenant_remote_datasource.dart';
+import 'package:neztmate_backend/features/tenants/handler/tenant_handler.dart';
+import 'package:neztmate_backend/features/tenants/repository/tenant_respository.dart';
+import 'package:neztmate_backend/features/tenants/repository_impl/tenant_repo_impl.dart';
+import 'package:neztmate_backend/features/units/datasource/firestore/unit_firestore_datasource.dart';
+import 'package:neztmate_backend/features/units/datasource/unit_remote_datasource.dart';
+import 'package:neztmate_backend/features/units/handler/unit_handler.dart';
+import 'package:neztmate_backend/features/units/repository/unit_repo.dart';
+import 'package:neztmate_backend/features/units/repository_impl/unit_repo_impl.dart';
+import 'package:neztmate_backend/features/verification/handler/verification_handler.dart';
+
+final injector = GetIt.instance;
+
+Future<void> setupDependencies({bool usePostgres = false, required String jwtSecret}) async {
+  final env = DotEnv()..load();
+
+  if (usePostgres) {
+    throw UnimplementedError("Postgres support not fully implemented yet");
+  } else {
+    final firebaseService = FirebaseService();
+    await firebaseService.init();
+    injector.registerLazySingleton<FirebaseService>(() => firebaseService);
+    injector.registerLazySingleton<Firestore>(() => firebaseService.firestore);
+    injector.registerLazySingleton<Auth>(() => firebaseService.auth);
+  }
+
+  injector.registerLazySingleton<PasswordService>(() => PasswordService());
+  injector.registerLazySingleton<JwtService>(() => JwtService(jwtSecret));
+
+  injector.registerLazySingleton<UserRemoteDataSource>(() => FirestoreUserDataSource(injector<Firestore>()));
+  injector.registerLazySingleton<UserRepository>(() => UserRepositoryImpl(injector<UserRemoteDataSource>()));
+  injector.registerLazySingleton<UserHandler>(() => UserHandler(injector<UserRepository>(), injector<JwtService>()));
+
+  injector.registerLazySingleton<PropertyRemoteDataSource>(() => FirestorePropertyDataSource(injector<Firestore>()));
+  injector.registerLazySingleton<PropertyRepository>(() => PropertyRepositoryImpl(injector()));
+  injector.registerLazySingleton<PropertyHandler>(() => PropertyHandler(injector<PropertyRepository>(), injector<NotificationRepository>(), injector<UserRepository>(), injector<MaintenanceRepository>(), injector<UnitRepository>(), injector<PaymentRepository>(), injector<LeaseRepository>(), injector<SubscriptionLimitService>(), injector<PartnerAccessService>()));
+
+  injector.registerLazySingleton<UnitRemoteDataSource>(() => FirestoreUnitDataSource(injector<Firestore>()));
+  injector.registerLazySingleton<UnitRepository>(() => UnitRepositoryImpl(injector<UnitRemoteDataSource>(), injector<PropertyRemoteDataSource>(), injector<HistoryRepository>(), injector<UserRepository>(), injector<LeaseRepository>()));
+  injector.registerLazySingleton<UnitHandler>(() => UnitHandler(injector<UnitRepository>(), injector<UserRepository>(), injector<SubscriptionLimitService>(), injector<PartnerAccessService>()));
+
+  injector.registerLazySingleton<HistoryRemoteDataSource>(() => FirestoreHistoryDataSource(injector<Firestore>()));
+  injector.registerLazySingleton<HistoryRepository>(() => HistoryRepositoryImpl(injector<HistoryRemoteDataSource>()));
+  injector.registerLazySingleton<HistoryHandler>(() => HistoryHandler(injector<HistoryRepository>()));
+
+  injector.registerLazySingleton<PartnerRemoteDataSource>(() => FirestorePartnerDataSource(injector<FirebaseService>().firestore));
+  injector.registerLazySingleton<PartnerRepository>(() => PartnerRepositoryImpl(injector()));
+  injector.registerLazySingleton(() => PartnerHandler(injector<PartnerRepository>(), injector<UserRepository>(), injector<PasswordService>()));
+
+  injector.registerLazySingleton<AuthRepository>(() => AuthRepositoryImpl(userRepository: injector<UserRepository>(), partnerRepository: injector<PartnerRepository>(), firebaseAuth: injector<Auth>(), passwordService: injector<PasswordService>(), firestore: injector<Firestore>()));
+  injector.registerLazySingleton<AuthHandler>(() => AuthHandler(injector<AuthRepository>(), injector<PasswordService>(), injector<JwtService>(), injector<UserRepository>(), injector<PartnerRepository>(), injector<Auth>(), injector<PartnerAccessService>()));
+
+  injector.registerLazySingleton<TenantRemoteDataSource>(() => FirestoreTenantDataSource(injector<Firestore>()));
+  injector.registerLazySingleton<TenantRepository>(() => TenantRepositoryImpl(injector<TenantRemoteDataSource>()));
+  injector.registerLazySingleton<TenantHandler>(() => TenantHandler(injector<TenantRepository>()));
+
+  injector.registerLazySingleton<LeaseRemoteDataSource>(() => FirestoreLeaseDataSource(injector<Firestore>()));
+  injector.registerLazySingleton<LeaseRepository>(() => LeaseRepositoryImpl(injector<LeaseRemoteDataSource>()));
+  injector.registerLazySingleton<LeaseHandler>(() => LeaseHandler(leaseRepository: injector<LeaseRepository>(), historyRepository: injector<HistoryRepository>(), notificationRepository: injector<NotificationRepository>(), unitRepository: injector<UnitRepository>(), propertyRepository: injector<PropertyRepository>(), userRepository: injector<UserRepository>(), tenantRepository: injector<TenantRepository>(), userReputationService: injector<UserReputationService>(), paymentRepository: injector<PaymentRepository>()));
+
+  injector.registerLazySingleton<UserReviewRemoteDataSource>(() => FirestoreUserReviewDataSource(injector<Firestore>(), injector<UserRepository>(), injector<PaymentRepository>()));
+  injector.registerLazySingleton<UserReviewRepository>(() => UserReviewRepositoryImpl(injector<UserReviewRemoteDataSource>()));
+  injector.registerLazySingleton<UserReviewHandler>(() => UserReviewHandler(injector<UserReviewRepository>(), injector<UserRepository>()));
+
+  injector.registerLazySingleton<ApplicationRemoteDataSource>(() => FirestoreApplicationDataSource(injector<Firestore>(), injector<PropertyRepository>()));
+  injector.registerLazySingleton<ApplicationRepository>(() => ApplicationRepositoryImpl(injector<ApplicationRemoteDataSource>()));
+  injector.registerLazySingleton<ApplicationHandler>(() => ApplicationHandler(applicationRepository: injector<ApplicationRepository>(), userRepository: injector<UserRepository>(), propertyRepository: injector<PropertyRepository>(), unitRepository: injector<UnitRepository>(), leaseRepository: injector<LeaseRepository>(), notificationRepository: injector<NotificationRepository>(), userReviewRepository: injector<UserReviewRepository>(), paymentRepository: injector<PaymentRepository>(), partnerAccess: injector<PartnerAccessService>(), storageService: injector<AppStorageService>()));
+
+  injector.registerLazySingleton<FirestoreMaintenanceDataSource>(() => FirestoreMaintenanceDataSource(injector<Firestore>(), injector<PropertyRepository>()));
+  injector.registerLazySingleton<MaintenanceRepository>(() => MaintenanceRepositoryImpl(injector<FirestoreMaintenanceDataSource>()));
+  injector.registerLazySingleton<MaintenanceHandler>(() => MaintenanceHandler(maintenanceRepository: injector<MaintenanceRepository>(), userRepository: injector<UserRepository>(), propertyRepository: injector<PropertyRepository>(), notificationRepository: injector<NotificationRepository>(), historyRepository: injector<HistoryRepository>(), paymentRepository: injector<PaymentRepository>(), unitRepository: injector<UnitRepository>()));
+
+  injector.registerLazySingleton<FirestoreInviteDataSource>(() => FirestoreInviteDataSource(injector<Firestore>()));
+  injector.registerLazySingleton<InviteRepository>(() => InviteRepositoryImpl(injector<FirestoreInviteDataSource>()));
+  injector.registerLazySingleton<InviteHandler>(() => InviteHandler(injector<InviteRepository>(), injector<UserRepository>(), injector<PropertyRepository>(), injector<NotificationRepository>(), injector<PaymentRepository>(), injector<SubscriptionLimitService>()));
+
+  injector.registerLazySingleton<CommunityRemoteDataSource>(() => FirestoreCommunityDataSource(injector<Firestore>()));
+  injector.registerLazySingleton<CommunityRepository>(() => CommunityRepositoryImpl(injector<CommunityRemoteDataSource>()));
+  injector.registerLazySingleton<CommunityHandler>(() => CommunityHandler(injector<CommunityRepository>(), injector<UserRepository>()));
+
+  injector.registerLazySingleton<MessageRemoteDataSource>(() => FirestoreMessageDataSource(injector<Firestore>()));
+  injector.registerLazySingleton<MessageRepository>(() => MessageRepositoryImpl(injector<MessageRemoteDataSource>()));
+  injector.registerLazySingleton<MessageHandler>(() => MessageHandler(injector<MessageRepository>(), injector<JwtService>(), injector<UserRepository>(), injector<NotificationRepository>()));
+
+  injector.registerLazySingleton(() => PushNotificationService(userRepository: injector(), projectId: 'next-mate', getAccessToken: FcmAuth.fcmAccessTokenFromServiceAccount));
+
+  injector.registerLazySingleton<NotificationRemoteDataSource>(() => FirestoreNotificationDataSource(injector<Firestore>()));
+  injector.registerLazySingleton<NotificationRepository>(() => NotificationRepositoryImpl(injector<NotificationRemoteDataSource>(), injector<PushNotificationService>()));
+  injector.registerLazySingleton<NotificationHandler>(() => NotificationHandler(injector<NotificationRepository>()));
+
+  injector.registerLazySingleton<PaymentRemoteDataSource>(() => FirestorePaymentDataSource(injector<Firestore>()));
+  injector.registerLazySingleton<PaymentRepository>(() => PaymentRepositoryImpl(injector<PaymentRemoteDataSource>()));
+  injector.registerLazySingleton<PaymentHandler>(() => PaymentHandler(injector<PaymentRepository>(), injector<LeaseRepository>(), injector<HistoryRepository>(), injector<NotificationRepository>(), injector<UnitRepository>(), injector<MaintenanceRepository>(), injector<ApplicationRepository>(), injector<UserReputationService>(), injector<PropertyRepository>(), injector<UserRepository>(), injector<SubscriptionRepository>()));
+
+  injector.registerLazySingleton<UserReputationService>(() => UserReputationService(injector<UserRepository>(), injector<PaymentRepository>(), injector<UserReviewRepository>()));
+
+  // Storage (Firebase default; pluggable via STORAGE_PROVIDER)
+  injector.registerLazySingleton<AppStorageService>(() => AppStorageService());
+  injector.registerLazySingleton<StorageHandler>(() => StorageHandler(injector<AppStorageService>()));
+}
