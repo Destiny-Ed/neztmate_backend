@@ -62,8 +62,9 @@ class PaymentHandler {
       final userId = request.context['userId'] as String?;
       final partnerId = request.context['partnerId'] as String?;
 
-      if (userId == null || partnerId == null)
+      if (userId == null || partnerId == null) {
         return unauthorized("User not found");
+      }
 
       final body =
           jsonDecode(await request.readAsString()) as Map<String, dynamic>;
@@ -826,8 +827,9 @@ class PaymentHandler {
   Future<Response> markAsPaid(Request request) async {
     try {
       final id = request.params['id'];
-      if (id == null)
+      if (id == null) {
         return Response(400, body: jsonEncode({'message': 'Missing ID'}));
+      }
 
       final body =
           jsonDecode(await request.readAsString()) as Map<String, dynamic>;
@@ -867,9 +869,10 @@ class PaymentHandler {
       final amount = (body['amount'] as num?)?.toDouble();
       final notes = body['notes'] as String?;
 
-      if (propertyId == null) return badRequest('propertyId is required');
-      if (amount == null || amount <= 0)
+      if (propertyId == null ) return badRequest('propertyId is required');
+      if (amount == null || amount <= 0) {
         return badRequest('Valid amount is required');
+      }
 
       // Check if user has payout account
       final payoutAccounts = await paymentRepository.getPayoutAccounts(userId);
@@ -885,7 +888,7 @@ class PaymentHandler {
       }
 
       // Check available commission for managers
-      if (role == 'Manager') {
+      if (role == 'manager') {
         final pendingCommission = await paymentRepository
             .getTotalPendingCommission(userId);
         if (amount > pendingCommission) {
@@ -900,7 +903,8 @@ class PaymentHandler {
       }
 
       // Get current withdrawable balance
-      final payments = await paymentRepository.getPaymentsByProperty(
+      if(role == 'landowner') {
+        final payments = await paymentRepository.getPaymentsByProperty(
         propertyId,
       );
       final summary = await _calculatePropertySummary(payments, propertyId);
@@ -913,6 +917,21 @@ class PaymentHandler {
           }),
         );
       }
+      }
+
+      // if(role == "artisan") {
+      //   final pendingPayments = await paymentRepository.getTotalPendingCommission(userId);
+      //   final totalPending = pendingPayments.fold<double>(0.0, (sum, p) => sum + p.amount);
+      //   if (amount > totalPending) {
+      //     return Response(
+      //       400,
+      //       body: jsonEncode({
+      //         'message':
+      //             'Insufficient balance. Available: ₦${totalPending.toStringAsFixed(0)}',
+      //       }),
+      //     );
+      //   }
+      // }
 
       // Create withdrawal (Pending = amount is now reserved)
       final withdrawal = WithdrawalModel(
@@ -934,7 +953,7 @@ class PaymentHandler {
         jsonEncode({
           'message': 'Withdrawal request submitted. Amount has been reserved.',
           'withdrawal': created.toMap(),
-          'previouslyAvailable': summary.withdrawableAmount,
+          // 'previouslyAvailable': summary.withdrawableAmount,
           'nowReserved': amount,
         }),
         headers: {'Content-Type': 'application/json'},
@@ -949,8 +968,9 @@ class PaymentHandler {
   Future<Response> getMyWithdrawals(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
-      if (userId == null)
+      if (userId == null) {
         return Response(401, body: jsonEncode({'message': 'Unauthorized'}));
+      }
 
       final withdrawals = await paymentRepository.getWithdrawalsByUser(userId);
 

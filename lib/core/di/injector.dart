@@ -187,16 +187,16 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
   injector.registerLazySingleton(() => PushNotificationService(userRepository: injector(), projectId: 'next-mate', getAccessToken: FcmAuth.fcmAccessTokenFromServiceAccount));
 
   injector.registerLazySingleton<NotificationRemoteDataSource>(() => FirestoreNotificationDataSource(injector<Firestore>()));
-  injector.registerLazySingleton<NotificationRepository>(() => NotificationRepositoryImpl(injector<NotificationRemoteDataSource>()));
+  injector.registerLazySingleton<NotificationRepository>(() => NotificationRepositoryImpl(injector<NotificationRemoteDataSource>(), injector<PushNotificationService>()));
   injector.registerLazySingleton<NotificationHandler>(() => NotificationHandler(injector<NotificationRepository>()));
 
   injector.registerLazySingleton<PaymentRemoteDataSource>(() => FirestorePaymentDataSource(injector<Firestore>()));
   injector.registerLazySingleton<PaymentRepository>(() => PaymentRepositoryImpl(injector<PaymentRemoteDataSource>()));
   injector.registerLazySingleton<PaymentHandler>(() => PaymentHandler(injector<PaymentRepository>(), injector<LeaseRepository>(), injector<HistoryRepository>(), injector<NotificationRepository>(), injector<UnitRepository>(), injector<MaintenanceRepository>(), injector<ApplicationRepository>(), injector<UserReputationService>(), injector<PropertyRepository>(), injector<UserRepository>(), injector<SubscriptionRepository>()));
 
-  injector.registerLazySingleton<UserReputationService>(() => UserReputationService(injector<UserRepository>(), injector<UserReviewRepository>(), injector<PaymentRepository>(), injector<LeaseRepository>()));
+  injector.registerLazySingleton<UserReputationService>(() => UserReputationService(injector<UserRepository>(), injector<PaymentRepository>(), injector<UserReviewRepository>()));
 
-  injector.registerLazySingleton<VerificationService>(() => VeriffService(apiKey: Platform.environment['VERIFF_API_KEY'] ?? env['VERIFF_API_KEY']!, sharedSecret: Platform.environment['VERIFF_SHARED_SECRET'] ?? env['VERIFF_SHARED_SECRET']!, baseUrl: Platform.environment['VERIFF_BASE_URL'] ?? env['VERIFF_BASE_URL'] ?? 'https://stationapi.veriff.com', callbackUrl: Platform.environment['VERIFF_CALLBACK_URL'] ?? env['VERIFF_CALLBACK_URL']));
+  injector.registerLazySingleton<VerificationService>(() => VeriffService(userRepository: injector<UserRepository>(), apiKey: Platform.environment['VERIFF_API_KEY'] ?? env['VERIFF_API_KEY']!, sharedSecret: Platform.environment['VERIFF_SHARED_SECRET'] ?? env['VERIFF_SHARED_SECRET']!, baseUrl: Platform.environment['VERIFF_BASE_URL'] ?? env['VERIFF_BASE_URL'] ?? 'https://stationapi.veriff.com', callbackUrl: Platform.environment['VERIFF_CALLBACK_URL'] ?? env['VERIFF_CALLBACK_URL']));
   injector.registerLazySingleton(() => VerificationHandler(injector<VerificationService>(), injector<UserRepository>()));
 
   injector.registerLazySingleton<AffiliateRepository>(() => FirestoreAffiliateRepository(injector<Firestore>()));
