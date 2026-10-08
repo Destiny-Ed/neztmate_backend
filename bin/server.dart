@@ -62,6 +62,8 @@ import 'package:neztmate_backend/routes/unit_routes.dart';
 import 'package:neztmate_backend/routes/user_review_routes.dart';
 import 'package:neztmate_backend/routes/user_routes.dart';
 import 'package:neztmate_backend/routes/verification_routes.dart';
+import 'package:neztmate_backend/routes/storage_routes.dart';
+import 'package:neztmate_backend/features/storage/handler/storage_handler.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart';
 import 'package:shelf_cors_headers/shelf_cors_headers.dart';
@@ -268,6 +270,13 @@ void main() async {
     Pipeline()
         .addMiddleware(authMiddleWare)
         .addHandler(announcementRoutes(injector<AnnouncementHandler>()).call),
+  );
+
+  router.mount(
+    '/storage/',
+    Pipeline()
+        .addMiddleware(authMiddleWare)
+        .addHandler(storageRoutes(injector<StorageHandler>()).call),
   );
 
   // Metrics routes
