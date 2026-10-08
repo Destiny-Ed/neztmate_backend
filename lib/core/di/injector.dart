@@ -196,6 +196,25 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
 
   injector.registerLazySingleton<UserReputationService>(() => UserReputationService(injector<UserRepository>(), injector<PaymentRepository>(), injector<UserReviewRepository>()));
 
+  injector.registerLazySingleton<VerificationService>(() => VeriffService(userRepository: injector<UserRepository>(), apiKey: Platform.environment['VERIFF_API_KEY'] ?? env['VERIFF_API_KEY']!, sharedSecret: Platform.environment['VERIFF_SHARED_SECRET'] ?? env['VERIFF_SHARED_SECRET']!, baseUrl: Platform.environment['VERIFF_BASE_URL'] ?? env['VERIFF_BASE_URL'] ?? 'https://stationapi.veriff.com', callbackUrl: Platform.environment['VERIFF_CALLBACK_URL'] ?? env['VERIFF_CALLBACK_URL']));
+  injector.registerLazySingleton(() => VerificationHandler(injector<VerificationService>(), injector<UserRepository>()));
+
+  injector.registerLazySingleton<AffiliateRepository>(() => FirestoreAffiliateRepository(injector<Firestore>()));
+  injector.registerLazySingleton<AffiliateHandler>(() => AffiliateHandler(injector<AffiliateRepository>(), injector<UserRepository>(), injector<PaymentRepository>()));
+
+  injector.registerLazySingleton<SubscriptionRepository>(() => FirestoreSubscriptionRepository(injector<Firestore>()));
+  injector.registerLazySingleton<SubscriptionHandler>(() => SubscriptionHandler(injector<SubscriptionRepository>(), injector<UserRepository>(), injector<NotificationRepository>(), injector<HistoryRepository>(), injector<PaymentRepository>(), injector<PartnerRepository>(), injector<PartnerAccessService>()));
+  injector.registerLazySingleton<SubscriptionLimitService>(() => SubscriptionLimitService(injector<SubscriptionRepository>()));
+  injector.registerLazySingleton(() => PartnerAccessService(partnerRepository: injector<PartnerRepository>(), userRepository: injector<UserRepository>(), propertyRepository: injector<PropertyRepository>(), unitRepository: injector<UnitRepository>()));
+
+  injector.registerLazySingleton<AnnouncementRemoteDataSource>(() => FirestoreAnnouncementDataSource(injector<Firestore>()));
+  injector.registerLazySingleton<AnnouncementRepository>(() => AnnouncementRepositoryImpl(injector()));
+  injector.registerLazySingleton(() => AnnouncementHandler(injector()));
+
+  injector.registerLazySingleton<MetricsRemoteDataSource>(() => FirestoreMetricsDataSource(injector<Firestore>()));
+  injector.registerLazySingleton<MetricsRepository>(() => MetricsRepositoryImpl(injector()));
+  injector.registerLazySingleton(() => MetricsSettingsHandler(partnerRepository: injector(), metricsRepository: injector()));
+
   // Storage (Firebase default; pluggable via STORAGE_PROVIDER)
   injector.registerLazySingleton<AppStorageService>(() => AppStorageService());
   injector.registerLazySingleton<StorageHandler>(() => StorageHandler(injector<AppStorageService>()));
