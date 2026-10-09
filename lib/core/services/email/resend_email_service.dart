@@ -180,7 +180,7 @@ class ResendEmailService {
           list = [];
         }
         return List.generate(emails.length, (i) {
-          final id = i < list.length ? (list[i] as Map?)?['id'] as String? : null;
+          final id = i < list.length ? ((list[i] as Map?)?['id'] as String?) : null;
           return EmailSendResult(
             success: true,
             id: id,
