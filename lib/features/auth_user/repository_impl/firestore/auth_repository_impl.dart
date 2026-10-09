@@ -2,6 +2,7 @@ import 'package:dart_firebase_admin/auth.dart';
 import 'package:dart_firebase_admin/firestore.dart';
 import 'package:neztmate_backend/core/error.dart';
 import 'package:neztmate_backend/core/services/auth/password_service.dart';
+import 'package:neztmate_backend/core/services/email/resend_email_service.dart';
 import 'package:neztmate_backend/features/auth_user/models/login_request_model.dart';
 import 'package:neztmate_backend/features/auth_user/models/register_request_model.dart';
 import 'package:neztmate_backend/features/auth_user/models/social_request_model.dart';
@@ -17,6 +18,8 @@ class AuthRepositoryImpl implements AuthRepository {
   final PasswordService passwordService;
   final Auth firebaseAuth;
   final Firestore firestore;
+  final ResendEmailService emailService;
+
 
   AuthRepositoryImpl({
     required this.userRepository,
@@ -24,6 +27,7 @@ class AuthRepositoryImpl implements AuthRepository {
     required this.firebaseAuth,
     required this.passwordService,
     required this.firestore,
+    required this.emailService
   });
 
   @override
@@ -144,7 +148,17 @@ class AuthRepositoryImpl implements AuthRepository {
       primaryRole: req.role,
     );
 
-    await userRepository.createUser(newUser);
+    final created = await userRepository.createUser(newUser);
+
+      // Welcome email (non-blocking — never fail registration on email errors)
+      emailService
+          .sendWelcomeEmail(
+            to: created.email,
+            fullName: created.fullName,
+            role: created.role,
+          )
+          .catchError((e) => print('[AuthHandler] welcome email error: $e'));
+
     return newUser;
   }
 

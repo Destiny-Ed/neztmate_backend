@@ -151,7 +151,7 @@ Future<void> setupDependencies({bool usePostgres = false, required String jwtSec
   injector.registerLazySingleton<PartnerRepository>(() => PartnerRepositoryImpl(injector()));
   injector.registerLazySingleton(() => PartnerHandler(injector<PartnerRepository>(), injector<UserRepository>(), injector<PasswordService>()));
 
-  injector.registerLazySingleton<AuthRepository>(() => AuthRepositoryImpl(userRepository: injector<UserRepository>(), partnerRepository: injector<PartnerRepository>(), firebaseAuth: injector<Auth>(), passwordService: injector<PasswordService>(), firestore: injector<Firestore>()));
+  injector.registerLazySingleton<AuthRepository>(() => AuthRepositoryImpl(userRepository: injector<UserRepository>(), partnerRepository: injector<PartnerRepository>(), firebaseAuth: injector<Auth>(), passwordService: injector<PasswordService>(), firestore: injector<Firestore>(), emailService: injector<ResendEmailService>()));
   injector.registerLazySingleton<ResendEmailService>(() => ResendEmailService());
   injector.registerLazySingleton<EmailHandler>(() => EmailHandler(injector<ResendEmailService>(), injector<UserRepository>()));
 
