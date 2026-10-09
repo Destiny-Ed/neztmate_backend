@@ -287,12 +287,11 @@ class EmailTemplates {
       <td align="center">
         <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);max-width:560px;width:100%;">
           <tr>
-            <td align="center" style="background:#0f766e;padding:28px 32px;">
+            <td align="center" style="background:#ffffff;padding:28px 32px;">
               <a href="https://neztmate.com" style="text-decoration:none;display:inline-block;">
-
-                <img src="$logo" width="160" alt="NeztMate" style="display:block;margin:0 auto;max-width:160px;height:auto;border:0;outline:none;filter:brightness(0) invert(1);" />
+                <img src="$logo" width="160" alt="NeztMate" style="display:block;margin:0 auto;max-width:160px;height:auto;border:0;outline:none;" />
               </a>
-              <p style="margin:12px 0 0;color:#ffffff;font-size:13px;font-weight:500;">Housing, clarified</p>
+              <p style="margin:12px 0 0;color:#ccfbf1;font-size:13px;font-weight:500;">Housing, clarified</p>
             </td>
           </tr>
           <tr>
