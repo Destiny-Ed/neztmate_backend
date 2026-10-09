@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:neztmate_backend/core/services/payment/paystack_service.dart';
 import 'package:neztmate_backend/core/services/subscription/partner_access_service.dart';
 import 'package:neztmate_backend/core/utils.dart';
+import 'package:neztmate_backend/core/validators/profile_completion_validator.dart';
 import 'package:neztmate_backend/features/applications/models/application_model.dart';
 import 'package:neztmate_backend/features/applications/repository/application_repo.dart';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
@@ -56,7 +57,10 @@ class ApplicationHandler {
       final partnerId = request.context['partnerId'] as String?;
 
       if (userId == null || role != 'tenant') {
-        return Response(403, body: jsonEncode({'message': 'Only tenants can submit applications'}));
+        return Response(
+          403,
+          body: jsonEncode({'message': 'Only tenants can submit applications'}),
+        );
       }
 
       if (partnerId == null) {
@@ -69,21 +73,36 @@ class ApplicationHandler {
         return e.toResponse();
       }
 
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final body =
+          jsonDecode(await request.readAsString()) as Map<String, dynamic>;
 
       // Required fields validation
       if (!body.containsKey('unitId') || body['unitId'].toString().isEmpty) {
-        return Response(400, body: jsonEncode({'message': 'unitId is required'}));
+        return Response(
+          400,
+          body: jsonEncode({'message': 'unitId is required'}),
+        );
       }
-      if (!body.containsKey('propertyId') || body['propertyId'].toString().isEmpty) {
-        return Response(400, body: jsonEncode({'message': 'propertyId is required'}));
+      if (!body.containsKey('propertyId') ||
+          body['propertyId'].toString().isEmpty) {
+        return Response(
+          400,
+          body: jsonEncode({'message': 'propertyId is required'}),
+        );
       }
 
-      if (!body.containsKey('landownerId') || body['landownerId'].toString().isEmpty) {
-        return Response(400, body: jsonEncode({'message': 'landownerId is required'}));
+      if (!body.containsKey('landownerId') ||
+          body['landownerId'].toString().isEmpty) {
+        return Response(
+          400,
+          body: jsonEncode({'message': 'landownerId is required'}),
+        );
       }
       if (!body.containsKey('screeningData')) {
-        return Response(400, body: jsonEncode({'message': 'screeningData is required'}));
+        return Response(
+          400,
+          body: jsonEncode({'message': 'screeningData is required'}),
+        );
       }
 
       final unitId = body['unitId'] as String;
@@ -91,6 +110,9 @@ class ApplicationHandler {
       final landownerId = body['landownerId'] as String;
 
       final user = await userRepository.getUserById(userId);
+
+      final profileBlocked = ProfileCompletionValidator.ensureComplete(user);
+      if (profileBlocked != null) return profileBlocked;
 
       if (user.verifiedIdentity != true) {
         return Response(
@@ -104,12 +126,14 @@ class ApplicationHandler {
       }
 
       // Check if tenant already has a pending application for this unit
-      final existingApplications = await applicationRepository.getApplicationsByTenant(userId);
+      final existingApplications = await applicationRepository
+          .getApplicationsByTenant(userId);
 
       final alreadyApplied = existingApplications.any(
         (app) =>
             app.unitId == unitId &&
-            (app.status.toLowerCase() == 'pending' || app.status.toLowerCase() == 'approved'),
+            (app.status.toLowerCase() == 'pending' ||
+                app.status.toLowerCase() == 'approved'),
       );
 
       if (alreadyApplied) {
@@ -123,12 +147,18 @@ class ApplicationHandler {
       }
 
       // Check for Fee Pending applications
-      final feePendingApplication = existingApplications.cast<ApplicationModel?>().firstWhere(
-        (app) => app?.unitId == unitId && app?.status.toLowerCase() == 'fee_pending',
-        orElse: () => null,
-      );
+      final feePendingApplication = existingApplications
+          .cast<ApplicationModel?>()
+          .firstWhere(
+            (app) =>
+                app?.unitId == unitId &&
+                app?.status.toLowerCase() == 'fee_pending',
+            orElse: () => null,
+          );
 
-      final fee = await getCurrentApplicationFee(feePendingApplication?.partnerId ?? partnerId ?? "");
+      final fee = await getCurrentApplicationFee(
+        feePendingApplication?.partnerId ?? partnerId ?? "",
+      );
 
       final int applicationFee = fee.enabled ? fee.amount.toInt() : 0;
 
@@ -151,7 +181,8 @@ class ApplicationHandler {
         return Response(
           400,
           body: jsonEncode({
-            'message': 'This unit is currently occupied and not available for new applications.',
+            'message':
+                'This unit is currently occupied and not available for new applications.',
           }),
         );
       }
@@ -164,7 +195,9 @@ class ApplicationHandler {
         propertyId: propertyId,
         partnerId: partnerId ?? "",
         appliedAt: DateTime.now(),
-        screeningData: ScreeningData.fromMap(body['screeningData'] as Map<String, dynamic>),
+        screeningData: ScreeningData.fromMap(
+          body['screeningData'] as Map<String, dynamic>,
+        ),
         status: applicationFee > 0 ? 'fee_pending' : 'pending',
         applicationFee: applicationFee.toDouble(),
         feePaymentStatus: applicationFee > 0 ? 'pending' : 'paid',
@@ -177,7 +210,9 @@ class ApplicationHandler {
         landownerId: landownerId,
       );
 
-      final created = await applicationRepository.createApplication(application);
+      final created = await applicationRepository.createApplication(
+        application,
+      );
 
       // If no fee required, activate immediately
       if (applicationFee <= 0) {
@@ -192,14 +227,22 @@ class ApplicationHandler {
       }
 
       // Initialize payment
-      return await _completePayment(created, userId, unitId, partnerId ?? "", applicationFee: applicationFee);
+      return await _completePayment(
+        created,
+        userId,
+        unitId,
+        partnerId ?? "",
+        applicationFee: applicationFee,
+      );
     } on NotFoundException catch (e) {
       return Response(404, body: jsonEncode({'message': e.message}));
     } on ValidationException catch (e) {
       return Response(400, body: jsonEncode({'message': e.message}));
     } catch (e, stack) {
       print('Submit application error: $e\n$stack');
-      return Response.internalServerError(body: jsonEncode({'message': 'Failed to submit application'}));
+      return Response.internalServerError(
+        body: jsonEncode({'message': 'Failed to submit application'}),
+      );
     }
   }
 
@@ -212,7 +255,8 @@ class ApplicationHandler {
     required int applicationFee,
   }) async {
     try {
-      final paymentRef = 'appfee_${application.id}_${DateTime.now().millisecondsSinceEpoch}';
+      final paymentRef =
+          'appfee_${application.id}_${DateTime.now().millisecondsSinceEpoch}';
 
       final user = await userRepository.getUserById(userId);
 
@@ -248,7 +292,9 @@ class ApplicationHandler {
 
       // Update application with payment reference
       await applicationRepository.updateApplication(
-        application.copyWith(feePaymentReference: pendingPayment.transactionRef),
+        application.copyWith(
+          feePaymentReference: pendingPayment.transactionRef,
+        ),
       );
 
       return Response.ok(
@@ -267,7 +313,9 @@ class ApplicationHandler {
     } catch (e, stack) {
       print('Complete payment error: $e\n$stack');
       return Response.internalServerError(
-        body: jsonEncode({'message': 'Failed to initialize payment. Please try again.'}),
+        body: jsonEncode({
+          'message': 'Failed to initialize payment. Please try again.',
+        }),
       );
     }
   }
@@ -284,10 +332,16 @@ class ApplicationHandler {
       }
 
       if (role != 'tenant') {
-        return Response(403, body: jsonEncode({'message': 'Only tenant can withdraw their application'}));
+        return Response(
+          403,
+          body: jsonEncode({
+            'message': 'Only tenant can withdraw their application',
+          }),
+        );
       }
 
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final body =
+          jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final reason = body['reason'] as String?;
 
       await applicationRepository.withdrawApplication(appId, userId, reason);
@@ -298,7 +352,9 @@ class ApplicationHandler {
       );
     } catch (e, stack) {
       print('Withdraw application error: $e\n$stack');
-      return Response.internalServerError(body: jsonEncode({'message': 'Failed to withdraw application'}));
+      return Response.internalServerError(
+        body: jsonEncode({'message': 'Failed to withdraw application'}),
+      );
     }
   }
 
@@ -316,20 +372,26 @@ class ApplicationHandler {
       List<ApplicationModel> applications = [];
 
       if (role == 'tenant') {
-        applications = await applicationRepository.getApplicationsByTenant(userId, partnerId: partnerId);
-      } else if (['manager', 'landowner'].contains(role)) {
-        applications = await applicationRepository.getApplicationsForManagerOrOwner(
+        applications = await applicationRepository.getApplicationsByTenant(
           userId,
-          role,
           partnerId: partnerId,
         );
+      } else if (['manager', 'landowner'].contains(role)) {
+        applications = await applicationRepository
+            .getApplicationsForManagerOrOwner(
+              userId,
+              role,
+              partnerId: partnerId,
+            );
       } else {
         return Response(403, body: jsonEncode({'message': 'Access denied'}));
       }
 
       // Filter out withdrawn applications for non-tenants
       if (role != 'tenant') {
-        applications = applications.where((app) => app.status != 'Withdrawn').toList();
+        applications = applications
+            .where((app) => app.status != 'Withdrawn')
+            .toList();
       }
 
       // Enrich with tenant, property, and unit details
@@ -337,9 +399,13 @@ class ApplicationHandler {
         applications.map((app) async {
           try {
             final tenant = await userRepository.getUserById(app.tenantId);
-            final property = await propertyRepository.getPropertyById(app.propertyId);
+            final property = await propertyRepository.getPropertyById(
+              app.propertyId,
+            );
             final unit = await unitRepository.getUnitById(app.unitId);
-            final manager = await userRepository.getUserById(property.managerId ?? property.landownerId);
+            final manager = await userRepository.getUserById(
+              property.managerId ?? property.landownerId,
+            );
 
             return {
               ...app.toMap(),
@@ -399,7 +465,9 @@ class ApplicationHandler {
       );
     } catch (e, stack) {
       print('Get my applications error: $e\n$stack');
-      return Response.internalServerError(body: jsonEncode({'message': 'Failed to load applications'}));
+      return Response.internalServerError(
+        body: jsonEncode({'message': 'Failed to load applications'}),
+      );
     }
   }
 
@@ -417,10 +485,14 @@ class ApplicationHandler {
       }
 
       final isPlatform = role == 'platform_admin' || role == 'super_admin';
-      final isPartnerAdmin = role == 'partner_admin' || role == 'landowner' || role == 'manager';
+      final isPartnerAdmin =
+          role == 'partner_admin' || role == 'landowner' || role == 'manager';
 
       if (!isPlatform && !isPartnerAdmin) {
-        return Response(403, body: jsonEncode({'message': 'Admin access required'}));
+        return Response(
+          403,
+          body: jsonEncode({'message': 'Admin access required'}),
+        );
       }
 
       final q = request.url.queryParameters;
@@ -434,7 +506,10 @@ class ApplicationHandler {
       } else {
         partnerId = jwtPartnerId;
         if (partnerId == null || partnerId.isEmpty) {
-          return Response(400, body: jsonEncode({'message': 'partnerId missing from token'}));
+          return Response(
+            400,
+            body: jsonEncode({'message': 'partnerId missing from token'}),
+          );
         }
       }
 
@@ -446,7 +521,9 @@ class ApplicationHandler {
       );
 
       // Hide withdrawn for non-tenant admin views
-      final visible = applications.where((a) => a.status.toLowerCase() != 'withdrawn').toList();
+      final visible = applications
+          .where((a) => a.status.toLowerCase() != 'withdrawn')
+          .toList();
 
       final enriched = await Future.wait(
         visible.map((app) async {
@@ -469,7 +546,12 @@ class ApplicationHandler {
 
           try {
             final p = await propertyRepository.getPropertyById(app.propertyId);
-            property = {'id': p.id, 'name': p.name, 'address': p.address, 'type': p.type};
+            property = {
+              'id': p.id,
+              'name': p.name,
+              'address': p.address,
+              'type': p.type,
+            };
           } catch (_) {}
 
           try {
@@ -484,7 +566,13 @@ class ApplicationHandler {
             };
           } catch (_) {}
 
-          return {...app.toMap(), 'id': app.id, 'tenant': tenant, 'property': property, 'unit': unit};
+          return {
+            ...app.toMap(),
+            'id': app.id,
+            'tenant': tenant,
+            'property': property,
+            'unit': unit,
+          };
         }),
       );
 
@@ -492,13 +580,19 @@ class ApplicationHandler {
         jsonEncode({
           'applications': enriched,
           'count': enriched.length,
-          'filters': {'partnerId': partnerId, 'status': status, 'propertyId': propertyId},
+          'filters': {
+            'partnerId': partnerId,
+            'status': status,
+            'propertyId': propertyId,
+          },
         }),
         headers: {'Content-Type': 'application/json'},
       );
     } catch (e, stack) {
       print('getApplicationsForAdmin error: $e\n$stack');
-      return Response.internalServerError(body: jsonEncode({'message': 'Failed to load applications'}));
+      return Response.internalServerError(
+        body: jsonEncode({'message': 'Failed to load applications'}),
+      );
     }
   }
 
@@ -510,24 +604,35 @@ class ApplicationHandler {
       final unitId = request.params['unitId'];
 
       if (userId == null || unitId == null) {
-        return Response(400, body: jsonEncode({'message': 'Missing user ID or unit ID'}));
+        return Response(
+          400,
+          body: jsonEncode({'message': 'Missing user ID or unit ID'}),
+        );
       }
 
       if (!['landowner', 'manager'].contains(role)) {
         return Response(
           403,
-          body: jsonEncode({'message': 'Only landowners or managers can view unit applications'}),
+          body: jsonEncode({
+            'message': 'Only landowners or managers can view unit applications',
+          }),
         );
       }
 
-      final applications = await applicationRepository.getApplicationsByUnit(unitId);
+      final applications = await applicationRepository.getApplicationsByUnit(
+        unitId,
+      );
 
       final enrichedApplications = await Future.wait(
         applications.map((app) async {
           final tenant = await userRepository.getUserById(app.tenantId);
-          final property = await propertyRepository.getPropertyById(app.propertyId);
+          final property = await propertyRepository.getPropertyById(
+            app.propertyId,
+          );
           final unit = await unitRepository.getUnitById(app.unitId);
-          final manager = await userRepository.getUserById(property.managerId ?? property.landownerId);
+          final manager = await userRepository.getUserById(
+            property.managerId ?? property.landownerId,
+          );
 
           return {
             ...app.toMap(),
@@ -568,12 +673,17 @@ class ApplicationHandler {
       );
 
       return Response.ok(
-        jsonEncode({'applications': enrichedApplications, 'message': 'Applications for this unit'}),
+        jsonEncode({
+          'applications': enrichedApplications,
+          'message': 'Applications for this unit',
+        }),
         headers: {'Content-Type': 'application/json'},
       );
     } catch (e, stack) {
       print('Get applications by unit error: $e\n$stack');
-      return Response.internalServerError(body: jsonEncode({'message': 'Failed to load applications'}));
+      return Response.internalServerError(
+        body: jsonEncode({'message': 'Failed to load applications'}),
+      );
     }
   }
 
@@ -601,9 +711,13 @@ class ApplicationHandler {
 
       // Enrich with related data
       final tenant = await userRepository.getUserById(application.tenantId);
-      final property = await propertyRepository.getPropertyById(application.propertyId);
+      final property = await propertyRepository.getPropertyById(
+        application.propertyId,
+      );
       final unit = await unitRepository.getUnitById(application.unitId);
-      final manager = await userRepository.getUserById(property.managerId ?? property.landownerId);
+      final manager = await userRepository.getUserById(
+        property.managerId ?? property.landownerId,
+      );
 
       // Get tenant's previous reviews (especially from other landlords)
       final tenantReviews = isManagerOrOwner
@@ -613,12 +727,16 @@ class ApplicationHandler {
       // === NEW: Get tenant's lease history (only for managers/landowners) ===
       List<Map<String, dynamic>> tenantLeaseHistory = [];
       if (isManagerOrOwner) {
-        final tenantLeases = await leaseRepository.getLeasesByTenant(application.tenantId);
+        final tenantLeases = await leaseRepository.getLeasesByTenant(
+          application.tenantId,
+        );
 
         tenantLeaseHistory = await Future.wait(
           tenantLeases.map((lease) async {
             final unitInfo = await unitRepository.getUnitById(lease.unitId);
-            final propertyInfo = await propertyRepository.getPropertyById(lease.propertyId);
+            final propertyInfo = await propertyRepository.getPropertyById(
+              lease.propertyId,
+            );
 
             return {
               'leaseId': lease.id,
@@ -629,8 +747,10 @@ class ApplicationHandler {
               'endDate': lease.endDate.toIso8601String(),
               'monthlyRent': lease.monthlyRent,
               'isActive': lease.status == 'active',
-              'isCompleted': lease.status == 'expired' || lease.status == 'terminated',
-              'isCancelled': lease.status == 'cancelled' || lease.status == 'terminated',
+              'isCompleted':
+                  lease.status == 'expired' || lease.status == 'terminated',
+              'isCancelled':
+                  lease.status == 'cancelled' || lease.status == 'terminated',
               'hasDispute': lease.status == 'disputed',
               'terminatedAt': lease.terminatedAt?.toIso8601String(),
               'reason': lease.terminationReason,
@@ -689,7 +809,9 @@ class ApplicationHandler {
 
         // === Extra Info for Landowner/Manager ===
         if (isManagerOrOwner) ...{
-          'tenantReviews': tenantReviews.map((review) => review.toMap()).toList(),
+          'tenantReviews': tenantReviews
+              .map((review) => review.toMap())
+              .toList(),
           'tenantPaymentHistorySummary': {
             'totalRentPayments': tenant.totalPaymentsMade,
             'onTimePayments': tenant.onTimePayments,
@@ -698,10 +820,18 @@ class ApplicationHandler {
           'tenantLeaseHistory': tenantLeaseHistory,
           'leaseSummary': {
             'totalLeases': tenantLeaseHistory.length,
-            'activeLeases': tenantLeaseHistory.where((l) => l['isActive'] == true).length,
-            'completedLeases': tenantLeaseHistory.where((l) => l['isCompleted'] == true).length,
-            'cancelledLeases': tenantLeaseHistory.where((l) => l['isCancelled'] == true).length,
-            'disputedLeases': tenantLeaseHistory.where((l) => l['hasDispute'] == true).length,
+            'activeLeases': tenantLeaseHistory
+                .where((l) => l['isActive'] == true)
+                .length,
+            'completedLeases': tenantLeaseHistory
+                .where((l) => l['isCompleted'] == true)
+                .length,
+            'cancelledLeases': tenantLeaseHistory
+                .where((l) => l['isCancelled'] == true)
+                .length,
+            'disputedLeases': tenantLeaseHistory
+                .where((l) => l['hasDispute'] == true)
+                .length,
           },
         },
       };
@@ -717,7 +847,9 @@ class ApplicationHandler {
       return Response(404, body: jsonEncode({'message': e.message}));
     } catch (e, stack) {
       print('Get application error: $e\n$stack');
-      return Response.internalServerError(body: jsonEncode({'message': 'Failed to load application'}));
+      return Response.internalServerError(
+        body: jsonEncode({'message': 'Failed to load application'}),
+      );
     }
   }
 
@@ -729,7 +861,8 @@ class ApplicationHandler {
       final partnerId = request.context['partnerId'] as String?;
       final appId = request.params['id'];
 
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final body =
+          jsonDecode(await request.readAsString()) as Map<String, dynamic>;
 
       final durationMonths = body['durationMonths'] as int?;
       final customLeasePdfUrl = body['customLeasePdfUrl'] as String?;
@@ -737,11 +870,21 @@ class ApplicationHandler {
       final isCustomLease = customLeasePdfUrl != null;
 
       if (approverId == null || appId == null || partnerId == null) {
-        return Response(400, body: jsonEncode({'message': 'Missing ID [partnerId, appId, approverId]'}));
+        return Response(
+          400,
+          body: jsonEncode({
+            'message': 'Missing ID [partnerId, appId, approverId]',
+          }),
+        );
       }
 
       if (!['manager', 'landowner'].contains(role)) {
-        return Response(403, body: jsonEncode({'message': 'Only managers or landowners can approve'}));
+        return Response(
+          403,
+          body: jsonEncode({
+            'message': 'Only managers or landowners can approve',
+          }),
+        );
       }
 
       if (durationMonths == null || ![12, 24, 36].contains(durationMonths)) {
@@ -749,6 +892,9 @@ class ApplicationHandler {
       }
 
       final user = await userRepository.getUserById(approverId);
+
+      final profileBlocked = ProfileCompletionValidator.ensureComplete(user);
+      if (profileBlocked != null) return profileBlocked;
 
       if (user.verifiedIdentity != true) {
         return Response(
@@ -766,12 +912,16 @@ class ApplicationHandler {
       final application = await applicationRepository.getApplicationById(appId);
 
       final unit = await unitRepository.getUnitById(application.unitId);
-      final property = await propertyRepository.getPropertyById(application.propertyId);
+      final property = await propertyRepository.getPropertyById(
+        application.propertyId,
+      );
 
       // 2. Create Lease Record
       final leaseService = LeasePdfService();
 
-      final startDate = application.desiredStartDate ?? DateTime.now().add(const Duration(days: 2));
+      final startDate =
+          application.desiredStartDate ??
+          DateTime.now().add(const Duration(days: 2));
       final endDate = startDate.add(Duration(days: durationMonths * 30));
 
       final lease = LeaseModel(
@@ -805,11 +955,13 @@ class ApplicationHandler {
         final leasePdf = await leaseService.generateLeasePdf(
           lease: createdLease,
           unit: await unitRepository.getUnitById(application.unitId),
-          property: await propertyRepository.getPropertyById(application.propertyId),
+          property: await propertyRepository.getPropertyById(
+            application.propertyId,
+          ),
           tenant: await userRepository.getUserById(application.tenantId),
           landowner: await userRepository.getUserById(lease.landownerId),
         );
-        // Upload generated PDF 
+        // Upload generated PDF
         final pdfFile = File(leasePdf);
         if (await pdfFile.exists()) {
           final bytes = await pdfFile.readAsBytes();
@@ -838,7 +990,9 @@ class ApplicationHandler {
         ),
       );
 
-      await applicationRepository.updateApplication(application.copyWith(leaseId: createdLease.id));
+      await applicationRepository.updateApplication(
+        application.copyWith(leaseId: createdLease.id),
+      );
 
       // 4. Notify Tenant
       await notificationRepository.create(
@@ -865,7 +1019,9 @@ class ApplicationHandler {
       );
     } catch (e, stack) {
       print('Approve application error: $e\n$stack');
-      return Response.internalServerError(body: jsonEncode({'message': 'Failed to approve application'}));
+      return Response.internalServerError(
+        body: jsonEncode({'message': 'Failed to approve application'}),
+      );
     }
   }
 
@@ -879,10 +1035,16 @@ class ApplicationHandler {
       if (userId == null || appId == null) return _badRequest('Missing ID');
 
       if (!['manager', 'landowner'].contains(role)) {
-        return Response(403, body: jsonEncode({'message': 'Only managers or landowners can reject'}));
+        return Response(
+          403,
+          body: jsonEncode({
+            'message': 'Only managers or landowners can reject',
+          }),
+        );
       }
 
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final body =
+          jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final reason = body['reason'] as String?;
 
       await applicationRepository.rejectApplication(appId, userId, reason);
@@ -890,7 +1052,9 @@ class ApplicationHandler {
       return Response.ok(jsonEncode({'message': 'Application rejected'}));
     } catch (e, stack) {
       print('Reject error: $e\n$stack');
-      return Response.internalServerError(body: jsonEncode({'message': 'Failed to reject application'}));
+      return Response.internalServerError(
+        body: jsonEncode({'message': 'Failed to reject application'}),
+      );
     }
   }
 
@@ -904,7 +1068,12 @@ class ApplicationHandler {
       if (userId == null || appId == null) return _badRequest('Missing ID');
 
       if (!['tenant'].contains(role)) {
-        return Response(403, body: jsonEncode({'message': 'Only tenant can delete their application'}));
+        return Response(
+          403,
+          body: jsonEncode({
+            'message': 'Only tenant can delete their application',
+          }),
+        );
       }
 
       await applicationRepository.deleteApplication(appId);
@@ -912,7 +1081,9 @@ class ApplicationHandler {
       return Response.ok(jsonEncode({'message': 'Application deleted'}));
     } catch (e, stack) {
       print('Delete error: $e\n$stack');
-      return Response.internalServerError(body: jsonEncode({'message': 'Failed to delete application'}));
+      return Response.internalServerError(
+        body: jsonEncode({'message': 'Failed to delete application'}),
+      );
     }
   }
 
@@ -925,7 +1096,12 @@ class ApplicationHandler {
       final applicationId = request.params['id'];
 
       if (tenantId == null || role != 'tenant') {
-        return Response(403, body: jsonEncode({'message': 'Only tenants can pay application fees'}));
+        return Response(
+          403,
+          body: jsonEncode({
+            'message': 'Only tenants can pay application fees',
+          }),
+        );
       }
 
       if (applicationId == null) {
@@ -936,20 +1112,30 @@ class ApplicationHandler {
         unauthorized("PartnerId is missing");
       }
 
-      final application = await applicationRepository.getApplicationById(applicationId);
+      final application = await applicationRepository.getApplicationById(
+        applicationId,
+      );
 
       final fee = await getCurrentApplicationFee(application.partnerId);
 
       final int applicationFee = fee.enabled ? fee.amount.toInt() : 0;
 
       if (application.tenantId != tenantId) {
-        return Response(403, body: jsonEncode({'message': 'This application does not belong to you'}));
+        return Response(
+          403,
+          body: jsonEncode({
+            'message': 'This application does not belong to you',
+          }),
+        );
       }
 
       if (application.status.toLowerCase() != 'fee_pending') {
         return Response(
           400,
-          body: jsonEncode({'message': 'Application fee has already been paid or is not pending'}),
+          body: jsonEncode({
+            'message':
+                'Application fee has already been paid or is not pending',
+          }),
         );
       }
 
@@ -964,11 +1150,16 @@ class ApplicationHandler {
     } catch (e, stack) {
       print('Pay application fee error: $e\n$stack');
       return Response.internalServerError(
-        body: jsonEncode({'message': 'Failed to initialize application fee payment'}),
+        body: jsonEncode({
+          'message': 'Failed to initialize application fee payment',
+        }),
       );
     }
   }
 
-  Response _badRequest(String message) =>
-      Response(400, body: jsonEncode({'message': message}), headers: {'Content-Type': 'application/json'});
+  Response _badRequest(String message) => Response(
+    400,
+    body: jsonEncode({'message': message}),
+    headers: {'Content-Type': 'application/json'},
+  );
 }

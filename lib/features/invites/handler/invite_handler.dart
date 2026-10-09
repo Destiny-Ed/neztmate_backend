@@ -280,6 +280,9 @@ class InviteHandler {
 
       final user = await userRepository.getUserById(userId);
 
+      final profileBlocked = ProfileCompletionValidator.ensureComplete(user);
+      if (profileBlocked != null) return profileBlocked;
+
       if (user.verifiedIdentity != true) {
         return Response(
           403,

@@ -7,19 +7,15 @@ import 'package:http/http.dart' as http;
 import 'package:neztmate_backend/core/services/storage/storage_provider.dart';
 
 /// Firebase / Google Cloud Storage provider using the service-account credentials
-/// already used by the backend (same as FCM).
+
 class FirebaseStorageProvider implements StorageProvider {
-  FirebaseStorageProvider({
-    String? bucketName,
-    String? projectId,
-  })  : _bucket = bucketName ??
-            Platform.environment['FIREBASE_STORAGE_BUCKET'] ??
-            (DotEnv()..load())['FIREBASE_STORAGE_BUCKET'] ??
-            'next-mate.appspot.com',
-        _projectId = projectId ??
-            Platform.environment['FIREBASE_PROJECT_ID'] ??
-            (DotEnv()..load())['FIREBASE_PROJECT_ID'] ??
-            'next-mate';
+  FirebaseStorageProvider({String? bucketName, String? projectId})
+    : _bucket =
+          bucketName ??
+          Platform.environment['FIREBASE_STORAGE_BUCKET'] ??
+          (DotEnv()..load())['FIREBASE_STORAGE_BUCKET'] ??
+          'next-mate.appspot.com',
+      _projectId = projectId ?? 'next-mate';
 
   final String _bucket;
   final String _projectId;
@@ -43,13 +39,15 @@ class FirebaseStorageProvider implements StorageProvider {
   static Future<Map<String, dynamic>> _loadServiceAccountJson() async {
     final env = DotEnv()..load();
 
-    final rawJson = Platform.environment['FIREBASE_SERVICE_ACCOUNT_JSON'] ??
+    final rawJson =
+        Platform.environment['FIREBASE_SERVICE_ACCOUNT_JSON'] ??
         env['FIREBASE_SERVICE_ACCOUNT_JSON'];
     if (rawJson != null && rawJson.trim().startsWith('{')) {
       return jsonDecode(rawJson) as Map<String, dynamic>;
     }
 
-    final path = Platform.environment['FIREBASE_SERVICE_ACCOUNT_PATH'] ??
+    final path =
+        Platform.environment['FIREBASE_SERVICE_ACCOUNT_PATH'] ??
         env['FIREBASE_SERVICE_ACCOUNT_PATH'];
     if (path == null || path.isEmpty) {
       throw Exception(
@@ -148,7 +146,8 @@ class FirebaseStorageProvider implements StorageProvider {
         }
       }
       // storage.googleapis.com/{bucket}/{path}
-      if (uri.host == 'storage.googleapis.com' && uri.pathSegments.length >= 2) {
+      if (uri.host == 'storage.googleapis.com' &&
+          uri.pathSegments.length >= 2) {
         return uri.pathSegments.skip(1).join('/');
       }
     } catch (_) {}

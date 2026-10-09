@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'dart:developer';
 import 'package:neztmate_backend/core/services/payment/paystack_service.dart';
+import 'package:neztmate_backend/core/validators/profile_completion_validator.dart';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
 import 'package:neztmate_backend/features/history/repository/user_history_repo.dart';
 import 'package:neztmate_backend/features/maintenance/models/maintenance_request.dart';
@@ -469,6 +470,9 @@ class MaintenanceHandler {
       if (artisanId == null || taskId == null) return badRequest('Missing task ID');
 
       final user = await userRepository.getUserById(artisanId);
+
+      final profileBlocked = ProfileCompletionValidator.ensureComplete(user);
+      if (profileBlocked != null) return profileBlocked;
 
       if (user.verifiedIdentity != true) {
         return Response(

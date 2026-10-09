@@ -7,7 +7,7 @@ import 'package:neztmate_backend/core/services/storage/storage_provider.dart';
 import 'package:uuid/uuid.dart';
 
 /// Facade used by handlers. Selects the active provider via STORAGE_PROVIDER env
-/// (default: firebase). Future providers (r2, s3, …) plug in here.
+/// (default: firebase). Future providers (r2, s3, …).
 class AppStorageService {
   AppStorageService({StorageProvider? provider}) : _provider = provider ?? _resolveProvider();
 
@@ -37,7 +37,7 @@ class AppStorageService {
     }
   }
 
-  /// Build a safe object path under neztmate/{folder}/{userId}/...
+  /// afe object path under neztmate/{folder}/{userId}/...
   String buildObjectPath({
     required String folder,
     required String fileName,

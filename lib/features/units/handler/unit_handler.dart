@@ -3,6 +3,7 @@ import 'package:neztmate_backend/core/di/injector.dart';
 import 'package:neztmate_backend/core/services/subscription/partner_access_service.dart';
 import 'package:neztmate_backend/core/services/subscription/subscription_limit_service.dart';
 import 'package:neztmate_backend/core/utils.dart';
+import 'package:neztmate_backend/core/validators/profile_completion_validator.dart';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
 import 'package:neztmate_backend/features/leases/service/lease_payment_calculator_service.dart';
 import 'package:neztmate_backend/features/units/models/unit_comment_model.dart';
@@ -163,6 +164,9 @@ class UnitHandler {
       }
 
       final user = await userRepository.getUserById(userId);
+
+      final profileBlocked = ProfileCompletionValidator.ensureComplete(user);
+      if (profileBlocked != null) return profileBlocked;
 
       if (user.verifiedIdentity != true) {
         return Response(

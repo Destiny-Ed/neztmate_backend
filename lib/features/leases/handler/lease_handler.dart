@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:neztmate_backend/core/error.dart';
 import 'package:neztmate_backend/core/services/reputation/reputation_service.dart';
+import 'package:neztmate_backend/core/validators/profile_completion_validator.dart';
 import 'package:neztmate_backend/features/auth_user/models/user_model.dart';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
 import 'package:neztmate_backend/features/history/model/user_history_model.dart';
@@ -357,6 +358,9 @@ class LeaseHandler {
       }
 
       final user = await userRepository.getUserById(userId);
+
+      final profileBlocked = ProfileCompletionValidator.ensureComplete(user);
+      if (profileBlocked != null) return profileBlocked;
 
       if (user.verifiedIdentity != true) {
         return Response(
@@ -1436,6 +1440,9 @@ class LeaseHandler {
         return Response(400, body: jsonEncode({'message': 'This user is not registered as a tenant'}));
       }
 
+      final profileBlocked = ProfileCompletionValidator.ensureComplete(user);
+      if (profileBlocked != null) return profileBlocked;
+
       if (user.verifiedIdentity != true) {
         return Response(
           403,
@@ -1565,6 +1572,9 @@ class LeaseHandler {
 
       final user = await userRepository.getUserById(tenantId);
 
+      final profileBlocked = ProfileCompletionValidator.ensureComplete(user);
+      if (profileBlocked != null) return profileBlocked;
+
       if (user.verifiedIdentity != true) {
         return Response(
           403,
@@ -1659,6 +1669,9 @@ class LeaseHandler {
       }
 
       final user = await userRepository.getUserById(userId);
+
+      final profileBlocked = ProfileCompletionValidator.ensureComplete(user);
+      if (profileBlocked != null) return profileBlocked;
 
       if (user.verifiedIdentity != true) {
         return Response(

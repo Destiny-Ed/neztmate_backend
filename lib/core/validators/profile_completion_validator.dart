@@ -27,7 +27,6 @@ class ProfileCompletionResult {
 
 /// Shared profile-completion rules for tenants, landowners, managers, artisans.
 ///
-/// Mirrors the frontend profile completion progress on PersonalInfoScreen:
 ///   - all roles: fullName, email, phone, address, profilePhotoUrl
 ///   - artisan only: primarySkill
 class ProfileCompletionValidator {
@@ -36,7 +35,6 @@ class ProfileCompletionValidator {
   static const code = 'PROFILE_NOT_COMPLETE';
   static const action = 'complete_profile';
 
-  /// Fields required for every role (aligned with frontend `_calculateCompletion`).
   static const List<String> baseRequiredFields = [
     'fullName',
     'email',
@@ -45,7 +43,6 @@ class ProfileCompletionValidator {
     'profilePhotoUrl',
   ];
 
-  /// Extra fields required only for artisans.
   static const List<String> artisanRequiredFields = [
     'primarySkill',
   ];
