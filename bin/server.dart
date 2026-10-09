@@ -64,6 +64,8 @@ import 'package:neztmate_backend/routes/user_routes.dart';
 import 'package:neztmate_backend/routes/verification_routes.dart';
 import 'package:neztmate_backend/routes/storage_routes.dart';
 import 'package:neztmate_backend/features/storage/handler/storage_handler.dart';
+import 'package:neztmate_backend/routes/email_routes.dart';
+import 'package:neztmate_backend/features/emails/handler/email_handler.dart';
 import 'package:shelf/shelf.dart';
 import 'package:shelf/shelf_io.dart';
 import 'package:shelf_cors_headers/shelf_cors_headers.dart';
@@ -199,6 +201,11 @@ void main() async {
     Pipeline()
         .addMiddleware(authMiddleWare)
         .addHandler(notificationRoutes(injector<NotificationHandler>()).call),
+  );
+
+  router.mount(
+    '/emails/',
+    Pipeline().addMiddleware(authMiddleWare).addHandler(emailRoutes(injector<EmailHandler>()).call),
   );
 
   router.mount(
