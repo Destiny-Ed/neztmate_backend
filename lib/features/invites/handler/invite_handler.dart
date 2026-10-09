@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:neztmate_backend/core/di/injector.dart';
 import 'package:neztmate_backend/core/services/subscription/subscription_limit_service.dart';
+import 'package:neztmate_backend/core/validators/profile_completion_validator.dart';
 import 'package:neztmate_backend/features/auth_user/repositories/user_repository.dart';
 import 'package:neztmate_backend/features/invites/models/invites_model.dart';
 import 'package:neztmate_backend/features/invites/repository/invite_repo.dart';
