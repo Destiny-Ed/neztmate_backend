@@ -289,7 +289,8 @@ class EmailTemplates {
           <tr>
             <td align="center" style="background:#0f766e;padding:28px 32px;">
               <a href="https://neztmate.com" style="text-decoration:none;display:inline-block;">
-                <img src="https://neztmate.com/assets/logo.jpg" width="160" alt="NeztMate" style="display:block;margin:0 auto;max-width:160px;height:auto;border:0;outline:none;" />
+
+                <img src="$logo" width="160" alt="NeztMate" style="display:block;margin:0 auto;max-width:160px;height:auto;border:0;outline:none;filter:brightness(0) invert(1);" />
               </a>
               <p style="margin:12px 0 0;color:#ffffff;font-size:13px;font-weight:500;">Housing, clarified</p>
             </td>
