@@ -32,6 +32,7 @@ class EmailSendResult {
 ///   RESEND_API_KEY   – required (re_...)
 ///   RESEND_FROM_EMAIL – e.g. "NeztMate <onboarding@neztmate.com>"
 ///   RESEND_REPLY_TO   – optional
+///   RESEND_LOGO_URL   – optional absolute HTTPS logo for email HTML
 class ResendEmailService {
   static const _baseUrl = 'https://api.resend.com';
 
@@ -51,6 +52,13 @@ class ResendEmailService {
   String? get _replyTo {
     final v = Platform.environment['RESEND_REPLY_TO'] ?? env['RESEND_REPLY_TO'];
     if (v == null || v.trim().isEmpty) return null;
+    return v.trim();
+  }
+
+  /// Absolute HTTPS URL for the logo shown in email HTML.
+  String get logoUrl {
+    final v = Platform.environment['RESEND_LOGO_URL'] ?? env['RESEND_LOGO_URL'];
+    if (v == null || v.trim().isEmpty) return EmailTemplates.defaultLogoUrl;
     return v.trim();
   }
 
@@ -128,7 +136,6 @@ class ResendEmailService {
   }
 
   /// Batch send (Resend accepts up to 100 per request).
-  /// Each item: { to, subject, html, text? }
   Future<List<EmailSendResult>> sendBatch(List<Map<String, dynamic>> emails) async {
     if (!isConfigured) {
       return emails
@@ -173,7 +180,7 @@ class ResendEmailService {
           list = [];
         }
         return List.generate(emails.length, (i) {
-          final id = i < list.length ? ((list[i] as Map?)?['id'] as String?) : null;
+          final id = i < list.length ? (list[i] as Map?)?['id'] as String? : null;
           return EmailSendResult(
             success: true,
             id: id,
@@ -243,29 +250,48 @@ class EmailContent {
 class EmailTemplates {
   EmailTemplates._();
 
+  /// Public logo used in email header (absolute URL required by clients).
+  /// Override with env RESEND_LOGO_URL.
+  static const defaultLogoUrl = 'https://neztmate.com/assets/logo_bg.png';
+
+  static String get logoUrl {
+    final v = Platform.environment['RESEND_LOGO_URL'];
+    if (v != null && v.trim().isNotEmpty) return v.trim();
+    return defaultLogoUrl;
+  }
+
   static String _escape(String s) => s
       .replaceAll('&', '&')
       .replaceAll('<', '<')
       .replaceAll('>', '>')
       .replaceAll('"', '"');
 
-  static String _layout({required String title, required String bodyHtml}) {
+  static String _layout({
+    required String title,
+    required String bodyHtml,
+    String? logoUrl,
+  }) {
+    final logo = logoUrl ?? EmailTemplates.logoUrl;
     return '''
 <!DOCTYPE html>
 <html>
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="color-scheme" content="light"/>
   <title>$title</title>
 </head>
 <body style="margin:0;padding:0;background:#f4f6f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f4f6f8;padding:32px 16px;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f6f8;padding:32px 16px;">
     <tr>
       <td align="center">
-        <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+        <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);max-width:560px;width:100%;">
           <tr>
-            <td style="background:#0f766e;padding:24px 32px;">
-              <h1 style="margin:0;color:#ffffff;font-size:22px;font-weight:700;">NeztMate</h1>
+            <td align="center" style="background:#0f766e;padding:28px 32px;">
+              <a href="https://neztmate.com" style="text-decoration:none;display:inline-block;">
+                <img src="$logo" width="160" alt="NeztMate" style="display:block;margin:0 auto;max-width:160px;height:auto;border:0;outline:none;" />
+              </a>
+              <p style="margin:12px 0 0;color:#ccfbf1;font-size:13px;font-weight:500;">Housing, clarified</p>
             </td>
           </tr>
           <tr>
@@ -274,9 +300,18 @@ class EmailTemplates {
             </td>
           </tr>
           <tr>
-            <td style="padding:16px 32px 28px;color:#9ca3af;font-size:12px;line-height:1.5;">
-              You’re receiving this because you have a NeztMate account.<br/>
-              © NeztMate · <a href="https://neztmate.com" style="color:#0f766e;">neztmate.com</a>
+            <td style="padding:0 32px 28px;color:#9ca3af;font-size:12px;line-height:1.5;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+                <tr>
+                  <td style="border-top:1px solid #e5e7eb;padding-top:20px;">
+                    <img src="$logo" width="28" alt="NeztMate" style="display:inline-block;vertical-align:middle;max-width:28px;height:auto;border:0;margin-right:8px;" />
+                    <span style="vertical-align:middle;">
+                      You are receiving this because you have a NeztMate account.<br/>
+                      &copy; NeztMate &middot; <a href="https://neztmate.com" style="color:#0f766e;text-decoration:none;">neztmate.com</a>
+                    </span>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
         </table>
@@ -296,18 +331,18 @@ class EmailTemplates {
     final roleLabel = _escape(role);
     final subject = 'Welcome to NeztMate, $fullName!';
     final body = '''
-<p>Hi $name,</p>
-<p>Welcome to <strong>NeztMate</strong> — your account as a <strong>$roleLabel</strong> is ready.</p>
-<p>Here’s what you can do next:</p>
-<ul>
+<p style="margin:0 0 16px;">Hi $name,</p>
+<p style="margin:0 0 16px;">Welcome to <strong>NeztMate</strong> &mdash; your account as a <strong>$roleLabel</strong> is ready.</p>
+<p style="margin:0 0 8px;">Here is what you can do next:</p>
+<ul style="margin:0 0 16px;padding-left:20px;">
   <li>Complete your profile so landlords and tenants can find you</li>
   <li>Verify your identity for faster applications and trust</li>
   <li>Explore properties, units, and services on the app</li>
 </ul>
-<p style="margin-top:24px;">
+<p style="margin:24px 0 0;">
   <a href="https://neztmate.com" style="display:inline-block;background:#0f766e;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600;">Open NeztMate</a>
 </p>
-<p style="margin-top:24px;">If you didn’t create this account, you can ignore this email.</p>
+<p style="margin:24px 0 0;color:#6b7280;font-size:13px;">If you did not create this account, you can ignore this email.</p>
 ''';
     final text = '''
 Hi $fullName,
@@ -321,7 +356,7 @@ Next steps:
 
 https://neztmate.com
 
-If you didn’t create this account, ignore this email.
+If you did not create this account, ignore this email.
 ''';
     return EmailContent(
       subject: subject,
