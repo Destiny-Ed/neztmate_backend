@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:dart_firebase_admin/auth.dart';
 import 'package:neztmate_backend/core/error.dart';
+import 'package:neztmate_backend/core/services/email/resend_email_service.dart';
 import 'package:neztmate_backend/core/services/subscription/partner_access_service.dart';
 import 'package:neztmate_backend/features/partners/repository/partner_repository.dart';
 import 'package:shelf/shelf.dart';
@@ -20,6 +21,7 @@ class AuthHandler {
   final PartnerRepository partnerRepository;
   final Auth firebaseAuth;
   final PartnerAccessService partnerAccess;
+  final ResendEmailService emailService;
 
   AuthHandler(
     this.authRepository,
@@ -29,6 +31,7 @@ class AuthHandler {
     this.partnerRepository,
     this.firebaseAuth,
     this.partnerAccess,
+    this.emailService,
   );
 
   Future<Response> register(Request req) async {
@@ -91,6 +94,15 @@ class AuthHandler {
       final refreshToken = jwtService.generateRefreshToken(created.id);
 
       await authRepository.saveRefreshToken(created.id, refreshToken);
+
+      // Welcome email (non-blocking — never fail registration on email errors)
+      emailService
+          .sendWelcomeEmail(
+            to: created.email,
+            fullName: created.fullName,
+            role: created.role,
+          )
+          .catchError((e) => print('[AuthHandler] welcome email error: $e'));
 
       return Response.ok(
         jsonEncode({
@@ -335,7 +347,6 @@ class AuthHandler {
 
       // Verify Google ID token (Firebase Admin or googleapis)
       final decoded = await firebaseAuth.verifyIdToken(idToken);
-      // Or: verify with Google tokeninfo / jose against Google certs
 
       final email = (decoded.email ?? '').toLowerCase();
       if (email.isEmpty) {
@@ -343,15 +354,6 @@ class AuthHandler {
       }
 
       final user = await userRepository.getUserByEmail(email);
-      // if (user == null) {
-      //   return Response(
-      //     403,
-      //     body: jsonEncode({
-      //       'message':
-      //           'No platform admin account for this Google email. Ask an existing admin to grant access.',
-      //     }),
-      //   );
-      // }
 
       final role = user.role.toLowerCase();
       final isPlatform =
@@ -365,9 +367,6 @@ class AuthHandler {
           body: jsonEncode({'message': 'Google sign-in is only allowed for platform admins'}),
         );
       }
-
-      // Optional: update fcmToken / lastLogin
-      // await userRepository.updateUser(user.copyWith(fcmToken: fcmToken, lastLogin: DateTime.now()));
 
       final accessToken = jwtService.generateAccessToken(user.id, 'platform_admin');
       final refreshToken = jwtService.generateRefreshToken(user.id);
