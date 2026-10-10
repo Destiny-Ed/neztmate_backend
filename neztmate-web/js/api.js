@@ -31,7 +31,6 @@ const Api = {
     }
   },
 
-  /** Decode JWT payload (no verify — server already issued it) */
   getTokenPayload() {
     try {
       const token = this.getToken();
@@ -45,19 +44,13 @@ const Api = {
     }
   },
 
-  /**
-   * Prefer role from JWT (source of truth), then user object from login response.
-   * Never trust a stale isPlatformAdmin flag alone.
-   */
   isPlatformAdmin() {
     const payload = this.getTokenPayload() || {};
     const tokenRole = String(payload.role || '').toLowerCase();
     if (tokenRole === 'platform_admin' || tokenRole === 'super_admin') return true;
-
     const u = this.getUser() || {};
     const role = String(u.role || '').toLowerCase();
     if (role === 'platform_admin' || role === 'super_admin') return true;
-
     return false;
   },
 
@@ -73,13 +66,11 @@ const Api = {
       }
       h.Authorization = 'Bearer ' + token;
     }
-
     const res = await fetch(this.base + path, {
       method,
       headers: h,
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
-
     const text = await res.text();
     let data = null;
     try {
@@ -87,7 +78,6 @@ const Api = {
     } catch {
       data = { message: text };
     }
-
     if (!res.ok) {
       const err = new Error((data && data.message) || res.statusText || 'Request failed');
       err.status = res.status;
@@ -97,35 +87,15 @@ const Api = {
     return data;
   },
 
-  // Public
-
-  /**
-   * Public active partners for landing showcase.
-   * GET /partners/public  →  { partners: [ { id, slug, name, tagline, logoUrl, primaryColor, isActive, ... } ] }
-   */
   listActivePartners() {
     return this.request('/partners/public', { auth: false });
   },
-
   getPartnerConfig(slug) {
     return this.request('/partners/config?slug=' + encodeURIComponent(slug), { auth: false });
   },
-
   submitPartnerRequest(payload) {
     return this.request('/partners/requests', { method: 'POST', auth: false, body: payload });
   },
-
-  /**
-   * Login
-   * - platform_admin: partnerId optional / omit
-   * - everyone else: partnerId required
-   * - fcmToken required by API (web sends a web placeholder)
-   */
-
-  /**
-   * Platform admin only — Google ID token from GIS.
-   * Backend verifies token, checks allowlist / role platform_admin, returns JWT.
-   */
   platformGoogleLogin({ idToken, fcmToken }) {
     return this.request('/auth/platform/google', {
       method: 'POST',
@@ -138,7 +108,6 @@ const Api = {
       },
     });
   },
-
   login({ email, password, partnerId, fcmToken, isPlatformAdmin }) {
     const body = {
       email,
@@ -150,8 +119,6 @@ const Api = {
     if (isPlatformAdmin) body.loginAs = 'platform_admin';
     return this.request('/auth/login', { method: 'POST', auth: false, body });
   },
-
-  // Partner
   getMyPartner() {
     return this.request('/partners/me');
   },
@@ -161,10 +128,9 @@ const Api = {
   updateMyBranding(payload) {
     return this.request('/partners/me/branding', { method: 'PATCH', body: payload });
   },
-
-  // Platform
-  listPartners() {
-    return this.request('/partners/');
+  listPartners(params = {}) {
+    const q = new URLSearchParams(params).toString();
+    return this.request('/partners/' + (q ? '?' + q : ''));
   },
   createPartner(payload) {
     return this.request('/partners/', { method: 'POST', body: payload });
@@ -178,11 +144,12 @@ const Api = {
   setPartnerStatus(id, status) {
     return this.request('/partners/' + encodeURIComponent(id) + '/status', {
       method: 'PATCH',
-      body: { status },
+      body: typeof status === 'object' ? status : { status },
     });
   },
-  listPartnerRequests() {
-    return this.request('/partners/requests');
+  listPartnerRequests(params = {}) {
+    const q = new URLSearchParams(params).toString();
+    return this.request('/partners/requests' + (q ? '?' + q : ''));
   },
   updatePartnerRequest(id, payload) {
     return this.request('/partners/requests/' + encodeURIComponent(id), {
@@ -190,9 +157,6 @@ const Api = {
       body: payload,
     });
   },
-
-  // ── Subscriptions (web-only billing; no IAP) ──
-  /** Public plans for pricing page. Backend: GET /subscriptions/plans/public?partnerId= or ?slug= */
   getPublicPlans({ partnerId, slug } = {}) {
     const q = new URLSearchParams();
     if (partnerId) q.set('partnerId', partnerId);
@@ -200,7 +164,6 @@ const Api = {
     const qs = q.toString();
     return this.request('/subscriptions/plans/public' + (qs ? '?' + qs : ''), { auth: false }).catch(
       () => {
-        // Fallback: authenticated plans if user already logged in on web
         if (this.getToken()) return this.getSubscriptionPlans();
         throw new Error('Plans unavailable');
       }
@@ -230,10 +193,7 @@ const Api = {
   subscribeToPlan({ planId, billingCycle, partnerId }) {
     const body = { planId, billingCycle };
     if (partnerId) body.partnerId = partnerId;
-    return this.request('/subscriptions/subscribe', {
-      method: 'POST',
-      body,
-    });
+    return this.request('/subscriptions/subscribe', { method: 'POST', body });
   },
   cancelSubscription() {
     return this.request('/subscriptions/cancel', { method: 'POST', body: {} });
@@ -258,8 +218,9 @@ const Api = {
       { method: 'DELETE' }
     );
   },
-  getPaymentSummary() {
-    return this.request('/payments/summary');
+  getPaymentSummary(params = {}) {
+    const q = new URLSearchParams(params).toString();
+    return this.request('/payments/summary' + (q ? '?' + q : ''));
   },
   getMyPayments() {
     return this.request('/payments/my_payments').catch(() => this.request('/payments/me'));
@@ -270,8 +231,6 @@ const Api = {
   getNotifications() {
     return this.request('/notifications').catch(() => this.request('/notifications/all'));
   },
-
-  // ── In-app announcements (admin → apps) ──
   listAnnouncementsAdmin(params = {}) {
     const q = new URLSearchParams();
     Object.entries(params || {}).forEach(([k, v]) => {
@@ -297,9 +256,6 @@ const Api = {
       method: 'DELETE',
     });
   },
-
-
-  // ── Platform: partners + credentials ──
   createPartnerWithAdmin(body) {
     return this.request('/partners/with-admin', { method: 'POST', body });
   },
@@ -324,18 +280,14 @@ const Api = {
   changeMyPassword(body) {
     return this.request('/auth/change-password', { method: 'POST', body });
   },
-  // ── Ops lists ──
   listUsers(params = {}) {
     const q = new URLSearchParams(params).toString();
     return this.request('/users' + (q ? '?' + q : ''));
   },
   listLeases(params = {}) {
     const q = new URLSearchParams(params).toString();
-    return this.request('/leases' + (q ? '?' + q : '')).catch(() =>
-      this.request('/leases/me')
-    );
+    return this.request('/leases' + (q ? '?' + q : '')).catch(() => this.request('/leases/me'));
   },
-  /** Platform / partner admin lease directory */
   listLeasesAdmin(params = {}) {
     const q = new URLSearchParams();
     Object.entries(params || {}).forEach(([k, v]) => {
@@ -354,61 +306,15 @@ const Api = {
     const q = new URLSearchParams(params).toString();
     return this.request('/applications/admin' + (q ? '?' + q : ''));
   },
-  getPaymentSummary(params = {}) {
-    const q = new URLSearchParams(params).toString();
-    return this.request('/payments/summary' + (q ? '?' + q : ''));
-  },
-  getMyPayments() {
-    return this.request('/payments/my_payments').catch(() =>
-      this.request('/payments/me')
-    );
-  },
-  getMyProperties() {
-    return this.request('/properties').catch(() => this.request('/properties/all'));
-  },
-  getNotifications() {
-    return this.request('/notifications').catch(() => this.request('/notifications/all'));
-
-  },
   getHistory() {
-    return this.request('/history/me');
+    return this.request('/history');
   },
-  listPartners(params = {}) {
-    const q = new URLSearchParams(params).toString();
-    return this.request('/partners/' + (q ? '?' + q : ''));
-  },
-  listPartnerRequests(params = {}) {
-    const q = new URLSearchParams(params).toString();
-    return this.request('/partners/requests' + (q ? '?' + q : ''));
-  },
-  createPartner(body) {
-    return this.request('/partners/', { method: 'POST', body });
-  },
-  updatePartner(id, body) {
-    return this.request('/partners/' + encodeURIComponent(id), { method: 'PATCH', body });
-  },
-  setPartnerStatus(id, body) {
-    return this.request('/partners/' + encodeURIComponent(id) + '/status', {
-      method: 'PATCH',
-      body,
-    });
-  },
-  updateMyPartner(body) {
-    return this.request('/partners/me', { method: 'PATCH', body });
-  },
-  updateMyBranding(body) {
-    return this.request('/partners/me/branding', { method: 'PATCH', body });
-  },
-
   getPartnerAnalytics() {
     return this.request('/partners/me/analytics');
   },
-
   getPlatformAnalytics() {
     return this.request('/platform/analytics');
   },
-
-  /** Revenue / growth metrics (platform or partner-scoped) */
   getRevenueMetrics(params = {}) {
     const q = new URLSearchParams();
     Object.entries(params || {}).forEach(([k, v]) => {
@@ -417,7 +323,6 @@ const Api = {
     const qs = q.toString();
     return this.request('/metrics/revenue' + (qs ? '?' + qs : ''));
   },
-
   getApplicationFeeSettings(params = {}) {
     const q = new URLSearchParams();
     Object.entries(params || {}).forEach(([k, v]) => {
@@ -426,13 +331,27 @@ const Api = {
     const qs = q.toString();
     return this.request('/settings/application-fee' + (qs ? '?' + qs : ''));
   },
-
   updateApplicationFeeSettings(body) {
     return this.request('/settings/application-fee', { method: 'PUT', body });
   },
 
-  getHistory() {
-    return this.request('/history');
+  // —— Email (Resend) ——
+  sendEmail({ to, subject, html, text, tags }) {
+    return this.request('/emails/send', {
+      method: 'POST',
+      body: { to, subject, html, text, tags },
+    });
+  },
+  sendEmailCampaign({ subject, html, text, role, partnerId, limit }) {
+    const body = { subject, html };
+    if (text) body.text = text;
+    if (role) body.role = role;
+    if (partnerId) body.partnerId = partnerId;
+    if (limit != null) body.limit = limit;
+    return this.request('/emails/campaign', { method: 'POST', body });
+  },
+  resendWelcomeEmail(userId) {
+    return this.request('/emails/welcome', { method: 'POST', body: { userId } });
   },
 };
 
