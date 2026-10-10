@@ -55,8 +55,7 @@ window.NeztMateTheme = {
           el.alt = name;
           el.hidden = false;
         } else {
-          // el.style.backgroundImage = 'url(' + logoUrl + ')';
-          el.src = 'assets/logo_bg.png'; // NeztMate default
+          el.src = 'assets/logo_bg.png';
         }
       }
     });
@@ -87,3 +86,32 @@ window.NeztMateTheme = {
     }
   },
 };
+
+/** Ensure NeztMate logo is used as the tab / bookmark icon */
+(function ensureNeztMateFavicon() {
+  try {
+    var path;
+    if (location.pathname.indexOf('/admin') >= 0) {
+      path = '../assets/logo_bg.png';
+    } else if (location.pathname.indexOf('/u/') >= 0) {
+      path = '../assets/logo_bg.png';
+    } else if (location.origin && location.protocol !== 'file:') {
+      path = location.origin + '/assets/logo_bg.png';
+    } else {
+      path = 'assets/logo_bg.png';
+    }
+    function setLink(rel, sizes) {
+      var el = document.querySelector('link[rel="' + rel + '"]');
+      if (!el) {
+        el = document.createElement('link');
+        el.rel = rel;
+        document.head.appendChild(el);
+      }
+      el.type = 'image/png';
+      el.href = path;
+      if (sizes) el.sizes = sizes;
+    }
+    setLink('icon', '32x32');
+    setLink('apple-touch-icon');
+  } catch (e) {}
+})();
