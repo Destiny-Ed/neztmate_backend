@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Email campaigns · NeztMate Admin</title>
+  <link rel="icon" type="image/png" href="../assets/logo_bg.png" sizes="32x32" />
+  <link rel="icon" type="image/png" href="../assets/logo_bg.png" sizes="192x192" />
+  <link rel="apple-touch-icon" href="../assets/logo_bg.png" />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="../css/styles.css" />
+</head>
+<body class="admin-body">
+  <div class="admin-shell">
+    <aside class="sidebar" id="sidebar"></aside>
+    <div class="admin-main">
+      <header class="admin-top">
+        <div><strong>Email campaigns</strong> <span class="muted" id="partner-label"></span></div>
+        <button type="button" class="theme-toggle" id="theme-toggle">🌙</button>
+      </header>
+      <div class="admin-content">
+        <h1 class="page-title">Email campaigns</h1>
+        <p class="page-sub">
+          Send branded emails to users via Resend. Choose an audience by role and workspace.
+          Platform admins can target any partner or all users.
+        </p>
+        <div id="error" class="alert alert-error" style="display:none"></div>
+        <div id="info" class="alert alert-ok" style="display:none"></div>
+
+        <div class="panel" style="max-width:720px">
+          <div class="field">
+            <label for="f-subject">Subject</label>
+            <input id="f-subject" maxlength="200" placeholder="e.g. What is new on NeztMate this month" />
+          </div>
+
+          <div class="field">
+            <label for="f-html">Message (HTML allowed)</label>
+            <textarea id="f-html" rows="10" placeholder="Write your message. Basic HTML is supported (p, strong, a, ul…)."></textarea>
+            <p class="muted" style="font-size:12px;margin-top:.35rem">
+              The server wraps this in the NeztMate email layout with logo header.
+            </p>
+          </div>
+
+          <div class="field">
+            <label for="f-text">Plain text (optional)</label>
+            <textarea id="f-text" rows="3" placeholder="Fallback for clients that block HTML"></textarea>
+          </div>
+
+          <div class="field">
+            <label for="f-role">Audience role</label>
+            <select id="f-role">
+              <option value="">All roles</option>
+              <option value="tenant">Tenants</option>
+              <option value="landowner">Landowners</option>
+              <option value="manager">Managers</option>
+              <option value="artisan">Artisans</option>
+              <option value="partner_admin">Partner admins</option>
+            </select>
+          </div>
+
+          <div class="field" id="partner-field" style="display:none">
+            <label for="f-partner">Partner workspace</label>
+            <select id="f-partner">
+              <option value="">All partners (platform-wide)</option>
+            </select>
+            <p class="muted" style="font-size:12px;margin-top:.35rem">
+              Leave empty to include users across workspaces (platform admin only).
+            </p>
+          </div>
+
+          <div class="field">
+            <label for="f-limit">Max recipients</label>
+            <input id="f-limit" type="number" min="1" max="500" value="100" />
+            <p class="muted" style="font-size:12px;margin-top:.35rem">1–500 per send (Resend batching on the server).</p>
+          </div>
+
+          <div class="field">
+            <label>
+              <input type="checkbox" id="f-confirm" />
+              I confirm this will email real users matching the filters above
+            </label>
+          </div>
+
+          <div style="display:flex;gap:.75rem;flex-wrap:wrap;margin-top:1rem">
+            <button type="button" class="btn btn-primary" id="btn-send">Send campaign</button>
+            <button type="button" class="btn btn-ghost" id="btn-preview">Preview HTML</button>
+          </div>
+        </div>
+
+        <div class="panel" style="margin-top:1.25rem;max-width:720px" id="result-panel" hidden>
+          <h3 style="margin-top:0">Last send result</h3>
+          <pre id="result-pre" style="white-space:pre-wrap;font-size:13px;margin:0"></pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div id="preview-modal" class="modal-backdrop hidden">
+    <div class="modal" style="max-width:640px">
+      <div class="modal-head">
+        <h3>Email body preview</h3>
+        <button type="button" class="btn btn-ghost btn-sm" data-close>×</button>
+      </div>
+      <div class="modal-body" id="preview-body" style="background:#f4f6f8;max-height:70vh;overflow:auto"></div>
+      <div class="modal-foot">
+        <button type="button" class="btn btn-ghost btn-sm" data-close>Close</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/config.js"></script>
+  <script src="../js/api.js"></script>
+  <script src="../js/admin-shell.js"></script>
+  <script src="../js/admin.js"></script>
+  <script>
+    if (!AdminGuard.requireAuth()) throw 0;
+    AdminShell.mount('campaigns.html');
+
+    (function () {
+      var isP = NeztMateApi.isPlatformAdmin();
+      var partnerField = document.getElementById('partner-field');
+      var partnerSelect = document.getElementById('f-partner');
+      var errEl = document.getElementById('error');
+      var infoEl = document.getElementById('info');
+
+      function showErr(msg) {
+        errEl.style.display = msg ? 'block' : 'none';
+        errEl.textContent = msg || '';
+        if (msg) infoEl.style.display = 'none';
+      }
+      function showInfo(msg) {
+        infoEl.style.display = msg ? 'block' : 'none';
+        infoEl.textContent = msg || '';
+        if (msg) errEl.style.display = 'none';
+      }
+
+      if (isP) {
+        partnerField.style.display = 'block';
+        AdminGuard.api(function () {
+          return NeztMateApi.listPartners();
+        }, { partners: [] }).then(function (data) {
+          var list = data.partners || data.items || data || [];
+          if (!Array.isArray(list)) list = [];
+          list.forEach(function (p) {
+            var id = p.id || p.partnerId;
+            var name = p.name || p.slug || id;
+            if (!id) return;
+            var opt = document.createElement('option');
+            opt.value = id;
+            opt.textContent = name + (p.slug ? ' (' + p.slug + ')' : '');
+            partnerSelect.appendChild(opt);
+          });
+        });
+      }
+
+      document.getElementById('btn-preview').addEventListener('click', function () {
+        var html = document.getElementById('f-html').value.trim();
+        var body = document.getElementById('preview-body');
+        body.innerHTML = html || '<p class="muted">Nothing to preview yet.</p>';
+        document.getElementById('preview-modal').classList.remove('hidden');
+      });
+
+      document.querySelectorAll('[data-close]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          document.getElementById('preview-modal').classList.add('hidden');
+        });
+      });
+
+      document.getElementById('btn-send').addEventListener('click', async function () {
+        showErr('');
+        showInfo('');
+        var subject = document.getElementById('f-subject').value.trim();
+        var html = document.getElementById('f-html').value.trim();
+        var text = document.getElementById('f-text').value.trim();
+        var role = document.getElementById('f-role').value.trim();
+        var partnerId = isP ? partnerSelect.value.trim() : '';
+        var limit = parseInt(document.getElementById('f-limit').value, 10) || 100;
+        var confirmed = document.getElementById('f-confirm').checked;
+
+        if (!subject) return showErr('Subject is required');
+        if (!html) return showErr('Message body is required');
+        if (!confirmed) return showErr('Please confirm before sending');
+        if (limit < 1 || limit > 500) return showErr('Limit must be between 1 and 500');
+
+        var btn = document.getElementById('btn-send');
+        btn.disabled = true;
+        btn.textContent = 'Sending…';
+        try {
+          var payload = { subject: subject, html: html, limit: limit };
+          if (text) payload.text = text;
+          if (role) payload.role = role;
+          if (partnerId) payload.partnerId = partnerId;
+
+          var res = await NeztMateApi.sendEmailCampaign(payload);
+          document.getElementById('result-panel').hidden = false;
+          document.getElementById('result-pre').textContent = JSON.stringify(res, null, 2);
+          showInfo(
+            'Campaign processed: sent ' +
+              (res.sent != null ? res.sent : '?') +
+              ' / failed ' +
+              (res.failed != null ? res.failed : '?') +
+              ' (total matched ' +
+              (res.total != null ? res.total : '?') +
+              ')'
+          );
+        } catch (e) {
+          showErr((e && e.message) || 'Failed to send campaign');
+        } finally {
+          btn.disabled = false;
+          btn.textContent = 'Send campaign';
+        }
+      });
+    })();
+  </script>
+</body>
+</html>
