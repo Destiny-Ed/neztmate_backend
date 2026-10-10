@@ -1,3 +1,19 @@
+/** Ensure NeztMate logo is the browser tab icon on admin pages */
+(function ensureAdminFavicon() {
+  try {
+    var path = '../assets/logo_bg.png';
+    ['icon', 'apple-touch-icon'].forEach(function (rel) {
+      var el = document.querySelector('link[rel="' + rel + '"]');
+      if (!el) {
+        el = document.createElement('link');
+        el.rel = rel;
+        document.head.appendChild(el);
+      }
+      el.type = 'image/png';
+      el.href = path;
+    });
+  } catch (e) {}
+})();
 
 /**
  * NeztMate Admin shell — role-aware, no auto-logout on API errors.
@@ -69,7 +85,6 @@ const AdminGuard = {
     document.querySelectorAll('[data-partner-only]').forEach((el) => {
       el.classList.toggle('hidden', isPlatform);
     });
-    // Highlight current page
     const path = location.pathname.split('/').pop() || 'index.html';
     document.querySelectorAll('.sidebar nav a[href]').forEach((a) => {
       const href = a.getAttribute('href');
@@ -97,7 +112,6 @@ const AdminGuard = {
       : '—';
   },
 
-  /** Show error in #error without logging out */
   showError(msg) {
     const el = document.getElementById('error');
     if (!el) {
@@ -134,10 +148,6 @@ const AdminGuard = {
     return '<span class="badge ' + cls + '">' + (status || '—') + '</span>';
   },
 
-  /**
-   * Safe API call — never redirects on 401/403/500 while session exists.
-   * Only clears session if token is missing client-side.
-   */
   async api(fn, fallback) {
     try {
       return await fn();
@@ -152,7 +162,6 @@ const AdminGuard = {
     }
   },
 
-  /** Shared modal helpers */
   openModal(id) {
     const el = document.getElementById(id);
     if (el) el.classList.remove('hidden');
@@ -164,16 +173,12 @@ const AdminGuard = {
 
   esc(s) {
     return String(s ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+      .replace(/&/g, '&')
+      .replace(/</g, '<')
+      .replace(/>/g, '>')
+      .replace(/"/g, '"');
   },
 
-  /**
-   * Ensure a shared detail drawer exists on the page.
-   * Usage: AdminGuard.showDetail({ title, rows: [[label, value], ...], html? })
-   */
   ensureDetailDrawer() {
     if (document.getElementById('admin-detail-drawer')) return;
 
@@ -237,7 +242,6 @@ const AdminGuard = {
     });
   },
 
-  /** @param {{ title: string, rows?: Array<[string, any]>, html?: string }} opts */
   showDetail({ title, rows = [], html = '' }) {
     this.ensureDetailDrawer();
     document.getElementById('admin-detail-title').textContent = title || 'Details';
@@ -273,7 +277,6 @@ const AdminGuard = {
     if (el) el.classList.add('hidden');
   },
 
-  /** Format ISO date for display */
   fmtDate(v) {
     if (!v) return '—';
     try {
@@ -286,7 +289,6 @@ const AdminGuard = {
 
 window.AdminGuard = AdminGuard;
 
-/** Apply theme early (before paint) */
 (function () {
   const t = localStorage.getItem('neztmate_theme') || 'light';
   document.documentElement.setAttribute('data-theme', t);
