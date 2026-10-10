@@ -6,7 +6,7 @@ const AdminShell = {
     const isP = NeztMateApi.isPlatformAdmin();
     el.innerHTML = `
       <a class="logo logo-with-icon" href="index.html">
-        <img src="assets/logo_bg.png" alt="" class="logo-img" width="32" height="32" data-brand-logo />
+        <img src="../assets/logo_bg.png" alt="" class="logo-img" width="32" height="32" data-brand-logo />
         <span data-brand-name-html>Nezt<span>Mate</span></span>
       </a>
       <div class="nav-section">Workspace</div>
@@ -21,6 +21,7 @@ const AdminShell = {
         <a href="users.html">Users</a>
         <a href="notifications.html">Notifications</a>
         <a href="announcements.html">Announcements</a>
+        <a href="campaigns.html">Email campaigns</a>
         <a href="branding.html" data-partner-only>Branding</a>
         <a href="billing.html">Billing</a>
         <a href="settings.html">Settings</a>
