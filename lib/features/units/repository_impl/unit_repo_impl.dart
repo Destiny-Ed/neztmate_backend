@@ -32,7 +32,6 @@ class UnitRepositoryImpl implements UnitRepository {
 
   @override
   Future<UnitModel> createUnit(UnitModel unit) async {
-    // Ensure partnerId from parent property if missing
     if (unit.partnerId.isEmpty || unit.partnerId == 'neztmate') {
       final property = await propertyDataSource.getPropertyById(unit.propertyId);
       return unitDataSource.createUnit(unit.copyWith(partnerId: property.partnerId));
@@ -151,7 +150,7 @@ class UnitRepositoryImpl implements UnitRepository {
 
   @override
   Future<List<UnitModel>> getAvailableUnits({
-    required String partnerId,
+    String? partnerId,
     String? propertyId,
     int? minBedrooms,
     double? maxRent,
@@ -167,7 +166,7 @@ class UnitRepositoryImpl implements UnitRepository {
 
   @override
   Future<List<AvailableUnitResponse>> getAvailableUnitsWithProperty({
-    required String partnerId,
+    String? partnerId,
     String? propertyId,
     int? minBedrooms,
     double? maxRent,
@@ -184,7 +183,7 @@ class UnitRepositoryImpl implements UnitRepository {
       propertyId: propertyId,
       minBedrooms: minBedrooms,
       maxRent: maxRent,
-      limit: limit * 3, // fetch extra before location filter
+      limit: limit * 3,
     );
 
     final responses = <AvailableUnitResponse>[];
@@ -194,7 +193,7 @@ class UnitRepositoryImpl implements UnitRepository {
       if (maxRent != null && unit.monthlyRent > maxRent) continue;
 
       final property = await propertyDataSource.getPropertyById(unit.propertyId);
-      if (property.partnerId != partnerId) continue;
+      if (partnerId != null && partnerId.isNotEmpty && property.partnerId != partnerId) continue;
 
       if (propertyType != null &&
           propertyType.isNotEmpty &&
@@ -217,7 +216,6 @@ class UnitRepositoryImpl implements UnitRepository {
       if (responses.length >= limit) break;
     }
 
-    // Optional: sort by distance when geo used
     if (lat != null && lng != null) {
       responses.sort((a, b) {
         final da = _haversineKm(lat, lng, a.property.latitude!, a.property.longitude!);
