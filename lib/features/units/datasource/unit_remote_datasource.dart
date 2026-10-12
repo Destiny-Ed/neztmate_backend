@@ -9,8 +9,9 @@ abstract class UnitRemoteDataSource {
 
   /// Unit-level filters only.
   /// Location (state/city/lat/lng) is applied in UnitRepository after loading property.
+  /// [partnerId] is optional for public website listings across partners.
   Future<List<UnitModel>> getAvailableUnits({
-    required String partnerId,
+    String? partnerId,
     String? propertyId,
     int? minBedrooms,
     double? maxRent,
