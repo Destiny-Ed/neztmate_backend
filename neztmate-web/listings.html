@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <meta name="theme-color" content="#0d9488" />
+  <title>Listings · NeztMate</title>
+  <link rel="icon" type="image/png" href="assets/logo_bg.png" sizes="32x32" />
+  <link rel="icon" type="image/png" href="assets/logo_bg.png" sizes="192x192" />
+  <link rel="apple-touch-icon" href="assets/logo_bg.png" />
+  <meta name="description" content="Browse homes and units on NeztMate. Download the app to apply." />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet" />
+  <link rel="stylesheet" href="css/styles.css" />
+  <style>
+    .listings-hero { padding: 2.5rem 0 1rem; }
+    .listings-hero h1 { font-size: clamp(1.6rem, 3vw, 2.2rem); margin: 0 0 .35rem; }
+    .listings-filters {
+      display: grid; gap: .75rem;
+      grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+      margin: 1.25rem 0 1rem;
+    }
+    .listings-filters input, .listings-filters select {
+      width: 100%; padding: .65rem .75rem; border-radius: 10px;
+      border: 1px solid var(--line, #e2e8f0); background: var(--white, #fff);
+      font: inherit;
+    }
+    .listings-actions { display: flex; gap: .5rem; align-items: end; flex-wrap: wrap; }
+    #listings-status { font-size: .9rem; color: var(--muted, #64748b); margin: .5rem 0 1rem; }
+    .listings-grid {
+      display: grid; gap: 1.25rem;
+      grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+      padding-bottom: 3rem;
+    }
+    .listing-card {
+      border: 1px solid var(--line, #e2e8f0); border-radius: 16px; overflow: hidden;
+      background: var(--white, #fff); cursor: pointer;
+      transition: box-shadow .15s ease, transform .15s ease;
+    }
+    .listing-card:hover { box-shadow: 0 12px 30px rgba(15,23,42,.08); transform: translateY(-2px); }
+    .listing-card-img {
+      height: 160px; background: #e2e8f0 center/cover no-repeat;
+    }
+    .listing-card-body { padding: 1rem; }
+    .listing-card-top { display: flex; justify-content: space-between; gap: .75rem; align-items: start; }
+    .listing-rent { color: var(--teal, #0d9488); font-weight: 700; white-space: nowrap; }
+    .listing-rent small { font-weight: 500; opacity: .8; }
+    .listing-loc, .listing-meta { margin: .35rem 0 0; font-size: .9rem; }
+    .listing-cta { margin-top: .85rem; width: 100%; }
+    #listings-empty { display: none; padding: 2rem; text-align: center; color: var(--muted, #64748b); }
+    .modal-backdrop.hidden { display: none !important; }
+    .modal-backdrop {
+      position: fixed; inset: 0; z-index: 100; background: rgba(15,23,42,.5);
+      display: flex; align-items: center; justify-content: center; padding: 1rem;
+    }
+    .app-modal {
+      background: var(--white, #fff); border-radius: 18px; max-width: 420px; width: 100%;
+      padding: 1.5rem; box-shadow: 0 24px 60px rgba(0,0,0,.2);
+    }
+    .app-modal h3 { margin: 0 0 .5rem; }
+    .app-modal p { margin: 0 0 1.25rem; color: var(--muted, #64748b); line-height: 1.45; }
+    .app-modal-actions { display: flex; flex-direction: column; gap: .6rem; }
+    .app-modal-actions .btn { width: 100%; text-align: center; }
+  </style>
+</head>
+<body>
+  <header class="site-header">
+    <div class="container nav">
+      <a class="logo" href="index.html" data-brand-name-html>Nezt<span>Mate</span></a>
+      <ul class="nav-links">
+        <li><a href="listings.html" class="active">Listings</a></li>
+        <li><a href="index.html#tenants">Tenants</a></li>
+        <li><a href="index.html#owners">Owners</a></li>
+        <li><a href="pricing.html">Pricing</a></li>
+        <li><a href="index.html#download">Download</a></li>
+      </ul>
+      <a class="btn btn-primary btn-sm" href="index.html#download">Get the app</a>
+    </div>
+  </header>
+
+  <main class="container listings-hero">
+    <h1>Find a home</h1>
+    <p class="muted">Browse available units on NeztMate. To apply or message the owner, continue in the app.</p>
+
+    <div class="listings-filters">
+      <div>
+        <label class="muted" style="font-size:12px">Search</label>
+        <input id="listings-search" type="search" placeholder="Name, area…" />
+      </div>
+      <div>
+        <label class="muted" style="font-size:12px">City</label>
+        <input id="listings-city" placeholder="e.g. Ikeja" />
+      </div>
+      <div>
+        <label class="muted" style="font-size:12px">State</label>
+        <input id="listings-state" placeholder="e.g. Lagos" />
+      </div>
+      <div>
+        <label class="muted" style="font-size:12px">Min bedrooms</label>
+        <input id="listings-beds" type="number" min="0" placeholder="Any" />
+      </div>
+      <div>
+        <label class="muted" style="font-size:12px">Max rent (₦)</label>
+        <input id="listings-max-rent" type="number" min="0" placeholder="Any" />
+      </div>
+      <div class="listings-actions">
+        <button type="button" class="btn btn-primary" id="listings-filter-btn">Filter</button>
+        <button type="button" class="btn btn-ghost" id="listings-refresh">Refresh</button>
+      </div>
+    </div>
+
+    <div id="listings-status">Loading homes…</div>
+    <div id="listings-grid" class="listings-grid"></div>
+    <div id="listings-empty">No listed homes match your filters yet. Check back soon or download the app for more options.</div>
+  </main>
+
+  <div id="app-download-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
+    <div class="app-modal">
+      <h3 id="modal-unit-title">Continue in the app</h3>
+      <p id="modal-unit-sub">Download NeztMate to view full details and apply for this home.</p>
+      <div class="app-modal-actions">
+        <a class="btn btn-primary" id="modal-play-link" href="#" target="_blank" rel="noopener">Get on Google Play</a>
+        <a class="btn btn-ghost" id="modal-ios-link" href="#" target="_blank" rel="noopener">Get on the App Store</a>
+        <button type="button" class="btn btn-ghost" data-close-modal>Not now</button>
+      </div>
+    </div>
+  </div>
+
+  <footer class="site-footer" style="margin-top:2rem">
+    <div class="container" style="padding:1.5rem 0;display:flex;gap:1rem;flex-wrap:wrap;justify-content:space-between">
+      <span class="muted">© NeztMate</span>
+      <div style="display:flex;gap:1rem">
+        <a href="privacy.html">Privacy</a>
+        <a href="terms.html">Terms</a>
+        <a href="index.html">Home</a>
+      </div>
+    </div>
+  </footer>
+
+  <script src="js/config.js"></script>
+  <script src="js/theme.js"></script>
+  <script src="js/listings.js"></script>
+</body>
+</html>
