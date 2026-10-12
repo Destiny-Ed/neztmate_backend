@@ -1,10 +1,10 @@
 /**
  * NeztMate default logo paths (root-relative so they work from any page).
- * neztmate_logo.jpg = white background (good in light headers)
+ * logo_bg.png = white background (good in light headers)
  * logo_bg.png = dark background mark / favicon fallback
  */
 function neztmateDefaultLogoUrl() {
-  return '/assets/neztmate_logo.jpg';
+  return '/assets/logo_bg.png';
 }
 
 function neztmateFaviconUrl() {
