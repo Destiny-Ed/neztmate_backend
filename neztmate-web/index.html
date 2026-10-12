@@ -32,17 +32,16 @@
       <a class="logo" href="index.html" data-brand-name-html>Nezt<span>Mate</span></a>
       <span class="partner-pill" id="partner-pill"></span>
       <ul class="nav-links">
+        <li><a href="listings.html">Listings</a></li>
         <li><a href="#tenants">Tenants</a></li>
         <li><a href="#owners">Owners</a></li>
         <li><a href="#artisans">Artisans</a></li>
         <li><a href="#download">Download</a></li>
         <li><a href="pricing.html">Pricing</a></li>
-        <!-- <li data-platform-only><a href="#partners-showcase">Partners</a></li> -->
-        <!-- <li data-platform-only><a href="partners.html">Become a partner</a></li> -->
       </ul>
       <div class="nav-actions">
         <button type="button" class="theme-toggle" id="theme-toggle" title="Theme">🌙</button>
-        <a class="btn btn-ghost btn-sm" href="#download">Get the app</a>
+        <a class="btn btn-ghost btn-sm" href="listings.html">Listings</a>
         <a class="btn btn-primary btn-sm" href="#download">Download</a>
       </div>
     </div>
@@ -59,8 +58,8 @@
             landowners and managers tracking leases and rent, artisans getting clear jobs.
           </p>
           <div class="hero-cta">
-            <a class="btn btn-primary" href="#download">Download <span data-brand-name>NeztMate</span></a>
-            <a class="btn btn-ghost" href="#how">See how it works</a>
+            <a class="btn btn-primary" href="listings.html">Browse listings</a>
+            <a class="btn btn-ghost" href="#download">Download the app</a>
           </div>
           <div class="store-row">
             <a class="store-btn" data-store="play" href="#" target="_blank" rel="noopener">
@@ -116,7 +115,19 @@
       </div>
     </section>
 
-    <section id="tenants" class="alt">
+    <section id="listings-cta" class="alt">
+      <div class="container">
+        <div class="cta-band" style="display:flex;flex-wrap:wrap;gap:1.25rem;align-items:center;justify-content:space-between">
+          <div>
+            <h2 style="margin:0 0 .35rem">Browse available homes</h2>
+            <p style="margin:0;opacity:.9">See listed units on the web. Download the app when you are ready to apply.</p>
+          </div>
+          <a class="btn btn-primary" href="listings.html">View listings</a>
+        </div>
+      </div>
+    </section>
+
+    <section id="tenants">
       <div class="container">
         <div class="section-head">
           <h2>House hunting that respects your time</h2>
@@ -157,7 +168,7 @@
       </div>
     </section>
 
-    <section id="owners">
+    <section id="owners" class="alt">
       <div class="container">
         <div class="section-head">
           <h2>Built for people who own and manage</h2>
@@ -188,7 +199,7 @@
       </div>
     </section>
 
-    <section id="artisans" class="alt">
+    <section id="artisans">
       <div class="container">
         <div class="section-head">
           <h2>Artisans: jobs with context</h2>
@@ -214,7 +225,7 @@
       </div>
     </section>
 
-    <section id="how">
+    <section id="how" class="alt">
       <div class="container">
         <div class="section-head">
           <h2>How it works</h2>
@@ -224,7 +235,7 @@
           <article class="card step">
             <div class="num">1</div>
             <h3>List or browse</h3>
-            <p>Owners list vacant units. Tenants discover what fits.</p>
+            <p>Owners list vacant units. Tenants discover what fits — on web or in the app.</p>
           </article>
           <article class="card step">
             <div class="num">2</div>
@@ -245,24 +256,7 @@
       </div>
     </section>
 
-
-    <!-- <section id="partners-showcase" class="alt" data-platform-only>
-      <div class="container">
-        <div class="section-head">
-          <h2>Our current partners</h2>
-          <p>Teams running property operations on NeztMate infrastructure.</p>
-          <p class="muted" id="partners-status" style="margin-top:.5rem;font-size:.9rem">Loading partners…</p>
-        </div>
-        <div class="grid-3" id="partners-grid">
-          <div class="card empty-state" style="grid-column:1/-1">Loading…</div>
-        </div>
-        <div style="text-align:center;margin-top:1.75rem">
-          <a class="btn btn-ghost" href="partners.html">Become a partner</a>
-        </div>
-      </div>
-    </section> -->
-
-    <section id="download" class="alt">
+    <section id="download">
       <div class="container">
         <div class="download-band">
           <div>
@@ -285,18 +279,6 @@
         </div>
       </div>
     </section>
-
-    <!-- <section data-platform-only>
-      <div class="container">
-        <div class="cta-band">
-          <div>
-            <h2>Building your own property brand?</h2>
-            <p>White-label partner options for teams who need a branded experience.</p>
-          </div>
-          <a class="btn btn-primary" href="partners.html">Become a partner</a>
-        </div>
-      </div>
-    </section> -->
   </main>
 
   <footer class="site-footer">
@@ -310,13 +292,13 @@
       </div>
       <div>
         <h4>Product</h4>
+        <a href="listings.html">Listings</a>
         <a href="#download">Download</a>
         <a href="#tenants">For tenants</a>
         <a href="#owners">For owners</a>
-        <!-- <a data-platform-only href="partners.html">Become a partner</a> -->
       </div>
       <div>
-        <h4>Legal &amp; contact</h4>
+        <h4>Legal & contact</h4>
         <a id="footer-privacy" href="privacy.html">Privacy Policy</a>
         <a id="footer-terms" href="terms.html">Terms of Use</a>
         <a data-brand-support href="mailto:support@neztmate.com">support@neztmate.com</a>
