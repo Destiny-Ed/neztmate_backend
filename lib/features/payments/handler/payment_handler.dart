@@ -226,12 +226,16 @@ class PaymentHandler {
       // Mark as processed immediately
       await paymentRepository.markPaymentAsProcessed(reference);
 
+      //TODO: VALIDATE PAYMENT AMOUNT WITH AMOUNT FROM PAYSTACK WEBHOOK
+
+
       // Update main payment record
       await paymentRepository.markAsPaidByReference(
         reference,
         receiptUrl ?? '',
         reference,
       );
+
 
       //  APPLICATION FEE
       if (payment.type == 'application_fee' &&
