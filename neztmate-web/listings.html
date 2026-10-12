@@ -5,9 +5,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0d9488" />
   <title>Listings · NeztMate</title>
-  <link rel="icon" type="image/png" href="assets/logo_bg.png" sizes="32x32" />
-  <link rel="icon" type="image/png" href="assets/logo_bg.png" sizes="192x192" />
-  <link rel="apple-touch-icon" href="assets/logo_bg.png" />
+  <link rel="icon" type="image/png" href="/assets/logo_bg.png" sizes="32x32" />
+  <link rel="icon" type="image/png" href="/assets/logo_bg.png" sizes="192x192" />
+  <link rel="apple-touch-icon" href="/assets/logo_bg.png" />
   <meta name="description" content="Browse homes and units on NeztMate. Download the app to apply." />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/styles.css" />
@@ -65,7 +65,12 @@
 <body>
   <header class="site-header">
     <div class="container nav">
-      <a class="logo" href="index.html" data-brand-name-html>Nezt<span>Mate</span></a>
+      <a class="logo" href="index.html" data-brand-name-html style="display:inline-flex;align-items:center;gap:.5rem">
+        <img class="logo-mark" data-brand-logo src="/assets/neztmate_logo.jpg" alt="NeztMate" width="32" height="32"
+          style="height:32px;width:32px;object-fit:contain;border-radius:8px;flex-shrink:0"
+          onerror="this.onerror=null;this.src='/assets/logo_bg.png'" />
+        <span class="logo-text">Nezt<span>Mate</span></span>
+      </a>
       <ul class="nav-links">
         <li><a href="listings.html" class="active">Listings</a></li>
         <li><a href="index.html#tenants">Tenants</a></li>
