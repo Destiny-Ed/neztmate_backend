@@ -6,7 +6,9 @@
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <meta name="theme-color" content="#0d9488" />
   <title>NeztMate — Find, rent & manage homes</title>
-  <link rel="icon" type="image/png" href="assets/logo_bg.png" sizes="192x192" />
+  <link rel="icon" type="image/png" href="/assets/logo_bg.png" sizes="32x32" />
+  <link rel="icon" type="image/png" href="/assets/logo_bg.png" sizes="192x192" />
+  <link rel="apple-touch-icon" href="/assets/logo_bg.png" />
 
   <meta name="description"
     content="NeztMate helps tenants find homes, and helps landowners, managers and artisans run leases, rent and repairs with clarity." />
@@ -29,7 +31,12 @@
 <body>
   <header class="site-header">
     <div class="container nav">
-      <a class="logo" href="index.html" data-brand-name-html>Nezt<span>Mate</span></a>
+      <a class="logo" href="index.html" data-brand-name-html style="display:inline-flex;align-items:center;gap:.5rem">
+        <img class="logo-mark" data-brand-logo src="/assets/neztmate_logo.jpg" alt="NeztMate" width="32" height="32"
+          style="height:32px;width:32px;object-fit:contain;border-radius:8px;flex-shrink:0"
+          onerror="this.onerror=null;this.src='/assets/logo_bg.png'" />
+        <span class="logo-text">Nezt<span>Mate</span></span>
+      </a>
       <span class="partner-pill" id="partner-pill"></span>
       <ul class="nav-links">
         <li><a href="listings.html">Listings</a></li>
@@ -314,7 +321,12 @@
   <footer class="site-footer">
     <div class="container footer-grid">
       <div>
-        <a class="logo" href="index.html" data-brand-name-html>Nezt<span>Mate</span></a>
+        <a class="logo" href="index.html" data-brand-name-html style="display:inline-flex;align-items:center;gap:.5rem">
+          <img class="logo-mark" data-brand-logo src="/assets/neztmate_logo.jpg" alt="NeztMate" width="32" height="32"
+            style="height:32px;width:32px;object-fit:contain;border-radius:8px;flex-shrink:0"
+            onerror="this.onerror=null;this.src='/assets/logo_bg.png'" />
+          <span class="logo-text">Nezt<span>Mate</span></span>
+        </a>
         <p style="margin:.6rem 0 0" data-brand-tagline>Find, rent, and manage homes with clearer workflows.</p>
         <p class="powered-by" id="powered-by" style="display:none;margin-top:.85rem;font-size:.85rem">
           Powered by <a href="https://neztmate.com" target="_blank" rel="noopener">NeztMate</a>
