@@ -18,8 +18,27 @@ function neztmateResolveLogoUrl(partner) {
   if (raw == null) return neztmateDefaultLogoUrl();
   var s = String(raw).trim();
   if (!s || s === 'null' || s === 'undefined') return neztmateDefaultLogoUrl();
-  // Accept absolute http(s) or site-root / relative paths
   return s;
+}
+
+/** WhatsApp link from whatsappUrl, or built from supportPhone */
+function neztmateResolveWhatsappUrl(partner) {
+  if (!partner) return null;
+  var raw = partner.whatsappUrl || partner.whatsapp_url || null;
+  if (raw != null && String(raw).trim() !== '' && String(raw).trim() !== 'null') {
+    var s = String(raw).trim();
+    if (/^https?:\/\//i.test(s)) return s;
+    if (/^wa\.me\//i.test(s) || /^api\.whatsapp\.com/i.test(s)) return 'https://' + s.replace(/^\/+/, '');
+    var digitsFromUrl = s.replace(/\D/g, '');
+    if (digitsFromUrl.length >= 8) return 'https://wa.me/' + digitsFromUrl;
+    return s;
+  }
+  var phone = partner.supportPhone || partner.support_phone || null;
+  if (phone != null && String(phone).trim() !== '') {
+    var digits = String(phone).replace(/\D/g, '');
+    if (digits.length >= 8) return 'https://wa.me/' + digits;
+  }
+  return null;
 }
 
 function neztmateBindLogoError(img) {
@@ -35,7 +54,6 @@ function neztmateBindLogoError(img) {
       return;
     }
     if (cur.indexOf('logo_bg') >= 0) {
-      // Give up — hide broken mark rather than loop
       img.style.display = 'none';
       return;
     }
@@ -47,6 +65,7 @@ function neztmateBindLogoError(img) {
 window.NeztMateTheme = {
   defaultLogoUrl: neztmateDefaultLogoUrl,
   resolveLogoUrl: neztmateResolveLogoUrl,
+  resolveWhatsappUrl: neztmateResolveWhatsappUrl,
 
   apply(partner, options) {
     if (!partner) return;
@@ -59,6 +78,7 @@ window.NeztMateTheme = {
     const logoUrl = neztmateResolveLogoUrl(partner);
     const supportEmail =
       partner.supportEmail || partner.support_email || 'support@neztmate.com';
+    const whatsappUrl = neztmateResolveWhatsappUrl(partner);
     const isPartnerHosted =
       opts.isPartnerHosted === true ||
       (partner.slug && String(partner.slug).toLowerCase() !== 'neztmate');
@@ -98,7 +118,6 @@ window.NeztMateTheme = {
           el.appendChild(textEl);
         }
         textEl.innerHTML = html;
-        // Remove stray text nodes between mark and text
         Array.prototype.slice.call(el.childNodes).forEach(function (n) {
           if (n !== mark && n !== textEl && n.nodeType === 3) {
             el.removeChild(n);
@@ -112,11 +131,36 @@ window.NeztMateTheme = {
     document.querySelectorAll('[data-brand-tagline]').forEach(function (el) {
       if (tagline) el.textContent = tagline;
     });
+
+    // Support email from partner config
     document.querySelectorAll('[data-brand-support]').forEach(function (el) {
       if (el.tagName === 'A') {
         el.href = 'mailto:' + supportEmail;
         el.textContent = supportEmail;
-      } else el.textContent = supportEmail;
+      } else {
+        el.textContent = supportEmail;
+      }
+    });
+
+    // WhatsApp from partner config (whatsappUrl or supportPhone → wa.me)
+    document.querySelectorAll('[data-brand-whatsapp]').forEach(function (el) {
+      if (!whatsappUrl) {
+        el.style.display = 'none';
+        el.setAttribute('href', '#');
+        return;
+      }
+      el.style.display = '';
+      if (el.tagName === 'A') {
+        el.href = whatsappUrl;
+        el.target = '_blank';
+        el.rel = 'noopener noreferrer';
+        if (!el.getAttribute('data-keep-label')) {
+          el.textContent = el.getAttribute('data-whatsapp-label') || 'Chat on WhatsApp';
+        }
+      }
+    });
+    document.querySelectorAll('[data-brand-whatsapp-wrap]').forEach(function (el) {
+      el.style.display = whatsappUrl ? '' : 'none';
     });
 
     this._applyLogos(logoUrl, name);
