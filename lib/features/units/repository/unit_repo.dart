@@ -10,7 +10,7 @@ abstract class UnitRepository {
   Future<List<UnitModel>> getAvailableUnitsByProperty(String propertyId);
 
   Future<List<UnitModel>> getAvailableUnits({
-    required String partnerId,
+    String? partnerId,
     String? propertyId,
     int? minBedrooms,
     double? maxRent,
@@ -19,7 +19,7 @@ abstract class UnitRepository {
   });
 
   Future<List<AvailableUnitResponse>> getAvailableUnitsWithProperty({
-    required String partnerId,
+    String? partnerId,
     String? propertyId,
     int? minBedrooms,
     double? maxRent,
