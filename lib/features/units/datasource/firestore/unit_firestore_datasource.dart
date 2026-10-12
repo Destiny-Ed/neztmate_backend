@@ -43,38 +43,21 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
     return snap.docs.map((d) => UnitModel.fromMap(d.data())).toList();
   }
 
-  // @override
-  // Future<List<UnitModel>> getAvailableUnits({String? propertyId, int? minBedrooms, double? maxRent}) async {
-  //   var query = _units
-  //       .where('status', WhereFilter.equal, 'vacant')
-  //       .where('isListedForRent', WhereFilter.equal, true);
-
-  //   if (propertyId != null) {
-  //     query = query.where('propertyId', WhereFilter.equal, propertyId);
-  //   }
-  //   if (minBedrooms != null) {
-  //     query = query.where('bedrooms', WhereFilter.greaterThanOrEqual, minBedrooms);
-  //   }
-  //   if (maxRent != null) {
-  //     query = query.where('monthlyRent', WhereFilter.greaterThanOrEqual, maxRent);
-  //   }
-
-  //   final snap = await query.orderBy('monthlyRent').get();
-  //   return snap.docs.map((d) => UnitModel.fromMap(d.data())).toList();
-  // }
   @override
   Future<List<UnitModel>> getAvailableUnits({
-    required String partnerId,
+    String? partnerId,
     String? propertyId,
     int? minBedrooms,
     double? maxRent,
     int limit = 120,
   }) async {
-    // Equality filters only → fewer composite index issues
     var query = _units
-        .where('partnerId', WhereFilter.equal, partnerId)
         .where('status', WhereFilter.equal, 'vacant')
         .where('isListedForRent', WhereFilter.equal, true);
+
+    if (partnerId != null && partnerId.isNotEmpty) {
+      query = query.where('partnerId', WhereFilter.equal, partnerId);
+    }
 
     if (propertyId != null && propertyId.isNotEmpty) {
       query = query.where('propertyId', WhereFilter.equal, propertyId);
@@ -84,7 +67,6 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
 
     var units = snap.docs.map((d) => UnitModel.fromMap(d.data() as Map<String, dynamic>)).toList();
 
-    // Range filters in memory (avoids multi-inequality index requirements)
     if (minBedrooms != null) {
       units = units.where((u) => (u.bedrooms ?? 0) >= minBedrooms).toList();
     }
@@ -101,7 +83,6 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
       throw ValidationException('Unit ID cannot be empty');
     }
 
-    // First check if unit exists
     final docRef = firestore.collection('units').doc(unit.id);
     final docSnapshot = await docRef.get();
 
@@ -109,17 +90,14 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
       throw NotFoundException('Unit', unit.id);
     }
 
-    // Optional: Check if unit is available for update (business rule)
     final data = docSnapshot.data() as Map<String, dynamic>;
     final currentTenantId = data['currentTenantId'] as String?;
     final rentDueDate = data['rentDueDate'] != null ? DateTime.tryParse(data['rentDueDate'] as String) : null;
 
-    // Example: Prevent update if occupied and rent not due yet
     if (currentTenantId != null && rentDueDate != null && rentDueDate.isAfter(DateTime.now())) {
       throw ValidationException('Cannot update unit while it is occupied and rent is still due.');
     }
 
-    // Perform the update
     await docRef.update(unit.toMap());
   }
 
@@ -128,7 +106,6 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
     if (id.isEmpty) {
       throw ValidationException('Unit ID cannot be empty');
     }
-    // First check if unit exists
     final docRef = firestore.collection('units').doc(id);
     final docSnapshot = await docRef.get();
 
@@ -136,12 +113,10 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
       throw NotFoundException('Unit', id);
     }
 
-    // Optional: Check if unit is available for update (business rule)
     final data = docSnapshot.data() as Map<String, dynamic>;
     final currentTenantId = data['currentTenantId'] as String?;
     final rentDueDate = data['rentDueDate'] != null ? DateTime.tryParse(data['rentDueDate'] as String) : null;
 
-    // Example: Prevent update if occupied and rent not due yet
     if (currentTenantId != null && rentDueDate != null && rentDueDate.isAfter(DateTime.now())) {
       throw ValidationException('Cannot delete unit while it is occupied and rent is still due.');
     }
@@ -165,7 +140,6 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
     final currentTenantId = data['currentTenantId'] as String?;
     final rentDueDate = data['rentDueDate'] != null ? DateTime.tryParse(data['rentDueDate'] as String) : null;
 
-    // Business Rule: Cannot list if occupied and rent due date has not elapsed
     if (isListed && currentTenantId != null && rentDueDate != null && rentDueDate.isAfter(DateTime.now())) {
       throw ValidationException(
         'Cannot list unit for rent. Unit is currently occupied and rent due date has not elapsed.',
@@ -212,13 +186,11 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
     final isLiked = likedBy.contains(userId);
 
     if (isLiked) {
-      // Unlike
       await unitDoc.update({
         'likes': currentLikes - 1,
         'likedBy': FieldValue.arrayRemove([userId]),
       });
     } else {
-      // Like
       await unitDoc.update({
         'likes': currentLikes + 1,
         'likedBy': FieldValue.arrayUnion([userId]),
@@ -233,7 +205,6 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
 
     await docRef.set(newComment.toMap());
 
-    // Increment comment count on unit
     await _units.doc(comment.unitId).update({'commentsCount': FieldValue.increment(1)});
   }
 
@@ -297,20 +268,4 @@ class FirestoreUnitDataSource implements UnitRemoteDataSource {
     final snap = await firestore.collection('units').where('partnerId', WhereFilter.equal, partnerId).get();
     return snap.docs.length;
   }
-
-  // @override
-  // Future<void> updateComment(String commentId, String newComment) async {
-  //   await _unitComments.doc(commentId).update({
-  //     'comment': newComment,
-  //     'updatedAt': DateTime.now().toIso8601String(),
-  //   });
-  // }
-
-  // @override
-  // Future<void> deleteComment(String commentId, String unitId) async {
-  //   await _unitComments.doc(commentId).delete();
-
-  //   // Decrement count
-  //   await _units.doc(unitId).update({'commentsCount': FieldValue.increment(-1)});
-  // }
 }
