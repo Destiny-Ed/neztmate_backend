@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:dotenv/dotenv.dart';
 import 'package:neztmate_backend/core/di/injector.dart';
 import 'package:neztmate_backend/core/middleware/auth_middleware.dart';
+import 'package:neztmate_backend/core/middleware/optional_auth_middleware.dart';
 import 'package:neztmate_backend/core/middleware/rate_limitter.dart';
 import 'package:neztmate_backend/core/services/auth/jwt_service.dart';
 import 'package:neztmate_backend/core/services/database/firebase/firebase.dart';
@@ -74,7 +75,6 @@ import 'package:shelf_swagger_ui/shelf_swagger_ui.dart';
 
 void main() async {
   final env = DotEnv()..load();
-  //   // Use any available host or container IP (usually `0.0.0.0`).
   final ip = InternetAddress.anyIPv4;
   final jwtSecret = Platform.environment['JWT_SECRET'] ?? env['JWT_SECRET'];
   final rawPort = Platform.environment['PORT'] ?? env['PORT'];
@@ -86,7 +86,6 @@ void main() async {
 
   await setupDependencies(jwtSecret: jwtSecret);
 
-  // After server starts
   final scheduler = SchedulerService(
     inviteRepository: injector<InviteRepository>(),
     leaseRepository: injector<LeaseRepository>(),
@@ -112,7 +111,6 @@ void main() async {
     return Response.ok('NeztMate Backend Running');
   });
 
-  // Healthcheck
   router.get('/health', (Request req) async {
     return Response.ok(
       jsonEncode({'status': 'Ok', 'message': 'All is well'}),
@@ -135,23 +133,29 @@ void main() async {
     injector<PartnerAccessService>(),
   );
 
-  /// routes
+  final optionalAuthMiddleWare = optionalAuthMiddleware(
+    jwtService,
+    injector<SubscriptionRepository>(),
+    injector<PartnerAccessService>(),
+  );
+
   router.mount('/auth', authRoutes(authHandler).call);
   router.mount(
     '/users',
     Pipeline()
-        .addMiddleware(authMiddleWare) // ← protects all /users/* routes
+        .addMiddleware(authMiddleWare)
         .addHandler(userRoutes(userHandler).call),
   );
 
+  // Listings: optional auth so guests can browse units/properties
   router.mount(
     '/properties/',
-    Pipeline().addMiddleware(authMiddleWare).addHandler(propertyRoutes(propertyHandler).call),
+    Pipeline().addMiddleware(optionalAuthMiddleWare).addHandler(propertyRoutes(propertyHandler).call),
   );
 
   router.mount(
     '/units/',
-    Pipeline().addMiddleware(authMiddleWare).addHandler(unitRoutes(injector<UnitHandler>()).call),
+    Pipeline().addMiddleware(optionalAuthMiddleWare).addHandler(unitRoutes(injector<UnitHandler>()).call),
   );
 
   router.mount(
@@ -193,7 +197,6 @@ void main() async {
     Pipeline().addMiddleware(authMiddleWare).addHandler(messageRoutes(injector<MessageHandler>()).call),
   );
 
-  // WebSocket Route PUBLIC
   router.get('/ws/chat', injector<MessageHandler>().getWebSocketHandler);
 
   router.mount(
@@ -218,13 +221,11 @@ void main() async {
     Pipeline().addMiddleware(authMiddleWare).addHandler(tenantRoutes(injector<TenantHandler>()).call),
   );
 
-  // Mount review routes
   router.mount(
     '/reviews/',
     Pipeline().addMiddleware(authMiddleWare).addHandler(reviewRoutes(injector<UserReviewHandler>()).call),
   );
 
-  //verification
   router.mount(
     '/verification/',
     Pipeline()
@@ -232,13 +233,10 @@ void main() async {
         .addHandler(verificationRoutes(injector<VerificationHandler>()).call),
   );
 
-  /// Webhook from Paystack (NO auth middleware - must be public)
   router.post('/webhook/paystack', injector<PaymentHandler>().paystackWebhook);
 
-  /// Webhook from verification providers (NO auth middleware - must be public)
   router.mount('/verification/', verificationPublicRoutes(injector<VerificationHandler>()).call);
 
-  // Affiliate routes
   router.mount(
     '/affiliates/',
     Pipeline().addMiddleware(authMiddleWare).addHandler(affiliateRoutes(injector<AffiliateHandler>()).call),
@@ -246,7 +244,6 @@ void main() async {
 
   router.get('/subscriptions/plans/public', injector<SubscriptionHandler>().getPublicPlans);
 
-  // Subscription routes
   router.mount(
     '/subscriptions/',
     Pipeline()
@@ -269,8 +266,6 @@ void main() async {
   );
 
   router.mount('/locations/', locationRoutes(LocationHandler()).call);
-  // GET /locations/states
-  // GET /locations/cities?state=Lagos
 
   router.mount(
     '/announcements/',
@@ -286,7 +281,6 @@ void main() async {
         .addHandler(storageRoutes(injector<StorageHandler>()).call),
   );
 
-  // Metrics routes
   router.mount(
     '/settings/',
     Pipeline()
@@ -301,20 +295,15 @@ void main() async {
         .addHandler(metricsRoutes(injector<MetricsSettingsHandler>()).call),
   );
 
-  //  SWAGGER UI SETUP
-
   final swaggerHandler = SwaggerUI(
     openApiSpec,
-    // specType: SpecType.yaml,
     title: 'Swagger Test',
     docExpansion: DocExpansion.list,
     syntaxHighlightTheme: SyntaxHighlightTheme.nord,
   );
 
   router.get('/docs', swaggerHandler.call);
-  router.get('/docs/', (Request req) => Response.found('/docs')); // Nice redirect
-
-  //  END SETUP
+  router.get('/docs/', (Request req) => Response.found('/docs'));
 
   final rateLimiter = RateLimiterMiddleware();
 
@@ -323,11 +312,11 @@ void main() async {
       .addMiddleware(
         corsHeaders(
           headers: {
-            ACCESS_CONTROL_ALLOW_ORIGIN: '*', // or your specific domain
+            ACCESS_CONTROL_ALLOW_ORIGIN: '*',
             ACCESS_CONTROL_ALLOW_METHODS: 'GET, POST, PUT, PATCH, DELETE, OPTIONS',
             ACCESS_CONTROL_ALLOW_HEADERS:
                 'Origin, Content-Type, Authorization, Accept, X-Requested-With, x-partner-slug',
-            ACCESS_CONTROL_ALLOW_CREDENTIALS: 'false', // only if needed
+            ACCESS_CONTROL_ALLOW_CREDENTIALS: 'false',
           },
         ),
       )
