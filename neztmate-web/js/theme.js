@@ -1,5 +1,33 @@
+/** Default NeztMate logo when partner.logoUrl is empty/null */
+function neztmateDefaultLogoUrl() {
+  try {
+    var path = location.pathname || '';
+    if (path.indexOf('/admin') >= 0 || path.indexOf('/u/') >= 0) {
+      return '../assets/logo_bg.png';
+    }
+    if (location.origin && location.protocol !== 'file:') {
+      return location.origin + '/assets/logo_bg.png';
+    }
+  } catch (e) {}
+  return 'assets/logo_bg.png';
+}
+
+/** Resolve partner logo or fall back to NeztMate asset */
+function neztmateResolveLogoUrl(partner) {
+  var raw =
+    (partner && (partner.logoUrl || partner.logo_url || partner.logo)) || null;
+  if (raw != null && String(raw).trim() !== '') {
+    return String(raw).trim();
+  }
+  return neztmateDefaultLogoUrl();
+}
+
 /** Apply partner branding across the document */
 window.NeztMateTheme = {
+  defaultLogoUrl: neztmateDefaultLogoUrl,
+
+  resolveLogoUrl: neztmateResolveLogoUrl,
+
   apply(partner, options) {
     if (!partner) return;
     const opts = options || {};
@@ -8,8 +36,9 @@ window.NeztMateTheme = {
     const secondary = partner.secondaryColor || partner.secondary_color || primary;
     const name = partner.name || partner.displayName || 'NeztMate';
     const tagline = partner.tagline || partner.description || '';
-    const logoUrl = partner.logoUrl || partner.logo_url || null;
-    const supportEmail = partner.supportEmail || partner.support_email || 'support@neztmate.com';
+    const logoUrl = neztmateResolveLogoUrl(partner);
+    const supportEmail =
+      partner.supportEmail || partner.support_email || 'support@neztmate.com';
     const isPartnerHosted =
       opts.isPartnerHosted === true ||
       (partner.slug && String(partner.slug).toLowerCase() !== 'neztmate');
@@ -30,13 +59,27 @@ window.NeztMateTheme = {
       el.textContent = name;
     });
     document.querySelectorAll('[data-brand-name-html]').forEach((el) => {
+      // Keep existing logo mark if present; only update text nodes / spans
+      const mark = el.querySelector('img.logo-mark, img[data-brand-logo]');
       const parts = String(name).trim().split(/\s+/);
+      let html;
       if (parts.length > 1) {
         const last = parts.pop();
-        el.innerHTML = parts.join(' ') + ' <span>' + last + '</span>';
+        html = parts.join(' ') + ' <span>' + last + '</span>';
       } else {
-        el.innerHTML = name.replace(/Mate$/i, '<span>Mate</span>');
-        if (!el.innerHTML.includes('<span>')) el.textContent = name;
+        html = name.replace(/Mate$/i, '<span>Mate</span>');
+        if (!html.includes('<span>')) html = name;
+      }
+      if (mark) {
+        // Re-apply text after the logo image
+        const rest = document.createElement('span');
+        rest.className = 'logo-text';
+        rest.innerHTML = html;
+        el.innerHTML = '';
+        el.appendChild(mark);
+        el.appendChild(rest);
+      } else {
+        el.innerHTML = html;
       }
     });
     document.querySelectorAll('[data-brand-tagline]').forEach((el) => {
@@ -48,19 +91,18 @@ window.NeztMateTheme = {
         el.textContent = supportEmail;
       } else el.textContent = supportEmail;
     });
-    document.querySelectorAll('[data-brand-logo]').forEach((el) => {
-      if (logoUrl) {
-        if (el.tagName === 'IMG') {
-          el.src = logoUrl;
-          el.alt = name;
-          el.hidden = false;
-        } else {
-          el.src = 'assets/logo_bg.png';
-        }
-      }
-    });
 
-    document.title = name + ' — ' + (tagline || 'Property app');
+    // Always set logo: partner logoUrl when present, else NeztMate default
+    this._applyLogos(logoUrl, name);
+
+    // Prefer partner name + tagline in title, keep app identity
+    const baseTitle = name + (tagline ? ' — ' + tagline : ' — Property app');
+    if (document.title.indexOf('Listings') >= 0) {
+      document.title = 'Listings · ' + name;
+    } else if (!opts.skipTitle) {
+      document.title = baseTitle;
+    }
+
     const pill = document.getElementById('partner-pill');
     if (pill) {
       if (isPartnerHosted) {
@@ -70,6 +112,53 @@ window.NeztMateTheme = {
         pill.classList.remove('show');
       }
     }
+  },
+
+  _applyLogos(logoUrl, name) {
+    const src = logoUrl || neztmateDefaultLogoUrl();
+
+    document.querySelectorAll('[data-brand-logo]').forEach((el) => {
+      if (el.tagName === 'IMG') {
+        el.src = src;
+        el.alt = name || 'NeztMate';
+        el.hidden = false;
+        el.style.display = '';
+      } else if (el.tagName === 'A' || el.tagName === 'DIV' || el.tagName === 'SPAN') {
+        let img = el.querySelector('img');
+        if (!img) {
+          img = document.createElement('img');
+          el.insertBefore(img, el.firstChild);
+        }
+        img.src = src;
+        img.alt = name || 'NeztMate';
+        img.classList.add('logo-mark');
+        img.setAttribute('data-brand-logo', '');
+      }
+    });
+
+    // Inject / update logo mark on every .logo link (header + footer)
+    document.querySelectorAll('a.logo, .logo[data-brand-name-html]').forEach((el) => {
+      let img = el.querySelector('img.logo-mark, img[data-brand-logo]');
+      if (!img) {
+        img = document.createElement('img');
+        img.className = 'logo-mark';
+        img.setAttribute('data-brand-logo', '');
+        img.setAttribute(
+          'style',
+          'height:32px;width:32px;object-fit:contain;border-radius:8px;flex-shrink:0;display:block'
+        );
+        el.insertBefore(img, el.firstChild);
+        if (getComputedStyle(el).display === 'inline') {
+          el.style.display = 'inline-flex';
+        }
+        el.style.alignItems = 'center';
+        el.style.gap = '0.5rem';
+      }
+      img.src = src;
+      img.alt = name || 'NeztMate';
+      img.hidden = false;
+      img.style.display = 'block';
+    });
   },
 
   _soft(hex) {
@@ -87,19 +176,10 @@ window.NeztMateTheme = {
   },
 };
 
-/** Ensure NeztMate logo is used as the tab / bookmark icon */
+/** Favicon always uses NeztMate logo (not partner-specific) */
 (function ensureNeztMateFavicon() {
   try {
-    var path;
-    if (location.pathname.indexOf('/admin') >= 0) {
-      path = '../assets/logo_bg.png';
-    } else if (location.pathname.indexOf('/u/') >= 0) {
-      path = '../assets/logo_bg.png';
-    } else if (location.origin && location.protocol !== 'file:') {
-      path = location.origin + '/assets/logo_bg.png';
-    } else {
-      path = 'assets/logo_bg.png';
-    }
+    var path = neztmateDefaultLogoUrl();
     function setLink(rel, sizes) {
       var el = document.querySelector('link[rel="' + rel + '"]');
       if (!el) {
@@ -112,6 +192,23 @@ window.NeztMateTheme = {
       if (sizes) el.sizes = sizes;
     }
     setLink('icon', '32x32');
+    setLink('icon', '192x192');
     setLink('apple-touch-icon');
   } catch (e) {}
+})();
+
+/** On load, if no partner applied yet, still show default logo marks */
+(function ensureDefaultLogosOnLoad() {
+  function run() {
+    try {
+      if (window.NeztMateTheme && NeztMateTheme._applyLogos) {
+        NeztMateTheme._applyLogos(neztmateDefaultLogoUrl(), 'NeztMate');
+      }
+    } catch (e) {}
+  }
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', run);
+  } else {
+    run();
+  }
 })();
