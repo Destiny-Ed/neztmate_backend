@@ -106,6 +106,30 @@
       } else el.textContent = support;
     });
 
+    // WhatsApp (prefer explicit whatsappUrl; else theme builds from supportPhone)
+    const wa =
+      (window.NeztMateTheme && typeof NeztMateTheme.resolveWhatsappUrl === 'function'
+        ? NeztMateTheme.resolveWhatsappUrl(partner)
+        : partner.whatsappUrl) || null;
+    document.querySelectorAll('[data-brand-whatsapp]').forEach((el) => {
+      if (!wa) {
+        el.style.display = 'none';
+        return;
+      }
+      el.style.display = '';
+      if (el.tagName === 'A') {
+        el.href = wa;
+        el.target = '_blank';
+        el.rel = 'noopener noreferrer';
+        if (!el.getAttribute('data-keep-label')) {
+          el.textContent = el.getAttribute('data-whatsapp-label') || 'Chat on WhatsApp';
+        }
+      }
+    });
+    document.querySelectorAll('[data-brand-whatsapp-wrap]').forEach((el) => {
+      el.style.display = wa ? '' : 'none';
+    });
+
     const copyright =
       partner.copyright ||
       partner.copyrightText ||
@@ -148,6 +172,8 @@
       secondaryColor: p.secondaryColor || p.secondary_color || fallback.secondaryColor,
       logoUrl: p.logoUrl || p.logo_url || fallback.logoUrl || null,
       supportEmail: p.supportEmail || p.support_email || DEFAULT_SUPPORT,
+      supportPhone: p.supportPhone || p.support_phone || null,
+      whatsappUrl: p.whatsappUrl || p.whatsapp_url || null,
       playStoreUrl: p.playStoreUrl || p.play_store_url || CFG.playStoreUrl,
       appStoreUrl: p.appStoreUrl || p.app_store_url || CFG.appStoreUrl,
       privacyUrl: p.privacyUrl || p.privacy_url || '',
@@ -194,11 +220,7 @@
       let list = data.partners || data || [];
       if (!Array.isArray(list)) list = [];
 
-      // Live API only — active partners with a display name
       list = list.filter((p) => p && p.isActive !== false && (p.name || p.displayName));
-
-      // Optional: hide platform self from the strip if slug is neztmate
-      // list = list.filter((p) => (p.slug || '').toLowerCase() !== 'neztmate');
 
       if (!list.length) {
         grid.innerHTML =
@@ -220,7 +242,7 @@
           const logoUrl = p.logoUrl || p.logo_url || null;
           const logo = logoUrl
             ? '<img src="' +
-              logoUrl.replace(/"/g, '&quot;') +
+              logoUrl.replace(/"/g, '"') +
               '" alt="" width="40" height="40" style="width:40px;height:40px;border-radius:10px;object-fit:cover" onerror="this.style.display=\'none\'" />'
             : '<div class="icon" style="background:' +
               color +
