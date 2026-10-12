@@ -44,14 +44,16 @@ class UnitHandler {
     }
   }
 
-  /// GET /units/available — public (optional auth)
+  /// GET /units/available — public (optional auth).
+  /// [partnerId] is required (from partner config / token / query).
   Future<Response> getAvailableUnits(Request request) async {
     try {
       final role = (request.context['role'] as String?)?.toLowerCase();
       final userId = request.context['userId'] as String?;
       final q = request.url.queryParameters;
-      String? partnerId = request.context['partnerId'] as String?;
-      partnerId = (q['partnerId'] ?? partnerId)?.trim();
+
+      // Prefer query (website branding partner), then auth token context
+      String? partnerId = (q['partnerId'] ?? request.context['partnerId'] as String?)?.trim();
       if (partnerId != null && partnerId.isEmpty) partnerId = null;
 
       final propertyId = q['propertyId'];
@@ -64,21 +66,47 @@ class UnitHandler {
       final radiusKm = double.tryParse(q['radiusKm'] ?? '25') ?? 25;
       final propertyType = q['propertyType'];
 
-      if (userId != null && role != null && role != 'tenant' && ['landowner', 'manager', 'partner_admin'].contains(role)) {
-        final ownerUnits = await unitRepository.getMyUnitsWithOccupants(userId, role, partnerId: partnerId);
+      // Landowner / manager / partner_admin: own units (still need partner scope)
+      if (userId != null &&
+          role != null &&
+          role != 'tenant' &&
+          ['landowner', 'manager', 'partner_admin'].contains(role)) {
+        if (partnerId == null || partnerId.isEmpty) {
+          return Response(
+            400,
+            body: jsonEncode({
+              'message': 'partnerId is required',
+              'code': 'PARTNER_ID_REQUIRED',
+            }),
+            headers: {'Content-Type': 'application/json'},
+          );
+        }
+        final ownerUnits =
+            await unitRepository.getMyUnitsWithOccupants(userId, role, partnerId: partnerId);
         return Response.ok(
           jsonEncode({'units': ownerUnits.map((u) => u.toMap()).toList()}),
           headers: {'Content-Type': 'application/json'},
         );
       }
 
-      int applicationFee = 0;
-      if (partnerId != null && partnerId.isNotEmpty) {
-        try {
-          final fee = await getCurrentApplicationFee(partnerId);
-          applicationFee = fee.enabled ? fee.amount.toInt() : 0;
-        } catch (_) {}
+      // Public / tenant listings — partnerId required (from website partner config)
+      if (partnerId == null || partnerId.isEmpty) {
+        return Response(
+          400,
+          body: jsonEncode({
+            'message':
+                'partnerId is required. Load partner config (?slug=) and pass partner.id as partnerId.',
+            'code': 'PARTNER_ID_REQUIRED',
+          }),
+          headers: {'Content-Type': 'application/json'},
+        );
       }
+
+      int applicationFee = 0;
+      try {
+        final fee = await getCurrentApplicationFee(partnerId);
+        applicationFee = fee.enabled ? fee.amount.toInt() : 0;
+      } catch (_) {}
 
       final unitsWithProperty = await unitRepository.getAvailableUnitsWithProperty(
         partnerId: partnerId,
@@ -95,8 +123,11 @@ class UnitHandler {
 
       return Response.ok(
         jsonEncode({
-          'units': unitsWithProperty.map((u) => {...u.toMap(), 'unitApplicationFee': applicationFee}).toList(),
+          'units': unitsWithProperty
+              .map((u) => {...u.toMap(), 'unitApplicationFee': applicationFee})
+              .toList(),
           'filters': {
+            'partnerId': partnerId,
             'state': state,
             'city': city,
             'lat': lat,
@@ -112,7 +143,9 @@ class UnitHandler {
       );
     } catch (e, s) {
       print('Error fetching available units: $e --- $s');
-      return Response.internalServerError(body: jsonEncode({'message': 'Failed to load available units'}));
+      return Response.internalServerError(
+        body: jsonEncode({'message': 'Failed to load available units'}),
+      );
     }
   }
 
