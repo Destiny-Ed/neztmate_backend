@@ -46,20 +46,19 @@
     .listing-rent small { font-weight: 500; opacity: .8; }
     .listing-loc, .listing-meta { margin: .35rem 0 0; font-size: .9rem; }
     .listing-cta { margin-top: .85rem; width: 100%; }
-    #listings-empty { display: none; padding: 2rem; text-align: center; color: var(--muted, #64748b); }
-    .modal-backdrop.hidden { display: none !important; }
+    #listings-empty { display: none; text-align: center; padding: 2.5rem 1rem; color: var(--muted, #64748b); }
     .modal-backdrop {
-      position: fixed; inset: 0; z-index: 100; background: rgba(15,23,42,.5);
-      display: flex; align-items: center; justify-content: center; padding: 1rem;
+      position: fixed; inset: 0; background: rgba(15,23,42,.45); display: flex;
+      align-items: center; justify-content: center; z-index: 80; padding: 1rem;
     }
+    .modal-backdrop.hidden { display: none; }
     .app-modal {
-      background: var(--white, #fff); border-radius: 18px; max-width: 420px; width: 100%;
-      padding: 1.5rem; box-shadow: 0 24px 60px rgba(0,0,0,.2);
+      background: var(--white, #fff); border-radius: 16px; padding: 1.5rem; max-width: 360px; width: 100%;
+      box-shadow: 0 20px 50px rgba(15,23,42,.2);
     }
     .app-modal h3 { margin: 0 0 .5rem; }
-    .app-modal p { margin: 0 0 1.25rem; color: var(--muted, #64748b); line-height: 1.45; }
-    .app-modal-actions { display: flex; flex-direction: column; gap: .6rem; }
-    .app-modal-actions .btn { width: 100%; text-align: center; }
+    .app-modal p { margin: 0 0 1rem; color: var(--muted, #64748b); font-size: .95rem; }
+    .app-modal-actions { display: flex; flex-direction: column; gap: .5rem; }
   </style>
 </head>
 <body>
@@ -72,24 +71,25 @@
         <span class="logo-text">Nezt<span>Mate</span></span>
       </a>
       <ul class="nav-links">
-        <li><a href="listings.html" class="active">Listings</a></li>
-        <li><a href="index.html#tenants">Tenants</a></li>
-        <li><a href="index.html#owners">Owners</a></li>
-        <li><a href="pricing.html">Pricing</a></li>
+        <li><a href="listings.html">Listings</a></li>
         <li><a href="index.html#download">Download</a></li>
+        <li><a href="pricing.html">Pricing</a></li>
       </ul>
-      <a class="btn btn-primary btn-sm" href="index.html#download">Get the app</a>
+      <div class="nav-actions">
+        <button type="button" class="theme-toggle" id="theme-toggle" title="Theme">🌙</button>
+        <a class="btn btn-primary btn-sm" href="index.html#download">Download</a>
+      </div>
     </div>
   </header>
 
   <main class="container listings-hero">
-    <h1>Find a home</h1>
-    <p class="muted">Browse available units. To apply or message the owner, continue in the app.</p>
+    <h1>Browse homes</h1>
+    <p class="muted">Listed units from partners on NeztMate. Download the app to apply.</p>
 
     <div class="listings-filters">
       <div>
         <label class="muted" style="font-size:12px">Search</label>
-        <input id="listings-search" type="search" placeholder="Name, area…" />
+        <input id="listings-q" placeholder="Name, area…" />
       </div>
       <div>
         <label class="muted" style="font-size:12px">City</label>
