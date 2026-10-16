@@ -56,9 +56,15 @@ class LeasePdfService {
         },
 
         footer: (context) {
-          return pw.Align(
-            alignment: pw.Alignment.centerRight,
-            child: pw.Text('Page ${context.pageNumber}', style: const pw.TextStyle(fontSize: 9)),
+          return pw.Row(
+            mainAxisAlignment: pw.MainAxisAlignment.spaceBetween,
+            children: [
+              pw.Text(
+                'Platform: NEZTMATE LTD (RC 9943597)',
+                style: const pw.TextStyle(fontSize: 8, color: PdfColors.grey600),
+              ),
+              pw.Text('Page ${context.pageNumber}', style: const pw.TextStyle(fontSize: 9)),
+            ],
           );
         },
 
@@ -92,20 +98,6 @@ class LeasePdfService {
             '${formatDate(lease.endDate)}.',
           ),
 
-          // sectionTitle('4. RENT'),
-
-          // paragraph(
-          //   'Tenant agrees to pay monthly rent of '
-          //   '₦${unit.monthlyRent.toStringAsFixed(2)} '
-          //   'on or before the due date each month.',
-          // ),
-
-          // if (lease.securityDeposit != null)
-          //   paragraph(
-          //     'A refundable security deposit of '
-          //     '₦${lease.securityDeposit!.toStringAsFixed(2)} '
-          //     'shall be paid before move-in.',
-          //   ),
           sectionTitle('4. RENT & FEES'),
 
           paragraph(
@@ -142,37 +134,6 @@ class LeasePdfService {
             'Failure to pay required recurring charges may constitute a breach of this Lease Agreement.',
           ),
 
-          //table format
-          // if (unit.fees != null && unit.fees!.isNotEmpty) ...[
-          //   pw.SizedBox(height: 10),
-
-          //   pw.Table(
-          //     border: pw.TableBorder.all(),
-          //     columnWidths: {
-          //       0: const pw.FlexColumnWidth(3),
-          //       1: const pw.FlexColumnWidth(2),
-          //       2: const pw.FlexColumnWidth(2),
-          //     },
-          //     children: [
-          //       pw.TableRow(
-          //         decoration: const pw.BoxDecoration(color: PdfColors.grey300),
-          //         children: [_tableCell('Fee'), _tableCell('Amount'), _tableCell('Type')],
-          //       ),
-
-          //       ...unit.fees!.map(
-          //         (fee) => pw.TableRow(
-          //           children: [
-          //             _tableCell(fee.name),
-          //             _tableCell(fee.isPercentage ? '${fee.amount}%' : '₦${fee.amount.toStringAsFixed(2)}'),
-          //             _tableCell(fee.isOneTime ? 'One-Time' : 'Recurring'),
-          //           ],
-          //         ),
-          //       ),
-          //     ],
-          //   ),
-
-          //   pw.SizedBox(height: 20),
-          // ],
           sectionTitle('5. TENANT RESPONSIBILITIES'),
 
           paragraph(
@@ -298,11 +259,4 @@ class LeasePdfService {
 
     return file.path;
   }
-
-  // pw.Widget _tableCell(String text) {
-  //   return pw.Padding(
-  //     padding: const pw.EdgeInsets.all(8),
-  //     child: pw.Text(text, style: const pw.TextStyle(fontSize: 10)),
-  //   );
-  // }
 }
