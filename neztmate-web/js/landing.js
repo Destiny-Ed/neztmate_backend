@@ -146,7 +146,7 @@
           year +
           '</span> <span data-brand-name>' +
           brand +
-          '</span>. All rights reserved.';
+          '</span>. NEZTMATE LTD (RC 9943597). All rights reserved.';
       }
     }
   }
