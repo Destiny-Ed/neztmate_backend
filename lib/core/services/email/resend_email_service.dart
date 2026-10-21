@@ -4,7 +4,6 @@ import 'dart:io';
 import 'package:dotenv/dotenv.dart';
 import 'package:http/http.dart' as http;
 
-/// Result of a single email send via Resend.
 class EmailSendResult {
   final bool success;
   final String? id;
@@ -26,13 +25,6 @@ class EmailSendResult {
       };
 }
 
-/// Thin client for https://resend.com email API.
-///
-/// Env:
-///   RESEND_API_KEY   – required (re_...)
-///   RESEND_FROM_EMAIL – e.g. "NeztMate <onboarding@neztmate.com>"
-///   RESEND_REPLY_TO   – optional
-///   RESEND_LOGO_URL   – optional absolute HTTPS logo for email HTML
 class ResendEmailService {
   static const _baseUrl = 'https://api.resend.com';
 
@@ -55,7 +47,6 @@ class ResendEmailService {
     return v.trim();
   }
 
-  /// Absolute HTTPS URL for the logo shown in email HTML.
   String get logoUrl {
     final v = Platform.environment['RESEND_LOGO_URL'] ?? env['RESEND_LOGO_URL'];
     if (v == null || v.trim().isEmpty) return EmailTemplates.defaultLogoUrl;
@@ -64,7 +55,6 @@ class ResendEmailService {
 
   bool get isConfigured => _apiKey.isNotEmpty;
 
-  /// Send one email.
   Future<EmailSendResult> send({
     required String to,
     required String subject,
@@ -135,83 +125,6 @@ class ResendEmailService {
     }
   }
 
-  /// Batch send (Resend accepts up to 100 per request).
-  Future<List<EmailSendResult>> sendBatch(List<Map<String, dynamic>> emails) async {
-    if (!isConfigured) {
-      return emails
-          .map((_) => const EmailSendResult(
-                success: false,
-                error: 'RESEND_API_KEY is not configured',
-                statusCode: 0,
-              ))
-          .toList();
-    }
-    if (emails.isEmpty) return [];
-
-    final payload = emails.map((e) {
-      return {
-        'from': e['from'] ?? _from,
-        'to': e['to'] is List ? e['to'] : [e['to']],
-        'subject': e['subject'],
-        'html': e['html'],
-        if (e['text'] != null) 'text': e['text'],
-        if (_replyTo != null) 'reply_to': _replyTo,
-      };
-    }).toList();
-
-    try {
-      final response = await _client.post(
-        Uri.parse('$_baseUrl/emails/batch'),
-        headers: {
-          'Authorization': 'Bearer $_apiKey',
-          'Content-Type': 'application/json',
-        },
-        body: jsonEncode(payload),
-      );
-
-      if (response.statusCode >= 200 && response.statusCode < 300) {
-        final decoded = jsonDecode(response.body);
-        List list;
-        if (decoded is Map && decoded['data'] is List) {
-          list = decoded['data'] as List;
-        } else if (decoded is List) {
-          list = decoded;
-        } else {
-          list = [];
-        }
-        return List.generate(emails.length, (i) {
-          final id = i < list.length ? ((list[i] as Map?)?['id'] as String?) : null;
-          return EmailSendResult(
-            success: true,
-            id: id,
-            statusCode: response.statusCode,
-          );
-        });
-      }
-
-      final decoded = response.body.isNotEmpty
-          ? jsonDecode(response.body) as Map<String, dynamic>
-          : <String, dynamic>{};
-      final errMsg = decoded['message']?.toString() ?? response.body;
-      return emails
-          .map((_) => EmailSendResult(
-                success: false,
-                error: errMsg,
-                statusCode: response.statusCode,
-              ))
-          .toList();
-    } catch (e) {
-      return emails
-          .map((_) => EmailSendResult(
-                success: false,
-                error: e.toString(),
-                statusCode: 0,
-              ))
-          .toList();
-    }
-  }
-
-  /// Fire-and-forget welcome email for new sign-ups. Never throws.
   Future<void> sendWelcomeEmail({
     required String to,
     required String fullName,
@@ -231,9 +144,29 @@ class ResendEmailService {
       print('[ResendEmailService] welcome email sent to $to id=${result.id}');
     }
   }
+
+  Future<EmailSendResult> sendVerificationOtp({
+    required String to,
+    required String fullName,
+    required String code,
+  }) async {
+    final templates = EmailTemplates.verificationOtp(fullName: fullName, code: code);
+    final result = await send(
+      to: to,
+      subject: templates.subject,
+      html: templates.html,
+      text: templates.text,
+      tags: {'type': 'email_verification'},
+    );
+    if (!result.success) {
+      print('[ResendEmailService] verification OTP failed for $to: ${result.error}');
+    } else {
+      print('[ResendEmailService] verification OTP sent to $to id=${result.id}');
+    }
+    return result;
+  }
 }
 
-/// Simple subject + html + text bundle.
 class EmailContent {
   final String subject;
   final String html;
@@ -246,12 +179,9 @@ class EmailContent {
   });
 }
 
-/// Built-in HTML templates for transactional + campaign emails.
 class EmailTemplates {
   EmailTemplates._();
 
-  /// Public logo used in email header (absolute URL required by clients).
-  /// Override with env RESEND_LOGO_URL.
   static const defaultLogoUrl = 'https://neztmate.com/assets/logo_bg.png';
 
   static String get logoUrl {
@@ -261,10 +191,10 @@ class EmailTemplates {
   }
 
   static String _escape(String s) => s
-      .replaceAll('&', '&')
-      .replaceAll('<', '<')
-      .replaceAll('>', '>')
-      .replaceAll('"', '"');
+      .replaceAll('&', '&amp;')
+      .replaceAll('<', '&lt;')
+      .replaceAll('>', '&gt;')
+      .replaceAll('"', '&quot;');
 
   static String _layout({
     required String title,
@@ -272,55 +202,20 @@ class EmailTemplates {
     String? logoUrl,
   }) {
     final logo = logoUrl ?? EmailTemplates.logoUrl;
-    return '''
-<!DOCTYPE html>
-<html>
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <meta name="color-scheme" content="light"/>
-  <title>$title</title>
-</head>
-<body style="margin:0;padding:0;background:#f4f6f8;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f6f8;padding:32px 16px;">
-    <tr>
-      <td align="center">
-        <table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,0.08);max-width:560px;width:100%;">
-          <tr>
-            <td align="center" style="background:#ffffff;padding:28px 32px;">
-              <a href="https://neztmate.com" style="text-decoration:none;display:inline-block;">
-                <img src="$logo" width="160" alt="NeztMate" style="display:block;margin:0 auto;max-width:160px;height:auto;border:0;outline:none;" />
-              </a>
-              <p style="margin:12px 0 0;color:#ccfbf1;font-size:13px;font-weight:500;">Housing, clarified</p>
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:32px;color:#1f2937;font-size:15px;line-height:1.6;">
-              $bodyHtml
-            </td>
-          </tr>
-          <tr>
-            <td style="padding:0 32px 28px;color:#9ca3af;font-size:12px;line-height:1.5;">
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
-                <tr>
-                  <td style="border-top:1px solid #e5e7eb;padding-top:20px;">
-                    <img src="$logo" width="28" alt="NeztMate" style="display:inline-block;vertical-align:middle;max-width:28px;height:auto;border:0;margin-right:8px;" />
-                    <span style="vertical-align:middle;">
-                      You are receiving this because you have a NeztMate account.<br/>
-                      &copy; NeztMate &middot; <a href="https://neztmate.com" style="color:#0f766e;text-decoration:none;">neztmate.com</a>
-                    </span>
-                  </td>
-                </tr>
-              </table>
-            </td>
-          </tr>
-        </table>
-      </td>
-    </tr>
-  </table>
-</body>
-</html>
-''';
+    return '<!DOCTYPE html><html><head><meta charset="utf-8"/><title>' +
+        title +
+        '</title></head><body style="margin:0;padding:0;background:#f4f6f8;font-family:-apple-system,BlinkMacSystemFont,Segoe UI,Roboto,Helvetica,Arial,sans-serif;">' +
+        '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="background:#f4f6f8;padding:32px 16px;"><tr><td align="center">' +
+        '<table role="presentation" width="560" cellpadding="0" cellspacing="0" border="0" style="background:#ffffff;border-radius:12px;overflow:hidden;max-width:560px;width:100%;">' +
+        '<tr><td align="center" style="padding:28px 32px;"><img src="' +
+        logo +
+        '" width="160" alt="NeztMate" style="display:block;margin:0 auto;max-width:160px;height:auto;border:0;" />' +
+        '<p style="margin:12px 0 0;color:#0f766e;font-size:13px;font-weight:500;">Housing, clarified</p></td></tr>' +
+        '<tr><td style="padding:32px;color:#1f2937;font-size:15px;line-height:1.6;">' +
+        bodyHtml +
+        '</td></tr>' +
+        '<tr><td style="padding:0 32px 28px;color:#9ca3af;font-size:12px;"><p style="border-top:1px solid #e5e7eb;padding-top:20px;margin:0;">You are receiving this because you have a NeztMate account.<br/>(c) NeztMate - neztmate.com</p></td></tr>' +
+        '</table></td></tr></table></body></html>';
   }
 
   static EmailContent welcome({
@@ -330,38 +225,36 @@ class EmailTemplates {
     final name = _escape(fullName.trim().isEmpty ? 'there' : fullName.trim());
     final roleLabel = _escape(role);
     final subject = 'Welcome to NeztMate, $fullName!';
-    final body = '''
-<p style="margin:0 0 16px;">Hi $name,</p>
-<p style="margin:0 0 16px;">Welcome to <strong>NeztMate</strong> &mdash; your account as a <strong>$roleLabel</strong> is ready.</p>
-<p style="margin:0 0 8px;">Here is what you can do next:</p>
-<ul style="margin:0 0 16px;padding-left:20px;">
-  <li>Complete your profile so landlords and tenants can find you</li>
-  <li>Verify your identity for faster applications and trust</li>
-  <li>Explore properties, units, and services on the app</li>
-</ul>
-<p style="margin:24px 0 0;">
-  <a href="https://neztmate.com" style="display:inline-block;background:#0f766e;color:#ffffff;text-decoration:none;padding:12px 24px;border-radius:8px;font-weight:600;">Open NeztMate</a>
-</p>
-<p style="margin:24px 0 0;color:#6b7280;font-size:13px;">If you did not create this account, you can ignore this email.</p>
-''';
-    final text = '''
-Hi $fullName,
-
-Welcome to NeztMate — your $role account is ready.
-
-Next steps:
-- Complete your profile
-- Verify your identity
-- Explore properties and services in the app
-
-https://neztmate.com
-
-If you did not create this account, ignore this email.
-''';
+    final body = '<p style="margin:0 0 16px;">Hi ' +
+        name +
+        ',</p><p style="margin:0 0 16px;">Welcome to <strong>NeztMate</strong> - your account as a <strong>' +
+        roleLabel +
+        '</strong> is ready.</p><p style="margin:0 0 8px;">Next steps:</p><ul style="margin:0 0 16px;padding-left:20px;"><li>Complete your profile</li><li>Verify your identity</li><li>Explore properties and services</li></ul><p style="margin:24px 0 0;color:#6b7280;font-size:13px;">If you did not create this account, ignore this email.</p>';
+    final text = 'Hi $fullName,\n\nWelcome to NeztMate - your $role account is ready.\n\nhttps://neztmate.com';
     return EmailContent(
       subject: subject,
       html: _layout(title: subject, bodyHtml: body),
-      text: text.trim(),
+      text: text,
+    );
+  }
+
+  static EmailContent verificationOtp({
+    required String fullName,
+    required String code,
+  }) {
+    final name = _escape(fullName.trim().isEmpty ? 'there' : fullName.trim());
+    final safeCode = _escape(code);
+    final subject = 'Your NeztMate verification code';
+    final body = '<p style="margin:0 0 16px;">Hi ' +
+        name +
+        ',</p><p style="margin:0 0 16px;">Use this code to verify your email on <strong>NeztMate</strong>:</p><p style="margin:24px 0;text-align:center;"><span style="display:inline-block;letter-spacing:8px;font-size:28px;font-weight:700;color:#0f766e;background:#f0fdfa;padding:16px 24px;border-radius:10px;border:1px solid #99f6e4;">' +
+        safeCode +
+        '</span></p><p style="margin:0;color:#6b7280;font-size:13px;">This code expires in 15 minutes. If you did not create an account, ignore this email.</p>';
+    final text = 'Hi $fullName,\n\nYour NeztMate verification code is: $code\n\nExpires in 15 minutes.';
+    return EmailContent(
+      subject: subject,
+      html: _layout(title: subject, bodyHtml: body),
+      text: text,
     );
   }
 
@@ -371,10 +264,7 @@ If you did not create this account, ignore this email.
     String? bodyText,
   }) {
     final text = bodyText ??
-        bodyHtml
-            .replaceAll(RegExp(r'<[^>]+>'), ' ')
-            .replaceAll(RegExp(r'\s+'), ' ')
-            .trim();
+        bodyHtml.replaceAll(RegExp(r'<[^>]+>'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
     return EmailContent(
       subject: subject,
       html: _layout(title: _escape(subject), bodyHtml: bodyHtml),

@@ -10,6 +10,7 @@ class User {
   final String? address;
   final bool verifiedIdentity;
   final bool verifiedEmployment;
+  final bool emailVerified;
   final String occupation;
   final String? verificationId;
   final String? verificationProvider;
@@ -64,6 +65,7 @@ class User {
     this.occupation = '',
     this.verifiedIdentity = false,
     this.verifiedEmployment = false,
+    this.emailVerified = false,
     this.yearsExperience,
     this.primarySkill,
     this.rating = 0.0,
@@ -110,6 +112,7 @@ class User {
       address: map['address'] as String?,
       verifiedIdentity: map['verifiedIdentity'] as bool? ?? false,
       verifiedEmployment: map['verifiedEmployment'] as bool? ?? false,
+      emailVerified: map['emailVerified'] as bool? ?? false,
       yearsExperience: map['yearsExperience'] as int?,
       primarySkill: map['primarySkill'] as String?,
       rating: (map['rating'] as num?)?.toDouble() ?? 0.0,
@@ -156,6 +159,7 @@ class User {
     'bio': bio,
     'address': address,
     'verifiedIdentity': verifiedIdentity,
+    'emailVerified': emailVerified,
     'occupation': occupation,
     'verifiedEmployment': verifiedEmployment,
     'yearsExperience': yearsExperience,
@@ -202,6 +206,7 @@ class User {
     String? address,
     bool? verifiedIdentity,
     bool? verifiedEmployment,
+    bool? emailVerified,
     String? verificationId,
     String? verificationProvider,
     String? verificationStatus,
@@ -245,6 +250,7 @@ class User {
       bio: bio ?? this.bio,
       address: address ?? this.address,
       verifiedIdentity: verifiedIdentity ?? this.verifiedIdentity,
+      emailVerified: emailVerified ?? this.emailVerified,
       verificationId: verificationId ?? this.verificationId,
       verificationProvider: verificationProvider ?? this.verificationProvider,
       verificationStatus: verificationStatus ?? this.verificationStatus,

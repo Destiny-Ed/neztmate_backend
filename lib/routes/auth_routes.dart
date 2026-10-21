@@ -12,5 +12,9 @@ Router authRoutes(AuthHandler handler) {
 
   router.post('/change-password', handler.changePassword);
 
+  // Email verification (OTP via Resend)
+  router.post('/verify-email', handler.verifyEmail);
+  router.post('/resend-verification', handler.resendVerification);
+
   return router;
 }
