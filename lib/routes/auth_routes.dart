@@ -16,5 +16,9 @@ Router authRoutes(AuthHandler handler) {
   router.post('/verify-email', handler.verifyEmail);
   router.post('/resend-verification', handler.resendVerification);
 
+  // Forgot / reset password (OTP via Resend)
+  router.post('/forgot-password', handler.forgotPassword);
+  router.post('/reset-password', handler.resetPassword);
+
   return router;
 }
