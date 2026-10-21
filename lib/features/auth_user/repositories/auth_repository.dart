@@ -22,4 +22,17 @@ abstract class AuthRepository {
 
   /// Mark user email as verified.
   Future<void> markEmailVerified(String email);
+
+  /// Store a 6-digit OTP for password reset (overwrites previous).
+  Future<void> savePasswordResetOtp({
+    required String email,
+    required String code,
+    required DateTime expiresAt,
+  });
+
+  /// Returns true if reset code is valid and not expired; consumes the OTP on success.
+  Future<bool> verifyPasswordResetOtp({required String email, required String code});
+
+  /// Update password hash for user by email.
+  Future<void> updatePasswordByEmail({required String email, required String passwordHash});
 }
