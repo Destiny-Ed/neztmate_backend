@@ -9,4 +9,17 @@ abstract class AuthRepository {
   Future<User> socialLogin({required SocialRequestModel req});
   Future<void> saveRefreshToken(String userId, String token);
   Future<bool> logoutUser(String refreshToken);
+
+  /// Store a 6-digit OTP for email verification (overwrites previous).
+  Future<void> saveEmailOtp({
+    required String email,
+    required String code,
+    required DateTime expiresAt,
+  });
+
+  /// Returns true if code is valid and not expired; consumes the OTP on success.
+  Future<bool> verifyEmailOtp({required String email, required String code});
+
+  /// Mark user email as verified.
+  Future<void> markEmailVerified(String email);
 }
