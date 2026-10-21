@@ -178,6 +178,34 @@ class ResendEmailService {
     return result;
   }
 
+  Future<EmailSendResult> sendPasswordResetOtp({
+    required String to,
+    required String fullName,
+    required String code,
+  }) async {
+    final templates = EmailTemplates.passwordResetOtp(
+      fullName: fullName,
+      code: code,
+    );
+    final result = await send(
+      to: to,
+      subject: templates.subject,
+      html: templates.html,
+      text: templates.text,
+      tags: {'type': 'password_reset'},
+    );
+    if (!result.success) {
+      print(
+        '[ResendEmailService] password reset OTP failed for $to: ${result.error}',
+      );
+    } else {
+      print(
+        '[ResendEmailService] password reset OTP sent to $to id=${result.id}',
+      );
+    }
+    return result;
+  }
+
   /// Send up to 100 emails in one Resend batch request.
   /// [emails] items: { to, subject, html, text? }
   Future<List<EmailSendResult>> sendBatch(
@@ -228,7 +256,6 @@ class ResendEmailService {
           : null;
 
       if (response.statusCode >= 200 && response.statusCode < 300) {
-        // Resend returns { "data": [ { "id": "..." }, ... ] }
         final list = decoded is Map && decoded['data'] is List
             ? decoded['data'] as List
             : (decoded is List ? decoded : <dynamic>[]);
@@ -298,10 +325,10 @@ class EmailTemplates {
   }
 
   static String _escape(String s) => s
-      .replaceAll('&', '&amp;')
-      .replaceAll('<', '&lt;')
-      .replaceAll('>', '&gt;')
-      .replaceAll('"', '&quot;');
+      .replaceAll('&', '&')
+      .replaceAll('<', '<')
+      .replaceAll('>', '>')
+      .replaceAll('"', '"');
 
   static String _layout({
     required String title,
@@ -362,6 +389,28 @@ class EmailTemplates {
         '</span></p><p style="margin:0;color:#6b7280;font-size:13px;">This code expires in 15 minutes. If you did not create an account, ignore this email.</p>';
     final text =
         'Hi $fullName,\n\nYour NeztMate verification code is: $code\n\nExpires in 15 minutes.';
+    return EmailContent(
+      subject: subject,
+      html: _layout(title: subject, bodyHtml: body),
+      text: text,
+    );
+  }
+
+  static EmailContent passwordResetOtp({
+    required String fullName,
+    required String code,
+  }) {
+    final name = _escape(fullName.trim().isEmpty ? 'there' : fullName.trim());
+    final safeCode = _escape(code);
+    final subject = 'Reset your NeztMate password';
+    final body =
+        '<p style="margin:0 0 16px;">Hi ' +
+        name +
+        ',</p><p style="margin:0 0 16px;">Use this code to reset your <strong>NeztMate</strong> password:</p><p style="margin:24px 0;text-align:center;"><span style="display:inline-block;letter-spacing:8px;font-size:28px;font-weight:700;color:#0f766e;background:#f0fdfa;padding:16px 24px;border-radius:10px;border:1px solid #99f6e4;">' +
+        safeCode +
+        '</span></p><p style="margin:0;color:#6b7280;font-size:13px;">This code expires in 15 minutes. If you did not request a password reset, ignore this email.</p>';
+    final text =
+        'Hi $fullName,\n\nYour NeztMate password reset code is: $code\n\nExpires in 15 minutes.\n\nIf you did not request this, ignore this email.';
     return EmailContent(
       subject: subject,
       html: _layout(title: subject, bodyHtml: body),
