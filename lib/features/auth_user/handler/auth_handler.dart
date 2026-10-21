@@ -539,7 +539,8 @@ class AuthHandler {
     await emailService.sendVerificationOtp(to: email, fullName: fullName, code: code);
   }
 
-  Future<void> _issueAndSendPasswordResetOtp({equired String email, required String fullName}) async {
+  Future<void> _issueAndSendPasswordResetOtp({
+required String email, required String fullName}) async {
     final code = AuthRepositoryImpl.generateOtp();
     final expiresAt = DateTime.now().add(const Duration(minutes: 15));
     await authRepository.savePasswordResetOtp(email: email, code: code, expiresAt: expiresAt);

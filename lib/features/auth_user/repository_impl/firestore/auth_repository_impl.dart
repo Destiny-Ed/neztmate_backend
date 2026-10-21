@@ -32,7 +32,8 @@ class AuthRepositoryImpl implements AuthRepository {
   });
 
   CollectionReference get _otps => firestore.collection('email_verifications');
-  CollectionReference get _passwordResets => firestore.collection('password_resets');
+  CollectionReference get _passwordResets =>
+      firestore.collection('password_resets');
 
   @override
   Future<User> registerNewUser(RegisterRequest req) async {
@@ -70,8 +71,13 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<User> loginUser(LoginRequest req) async {
-    final user = await userRepository.getUserByEmail(req.email.toLowerCase().trim());
-    final isValid = passwordService.verify(req.password, user.passwordHash ?? '');
+    final user = await userRepository.getUserByEmail(
+      req.email.toLowerCase().trim(),
+    );
+    final isValid = passwordService.verify(
+      req.password,
+      user.passwordHash ?? '',
+    );
     if (!isValid) throw InvalidCredentialsException();
     await userRepository.updateUser(user.copyWith(lastLogin: DateTime.now()));
     return user;
@@ -84,23 +90,31 @@ class AuthRepositoryImpl implements AuthRepository {
 
     try {
       final existing = await userRepository.getUserByEmail(email);
-      await userRepository.updateUser(existing.copyWith(lastLogin: DateTime.now()));
+      await userRepository.updateUser(
+        existing.copyWith(lastLogin: DateTime.now()),
+      );
       return existing;
     } on NotFoundException {
       // create
     }
 
     if (req.role.isEmpty || req.role == 'none') {
-      throw ValidationException('User does not exist. Please register a new account');
+      throw ValidationException(
+        'User does not exist. Please register a new account',
+      );
     }
     if (!['tenant', 'landowner', 'manager', 'artisan'].contains(req.role)) {
       throw InvalidRoleException(req.role);
     }
     if (req.fullName.isEmpty) {
-      throw ValidationException('fullName is required for first-time social registration');
+      throw ValidationException(
+        'fullName is required for first-time social registration',
+      );
     }
-    if (req.country.isEmpty) throw ValidationException('User country is required ');
-    if (req.platform.isEmpty) throw ValidationException('Platform type of device is required ');
+    if (req.country.isEmpty)
+      throw ValidationException('User country is required ');
+    if (req.platform.isEmpty)
+      throw ValidationException('Platform type of device is required ');
 
     final partnerSlug = req.partnerSlug as String?;
     if (partnerSlug == null || partnerSlug.isEmpty) {
@@ -134,7 +148,11 @@ class AuthRepositoryImpl implements AuthRepository {
 
     final created = await userRepository.createUser(newUser);
     emailService
-        .sendWelcomeEmail(to: created.email, fullName: created.fullName, role: created.role)
+        .sendWelcomeEmail(
+          to: created.email,
+          fullName: created.fullName,
+          role: created.role,
+        )
         .catchError((e) => print('[AuthRepository] welcome email error: $e'));
     return newUser;
   }
@@ -148,7 +166,9 @@ class AuthRepositoryImpl implements AuthRepository {
       'userId': userId,
       'token': token,
       'createdAt': DateTime.now().toIso8601String(),
-      'expiresAt': DateTime.now().add(const Duration(days: 30)).toIso8601String(),
+      'expiresAt': DateTime.now()
+          .add(const Duration(days: 30))
+          .toIso8601String(),
     });
   }
 
@@ -169,14 +189,18 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<bool> verifyEmailOtp({required String email, required String code}) async {
+  Future<bool> verifyEmailOtp({
+    required String email,
+    required String code,
+  }) async {
     final key = email.toLowerCase().trim();
     final doc = await _otps.doc(key).get();
     if (!doc.exists) return false;
 
     final data = doc.data() as Map<String, dynamic>;
     final storedCode = (data['code'] as String?) ?? '';
-    final expiresAt = DateTime.tryParse((data['expiresAt'] as String?) ?? '') ??
+    final expiresAt =
+        DateTime.tryParse((data['expiresAt'] as String?) ?? '') ??
         DateTime.fromMillisecondsSinceEpoch(0);
     final attempts = (data['attempts'] as int?) ?? 0;
 
@@ -199,7 +223,9 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<void> markEmailVerified(String email) async {
-    final user = await userRepository.getUserByEmail(email.toLowerCase().trim());
+    final user = await userRepository.getUserByEmail(
+      email.toLowerCase().trim(),
+    );
     await userRepository.updateUser(user.copyWith(emailVerified: true));
   }
 
@@ -220,14 +246,18 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<bool> verifyPasswordResetOtp({required String email, required String code}) async {
+  Future<bool> verifyPasswordResetOtp({
+    required String email,
+    required String code,
+  }) async {
     final key = email.toLowerCase().trim();
     final doc = await _passwordResets.doc(key).get();
     if (!doc.exists) return false;
 
     final data = doc.data() as Map<String, dynamic>;
     final storedCode = (data['code'] as String?) ?? '';
-    final expiresAt = DateTime.tryParse((data['expiresAt'] as String?) ?? '') ??
+    final expiresAt =
+        DateTime.tryParse((data['expiresAt'] as String?) ?? '') ??
         DateTime.fromMillisecondsSinceEpoch(0);
     final attempts = (data['attempts'] as int?) ?? 0;
 
@@ -249,8 +279,13 @@ class AuthRepositoryImpl implements AuthRepository {
   }
 
   @override
-  Future<void> updatePasswordByEmail({equired String email, required String passwordHash}) async {
-    final user = await userRepository.getUserByEmail(email.toLowerCase().trim());
+  Future<void> updatePasswordByEmail({
+    required String email,
+    required String passwordHash,
+  }) async {
+    final user = await userRepository.getUserByEmail(
+      email.toLowerCase().trim(),
+    );
     await userRepository.updateUser(user.copyWith(passwordHash: passwordHash));
   }
 
