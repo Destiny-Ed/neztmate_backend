@@ -458,10 +458,91 @@ class AuthHandler {
     }
   }
 
+  /// POST /auth/forgot-password  Body: { email }
+  /// Always returns a generic success message (does not leak whether the email exists).
+  Future<Response> forgotPassword(Request req) async {
+    try {
+      final body = jsonDecode(await req.readAsString()) as Map<String, dynamic>;
+      final email = (body['email'] as String?)?.trim().toLowerCase() ?? '';
+
+      if (email.isEmpty || !email.contains('@')) {
+        return badRequest('Valid email is required');
+      }
+
+      const genericMessage =
+          'If an account exists for this email, a password reset code has been sent.';
+
+      try {
+        final user = await userRepository.getUserByEmail(email);
+        final hash = user.passwordHash ?? '';
+        if (hash.isNotEmpty) {
+          await _issueAndSendPasswordResetOtp(email: user.email, fullName: user.fullName);
+        }
+      } on NotFoundException {
+        // swallow — same response
+      } catch (e) {
+        print('[AuthHandler] forgotPassword send error: $e');
+      }
+
+      return Response.ok(
+        jsonEncode({'message': genericMessage}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } on AppException catch (e, stack) {
+      return handleAppException(e, stack);
+    } catch (e, stack) {
+      return handleAppException(e, stack);
+    }
+  }
+
+  /// POST /auth/reset-password  Body: { email, code, newPassword }
+  Future<Response> resetPassword(Request req) async {
+    try {
+      final body = jsonDecode(await req.readAsString()) as Map<String, dynamic>;
+      final email = (body['email'] as String?)?.trim().toLowerCase() ?? '';
+      final code = (body['code'] as String?)?.trim() ?? '';
+      final newPassword = (body['newPassword'] as String?)?.trim() ?? '';
+
+      if (email.isEmpty || !email.contains('@')) {
+        return badRequest('Valid email is required');
+      }
+      if (code.length != 6) {
+        return badRequest('A valid 6-digit reset code is required');
+      }
+      if (newPassword.length < 6) {
+        return badRequest('Password must be at least 6 characters');
+      }
+
+      final ok = await authRepository.verifyPasswordResetOtp(email: email, code: code);
+      if (!ok) {
+        return Response(400, body: jsonEncode({'message': 'Invalid or expired reset code'}));
+      }
+
+      final newHash = passwordService.hash(newPassword);
+      await authRepository.updatePasswordByEmail(email: email, passwordHash: newHash);
+
+      return Response.ok(
+        jsonEncode({'message': 'Password reset successfully. You can sign in with your new password.'}),
+        headers: {'Content-Type': 'application/json'},
+      );
+    } on AppException catch (e, stack) {
+      return handleAppException(e, stack);
+    } catch (e, stack) {
+      return handleAppException(e, stack);
+    }
+  }
+
   Future<void> _issueAndSendOtp({required String email, required String fullName}) async {
     final code = AuthRepositoryImpl.generateOtp();
     final expiresAt = DateTime.now().add(const Duration(minutes: 15));
     await authRepository.saveEmailOtp(email: email, code: code, expiresAt: expiresAt);
     await emailService.sendVerificationOtp(to: email, fullName: fullName, code: code);
+  }
+
+  Future<void> _issueAndSendPasswordResetOtp({equired String email, required String fullName}) async {
+    final code = AuthRepositoryImpl.generateOtp();
+    final expiresAt = DateTime.now().add(const Duration(minutes: 15));
+    await authRepository.savePasswordResetOtp(email: email, code: code, expiresAt: expiresAt);
+    await emailService.sendPasswordResetOtp(to: email, fullName: fullName, code: code);
   }
 }
