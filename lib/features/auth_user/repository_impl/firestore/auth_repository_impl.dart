@@ -71,14 +71,37 @@ class AuthRepositoryImpl implements AuthRepository {
 
   @override
   Future<User> loginUser(LoginRequest req) async {
-    final user = await userRepository.getUserByEmail(
-      req.email.toLowerCase().trim(),
-    );
-    final isValid = passwordService.verify(
-      req.password,
-      user.passwordHash ?? '',
-    );
-    if (!isValid) throw InvalidCredentialsException();
+    final email = req.email.toLowerCase().trim();
+
+    late final User user;
+    try {
+      user = await userRepository.getUserByEmail(email);
+    } on NotFoundException {
+      throw ValidationException(
+        'No account found with this email. Please register first.',
+      );
+    }
+
+    final storedHash = user.passwordHash?.trim() ?? '';
+    if (storedHash.isEmpty) {
+      final provider = (user.authProvider ?? '').toLowerCase().trim();
+      final via = provider.isNotEmpty
+          ? (provider.contains('google')
+              ? 'Google'
+              : provider.contains('apple')
+                  ? 'Apple'
+                  : 'social login')
+          : 'Google or Apple';
+      throw ValidationException(
+        'This account was created with $via. Please sign in with $via instead of email/password.',
+      );
+    }
+
+    final isValid = passwordService.verify(req.password, storedHash);
+    if (!isValid) {
+      throw InvalidCredentialsException();
+    }
+
     await userRepository.updateUser(user.copyWith(lastLogin: DateTime.now()));
     return user;
   }
