@@ -18,11 +18,11 @@ class EmailSendResult {
   });
 
   Map<String, dynamic> toMap() => {
-        'success': success,
-        if (id != null) 'id': id,
-        if (error != null) 'error': error,
-        'statusCode': statusCode,
-      };
+    'success': success,
+    if (id != null) 'id': id,
+    if (error != null) 'error': error,
+    'statusCode': statusCode,
+  };
 }
 
 class ResendEmailService {
@@ -83,7 +83,9 @@ class ResendEmailService {
       if (cc != null && cc.isNotEmpty) 'cc': cc,
       if (bcc != null && bcc.isNotEmpty) 'bcc': bcc,
       if (tags != null && tags.isNotEmpty)
-        'tags': tags.entries.map((e) => {'name': e.key, 'value': e.value}).toList(),
+        'tags': tags.entries
+            .map((e) => {'name': e.key, 'value': e.value})
+            .toList(),
     };
 
     try {
@@ -108,7 +110,8 @@ class ResendEmailService {
         );
       }
 
-      final errMsg = decoded['message']?.toString() ??
+      final errMsg =
+          decoded['message']?.toString() ??
           decoded['error']?.toString() ??
           response.body;
       return EmailSendResult(
@@ -139,7 +142,9 @@ class ResendEmailService {
       tags: {'type': 'welcome', 'role': role.toLowerCase()},
     );
     if (!result.success) {
-      print('[ResendEmailService] welcome email failed for $to: ${result.error}');
+      print(
+        '[ResendEmailService] welcome email failed for $to: ${result.error}',
+      );
     } else {
       print('[ResendEmailService] welcome email sent to $to id=${result.id}');
     }
@@ -150,7 +155,10 @@ class ResendEmailService {
     required String fullName,
     required String code,
   }) async {
-    final templates = EmailTemplates.verificationOtp(fullName: fullName, code: code);
+    final templates = EmailTemplates.verificationOtp(
+      fullName: fullName,
+      code: code,
+    );
     final result = await send(
       to: to,
       subject: templates.subject,
@@ -159,11 +167,110 @@ class ResendEmailService {
       tags: {'type': 'email_verification'},
     );
     if (!result.success) {
-      print('[ResendEmailService] verification OTP failed for $to: ${result.error}');
+      print(
+        '[ResendEmailService] verification OTP failed for $to: ${result.error}',
+      );
     } else {
-      print('[ResendEmailService] verification OTP sent to $to id=${result.id}');
+      print(
+        '[ResendEmailService] verification OTP sent to $to id=${result.id}',
+      );
     }
     return result;
+  }
+
+  /// Send up to 100 emails in one Resend batch request.
+  /// [emails] items: { to, subject, html, text? }
+  Future<List<EmailSendResult>> sendBatch(
+    List<Map<String, dynamic>> emails,
+  ) async {
+    if (!isConfigured) {
+      return List.generate(
+        emails.length,
+        (_) => const EmailSendResult(
+          success: false,
+          error: 'RESEND_API_KEY is not configured',
+          statusCode: 0,
+        ),
+      );
+    }
+
+    if (emails.isEmpty) return [];
+
+    if (emails.length > 100) {
+      throw ArgumentError('Resend batch supports max 100 emails per request');
+    }
+
+    final payload = emails.map((e) {
+      final to = e['to'];
+      return <String, dynamic>{
+        'from': e['from'] ?? _from,
+        'to': to is List ? to : [to],
+        'subject': e['subject'],
+        'html': e['html'],
+        if (e['text'] != null && (e['text'] as String).isNotEmpty)
+          'text': e['text'],
+        if (_replyTo != null) 'reply_to': _replyTo,
+      };
+    }).toList();
+
+    try {
+      final response = await _client.post(
+        Uri.parse('$_baseUrl/emails/batch'),
+        headers: {
+          'Authorization': 'Bearer $_apiKey',
+          'Content-Type': 'application/json',
+        },
+        body: jsonEncode(payload),
+      );
+
+      final decoded = response.body.isNotEmpty
+          ? jsonDecode(response.body)
+          : null;
+
+      if (response.statusCode >= 200 && response.statusCode < 300) {
+        // Resend returns { "data": [ { "id": "..." }, ... ] }
+        final list = decoded is Map && decoded['data'] is List
+            ? decoded['data'] as List
+            : (decoded is List ? decoded : <dynamic>[]);
+
+        return List.generate(emails.length, (i) {
+          if (i < list.length) {
+            final item = list[i];
+            final id = item is Map ? item['id']?.toString() : null;
+            return EmailSendResult(
+              success: true,
+              id: id,
+              statusCode: response.statusCode,
+            );
+          }
+          return EmailSendResult(
+            success: true,
+            statusCode: response.statusCode,
+          );
+        });
+      }
+
+      final errMsg = decoded is Map
+          ? (decoded['message']?.toString() ??
+                decoded['error']?.toString() ??
+                response.body)
+          : response.body;
+
+      return List.generate(
+        emails.length,
+        (_) => EmailSendResult(
+          success: false,
+          error: errMsg,
+          statusCode: response.statusCode,
+        ),
+      );
+    } catch (e) {
+      return List.generate(
+        emails.length,
+        (_) =>
+            EmailSendResult(success: false, error: e.toString(), statusCode: 0),
+      );
+    }
   }
 }
 
@@ -225,12 +332,14 @@ class EmailTemplates {
     final name = _escape(fullName.trim().isEmpty ? 'there' : fullName.trim());
     final roleLabel = _escape(role);
     final subject = 'Welcome to NeztMate, $fullName!';
-    final body = '<p style="margin:0 0 16px;">Hi ' +
+    final body =
+        '<p style="margin:0 0 16px;">Hi ' +
         name +
         ',</p><p style="margin:0 0 16px;">Welcome to <strong>NeztMate</strong> - your account as a <strong>' +
         roleLabel +
         '</strong> is ready.</p><p style="margin:0 0 8px;">Next steps:</p><ul style="margin:0 0 16px;padding-left:20px;"><li>Complete your profile</li><li>Verify your identity</li><li>Explore properties and services</li></ul><p style="margin:24px 0 0;color:#6b7280;font-size:13px;">If you did not create this account, ignore this email.</p>';
-    final text = 'Hi $fullName,\n\nWelcome to NeztMate - your $role account is ready.\n\nhttps://neztmate.com';
+    final text =
+        'Hi $fullName,\n\nWelcome to NeztMate - your $role account is ready.\n\nhttps://neztmate.com';
     return EmailContent(
       subject: subject,
       html: _layout(title: subject, bodyHtml: body),
@@ -245,12 +354,14 @@ class EmailTemplates {
     final name = _escape(fullName.trim().isEmpty ? 'there' : fullName.trim());
     final safeCode = _escape(code);
     final subject = 'Your NeztMate verification code';
-    final body = '<p style="margin:0 0 16px;">Hi ' +
+    final body =
+        '<p style="margin:0 0 16px;">Hi ' +
         name +
         ',</p><p style="margin:0 0 16px;">Use this code to verify your email on <strong>NeztMate</strong>:</p><p style="margin:24px 0;text-align:center;"><span style="display:inline-block;letter-spacing:8px;font-size:28px;font-weight:700;color:#0f766e;background:#f0fdfa;padding:16px 24px;border-radius:10px;border:1px solid #99f6e4;">' +
         safeCode +
         '</span></p><p style="margin:0;color:#6b7280;font-size:13px;">This code expires in 15 minutes. If you did not create an account, ignore this email.</p>';
-    final text = 'Hi $fullName,\n\nYour NeztMate verification code is: $code\n\nExpires in 15 minutes.';
+    final text =
+        'Hi $fullName,\n\nYour NeztMate verification code is: $code\n\nExpires in 15 minutes.';
     return EmailContent(
       subject: subject,
       html: _layout(title: subject, bodyHtml: body),
@@ -263,8 +374,12 @@ class EmailTemplates {
     required String bodyHtml,
     String? bodyText,
   }) {
-    final text = bodyText ??
-        bodyHtml.replaceAll(RegExp(r'<[^>]+>'), ' ').replaceAll(RegExp(r'\s+'), ' ').trim();
+    final text =
+        bodyText ??
+        bodyHtml
+            .replaceAll(RegExp(r'<[^>]+>'), ' ')
+            .replaceAll(RegExp(r'\s+'), ' ')
+            .trim();
     return EmailContent(
       subject: subject,
       html: _layout(title: _escape(subject), bodyHtml: bodyHtml),
