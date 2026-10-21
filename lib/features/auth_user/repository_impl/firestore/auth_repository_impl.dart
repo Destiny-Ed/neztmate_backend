@@ -32,6 +32,7 @@ class AuthRepositoryImpl implements AuthRepository {
   });
 
   CollectionReference get _otps => firestore.collection('email_verifications');
+  CollectionReference get _passwordResets => firestore.collection('password_resets');
 
   @override
   Future<User> registerNewUser(RegisterRequest req) async {
@@ -200,6 +201,57 @@ class AuthRepositoryImpl implements AuthRepository {
   Future<void> markEmailVerified(String email) async {
     final user = await userRepository.getUserByEmail(email.toLowerCase().trim());
     await userRepository.updateUser(user.copyWith(emailVerified: true));
+  }
+
+  @override
+  Future<void> savePasswordResetOtp({
+    required String email,
+    required String code,
+    required DateTime expiresAt,
+  }) async {
+    final key = email.toLowerCase().trim();
+    await _passwordResets.doc(key).set({
+      'email': key,
+      'code': code,
+      'expiresAt': expiresAt.toIso8601String(),
+      'createdAt': DateTime.now().toIso8601String(),
+      'attempts': 0,
+    });
+  }
+
+  @override
+  Future<bool> verifyPasswordResetOtp({required String email, required String code}) async {
+    final key = email.toLowerCase().trim();
+    final doc = await _passwordResets.doc(key).get();
+    if (!doc.exists) return false;
+
+    final data = doc.data() as Map<String, dynamic>;
+    final storedCode = (data['code'] as String?) ?? '';
+    final expiresAt = DateTime.tryParse((data['expiresAt'] as String?) ?? '') ??
+        DateTime.fromMillisecondsSinceEpoch(0);
+    final attempts = (data['attempts'] as int?) ?? 0;
+
+    if (DateTime.now().isAfter(expiresAt)) {
+      await _passwordResets.doc(key).delete();
+      return false;
+    }
+    if (attempts >= 5) {
+      await _passwordResets.doc(key).delete();
+      return false;
+    }
+    if (storedCode != code.trim()) {
+      await _passwordResets.doc(key).update({'attempts': attempts + 1});
+      return false;
+    }
+
+    await _passwordResets.doc(key).delete();
+    return true;
+  }
+
+  @override
+  Future<void> updatePasswordByEmail({equired String email, required String passwordHash}) async {
+    final user = await userRepository.getUserByEmail(email.toLowerCase().trim());
+    await userRepository.updateUser(user.copyWith(passwordHash: passwordHash));
   }
 
   static String generateOtp() {
