@@ -5,7 +5,15 @@ class PasswordService {
     return BCrypt.hashpw(password, BCrypt.gensalt());
   }
 
-  bool verify(String password, String hash) {
-    return BCrypt.checkpw(password, hash);
+  /// Returns false if [hash] is null/empty/invalid instead of throwing.
+  bool verify(String password, String? hash) {
+    if (hash == null || hash.trim().isEmpty) return false;
+    // bcrypt hashes are typically 60 chars and start with $2
+    if (hash.length < 28 || !hash.startsWith(r'$2')) return false;
+    try {
+      return BCrypt.checkpw(password, hash);
+    } catch (_) {
+      return false;
+    }
   }
 }
