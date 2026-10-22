@@ -1,3 +1,5 @@
+// ignore_for_file: curly_braces_in_flow_control_structures
+
 import 'package:dart_firebase_admin/firestore.dart';
 import 'package:neztmate_backend/core/cache/app_cache.dart';
 import 'package:neztmate_backend/core/error.dart';
@@ -83,10 +85,10 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
   @override
   Future<UserStatsModel> getUserStats(String userId, String role) async {
     try {
-      // final cacheKey = 'user_stats_$userId';
+      final cacheKey = 'user_stats_$userId';
 
-      // final cached = AppCache().get<UserStatsModel>(cacheKey);
-      // if (cached != null) return cached;
+      final cached = AppCache().get<UserStatsModel>(cacheKey);
+      if (cached != null) return cached;
 
       int totalProperties = 0;
       double totalRevenue = 0.0;
@@ -114,6 +116,7 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
         final paymentsSnap = await firestore
             .collection('payments')
             .where('status', WhereFilter.equal, 'paid')
+            .where('receiverId', WhereFilter.equal, userId)
             .where("type", WhereFilter.notIn, [
               'application_fee',
               'subscription',
@@ -271,7 +274,7 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
         totalCommissionEarned: totalCommissionEarned,
       );
 
-      // AppCache().set(cacheKey, stats, ttl: const Duration(minutes: 2));
+      AppCache().set(cacheKey, stats, ttl: const Duration(minutes: 1));
 
       return stats;
     } catch (e, stack) {
