@@ -46,7 +46,12 @@ class AuthHandler {
       if (request.password.length < 6) {
         return badRequest('Password must be at least 6 characters');
       }
-      if (!['tenant', 'landowner', 'manager', 'artisan'].contains(request.role)) {
+      if (![
+        'tenant',
+        'landowner',
+        'manager',
+        'artisan',
+      ].contains(request.role)) {
         throw InvalidRoleException(request.role);
       }
       if (request.country.isEmpty) {
@@ -59,7 +64,8 @@ class AuthHandler {
         throw ValidationException('FcmToken is required ');
       }
 
-      final partnerSlug = body['partnerSlug'] as String? ?? req.headers['x-partner-slug'];
+      final partnerSlug =
+          body['partnerSlug'] as String? ?? req.headers['x-partner-slug'];
       if (partnerSlug == null || partnerSlug.isEmpty) {
         throw ValidationException('partner slug header is required');
       }
@@ -78,7 +84,9 @@ class AuthHandler {
         return e.toResponse();
       }
 
-      final created = await authRepository.registerNewUser(request.copyWith(partnerSlug: partner.id));
+      final created = await authRepository.registerNewUser(
+        request.copyWith(partnerSlug: partner.id),
+      );
 
       final accessToken = jwtService.generateAccessToken(
         created.id,
@@ -89,7 +97,10 @@ class AuthHandler {
       await authRepository.saveRefreshToken(created.id, refreshToken);
 
       try {
-        await _issueAndSendOtp(email: created.email, fullName: created.fullName);
+        await _issueAndSendOtp(
+          email: created.email,
+          fullName: created.fullName,
+        );
       } catch (e) {
         print('[AuthHandler] OTP send error on register: $e');
       }
@@ -114,7 +125,8 @@ class AuthHandler {
             'role': created.role,
             'emailVerified': false,
           },
-          'message': 'Account created successfully. Please verify your email with the code we sent.',
+          'message':
+              'Account created successfully. Please verify your email with the code we sent.',
         }),
         headers: {'Content-Type': 'application/json'},
       );
@@ -141,24 +153,35 @@ class AuthHandler {
       }
 
       final loginAs = (body['loginAs'] as String?)?.toLowerCase().trim();
-      final isPlatformLogin = loginAs == 'platform_admin' || loginAs == 'super_admin';
+      final isPlatformLogin =
+          loginAs == 'platform_admin' || loginAs == 'super_admin';
       final rawPartnerKey =
-          (body['partnerId'] as String?)?.trim() ?? (body['partnerSlug'] as String?)?.trim();
+          (body['partnerId'] as String?)?.trim() ??
+          (body['partnerSlug'] as String?)?.trim();
 
       final user = await authRepository.loginUser(request);
 
       final roleLower = user.role.toLowerCase();
       final rolesLower = user.roles.map((r) => r.toLowerCase()).toList();
-      final userIsPlatform = roleLower == 'platform_admin' ||
+      final userIsPlatform =
+          roleLower == 'platform_admin' ||
           roleLower == 'super_admin' ||
           rolesLower.contains('platform_admin') ||
           rolesLower.contains('super_admin');
 
       if (isPlatformLogin) {
         if (!userIsPlatform) {
-          return Response(403, body: jsonEncode({'message': 'This account is not a platform admin'}));
+          return Response(
+            403,
+            body: jsonEncode({
+              'message': 'This account is not a platform admin',
+            }),
+          );
         }
-        final accessToken = jwtService.generateAccessToken(user.id, 'platform_admin');
+        final accessToken = jwtService.generateAccessToken(
+          user.id,
+          'platform_admin',
+        );
         final refreshToken = jwtService.generateRefreshToken(user.id);
         await authRepository.saveRefreshToken(user.id, refreshToken);
         return Response.ok(
@@ -180,7 +203,10 @@ class AuthHandler {
         );
       }
 
-      final needsPartner = roleLower == 'partner_admin' || roleLower == 'admin' || rawPartnerKey != null;
+      final needsPartner =
+          roleLower == 'partner_admin' ||
+          roleLower == 'admin' ||
+          rawPartnerKey != null;
       if (needsPartner && (rawPartnerKey == null || rawPartnerKey.isEmpty)) {
         throw ValidationException('partnerId or partnerSlug is required');
       }
@@ -193,7 +219,8 @@ class AuthHandler {
         var partner = await partnerRepository.getPartnerById(rawPartnerKey);
         partner ??= await partnerRepository.getPartnerBySlug(rawPartnerKey);
         if (partner == null) throw NotFoundException('Partner', rawPartnerKey);
-        if (partner.isActive == false) throw ValidationException('This workspace is inactive');
+        if (partner.isActive == false)
+          throw ValidationException('This workspace is inactive');
         try {
           await partnerAccess.assertAppEnabled(partner.id);
         } on PartnerAccessException catch (e) {
@@ -203,10 +230,18 @@ class AuthHandler {
         partnerSlugOut = partner.slug;
         partnerNameOut = partner.name;
         if (user.partnerId == null || user.partnerId.isEmpty) {
-          throw ValidationException('This account is not linked to any workspace');
+          throw ValidationException(
+            'This account is not linked to any workspace',
+          );
         }
         if (user.partnerId != partner.id) {
-          return Response(403, body: jsonEncode({'message': 'This account does not belong to the selected workspace'}));
+          return Response(
+            403,
+            body: jsonEncode({
+              'message':
+                  'This account does not belong to the selected workspace',
+            }),
+          );
         }
       } else if (user.partnerId != null && user.partnerId.isNotEmpty) {
         final partner = await partnerRepository.getPartnerById(user.partnerId);
@@ -227,7 +262,11 @@ class AuthHandler {
         throw ValidationException('Partner workspace could not be resolved');
       }
 
-      final accessToken = jwtService.generateAccessToken(user.id, user.role, partnerId: resolvedPartnerId);
+      final accessToken = jwtService.generateAccessToken(
+        user.id,
+        user.role,
+        partnerId: resolvedPartnerId,
+      );
       final refreshToken = jwtService.generateRefreshToken(user.id);
       await authRepository.saveRefreshToken(user.id, refreshToken);
 
@@ -264,9 +303,11 @@ class AuthHandler {
       final body = jsonDecode(await req.readAsString());
       final request = SocialRequestModel.fromJson(body);
       if (request.idToken.isEmpty) return badRequest('idToken is required');
-      if (request.fcmToken.isEmpty) throw ValidationException('Fcm Token is required ');
+      if (request.fcmToken.isEmpty)
+        throw ValidationException('Fcm Token is required ');
 
-      final partnerSlug = req.headers['x-partner-slug'] ?? request.partnerSlug as String?;
+      final partnerSlug =
+          req.headers['x-partner-slug'] ?? request.partnerSlug as String?;
       if (partnerSlug == null || partnerSlug.isEmpty) {
         throw ValidationException('partner slug header is required');
       }
@@ -279,8 +320,14 @@ class AuthHandler {
         return e.toResponse();
       }
 
-      final user = await authRepository.socialLogin(req: request.copyWith(partnerSlug: partnerSlug));
-      final accessToken = jwtService.generateAccessToken(user.id, user.role, partnerId: user.partnerId);
+      final user = await authRepository.socialLogin(
+        req: request.copyWith(partnerSlug: partnerSlug),
+      );
+      final accessToken = jwtService.generateAccessToken(
+        user.id,
+        user.role,
+        partnerId: user.partnerId,
+      );
       final refreshToken = jwtService.generateRefreshToken(user.id);
       await authRepository.saveRefreshToken(user.id, refreshToken);
 
@@ -310,28 +357,49 @@ class AuthHandler {
 
   Future<Response> platformGoogleLogin(Request request) async {
     try {
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final body =
+          jsonDecode(await request.readAsString()) as Map<String, dynamic>;
       final idToken = (body['idToken'] as String?)?.trim() ?? '';
       final fcmToken = (body['fcmToken'] as String?)?.trim() ?? '';
-      if (idToken.isEmpty) return Response(400, body: jsonEncode({'message': 'idToken is required'}));
-      if (fcmToken.isEmpty) return Response(400, body: jsonEncode({'message': 'fcmToken is required'}));
+      if (idToken.isEmpty)
+        return Response(
+          400,
+          body: jsonEncode({'message': 'idToken is required'}),
+        );
+      if (fcmToken.isEmpty)
+        return Response(
+          400,
+          body: jsonEncode({'message': 'fcmToken is required'}),
+        );
 
       final decoded = await firebaseAuth.verifyIdToken(idToken);
       final email = (decoded.email ?? '').toLowerCase();
       if (email.isEmpty) {
-        return Response(401, body: jsonEncode({'message': 'Email missing on Google account'}));
+        return Response(
+          401,
+          body: jsonEncode({'message': 'Email missing on Google account'}),
+        );
       }
 
       final user = await userRepository.getUserByEmail(email);
       final role = user.role.toLowerCase();
-      final isPlatform = role == 'platform_admin' ||
+      final isPlatform =
+          role == 'platform_admin' ||
           role == 'super_admin' ||
           (user.roles.map((r) => r.toLowerCase()).contains('platform_admin'));
       if (!isPlatform) {
-        return Response(403, body: jsonEncode({'message': 'Google sign-in is only allowed for platform admins'}));
+        return Response(
+          403,
+          body: jsonEncode({
+            'message': 'Google sign-in is only allowed for platform admins',
+          }),
+        );
       }
 
-      final accessToken = jwtService.generateAccessToken(user.id, 'platform_admin');
+      final accessToken = jwtService.generateAccessToken(
+        user.id,
+        'platform_admin',
+      );
       final refreshToken = jwtService.generateRefreshToken(user.id);
       await authRepository.saveRefreshToken(user.id, refreshToken);
       return Response.ok(
@@ -339,43 +407,76 @@ class AuthHandler {
           'accessToken': accessToken,
           'refreshToken': refreshToken,
           'message': 'Login successfully',
-          'user': {'id': user.id, 'email': user.email, 'fullName': user.fullName, 'role': 'platform_admin'},
+          'user': {
+            'id': user.id,
+            'email': user.email,
+            'fullName': user.fullName,
+            'role': 'platform_admin',
+          },
         }),
         headers: {'Content-Type': 'application/json'},
       );
     } catch (e, s) {
       print('platformGoogleLogin: $e\n$s');
-      return Response(401, body: jsonEncode({'message': 'Invalid or expired Google token'}));
+      return Response(
+        401,
+        body: jsonEncode({'message': 'Invalid or expired Google token'}),
+      );
     }
   }
 
   Future<Response> changePassword(Request request) async {
     try {
       final userId = request.context['userId'] as String?;
-      if (userId == null) return Response(401, body: jsonEncode({'message': 'Unauthorized'}));
+      if (userId == null)
+        return Response(401, body: jsonEncode({'message': 'Unauthorized'}));
 
-      final body = jsonDecode(await request.readAsString()) as Map<String, dynamic>;
-      final currentPassword = (body['currentPassword'] as String?)?.trim() ?? '';
+      final body =
+          jsonDecode(await request.readAsString()) as Map<String, dynamic>;
+      final currentPassword =
+          (body['currentPassword'] as String?)?.trim() ?? '';
       final newPassword = (body['newPassword'] as String?)?.trim() ?? '';
       if (currentPassword.isEmpty || newPassword.isEmpty) {
-        return Response(400, body: jsonEncode({'message': 'currentPassword and newPassword are required'}));
+        return Response(
+          400,
+          body: jsonEncode({
+            'message': 'currentPassword and newPassword are required',
+          }),
+        );
       }
       if (newPassword.length < 8) {
-        return Response(400, body: jsonEncode({'message': 'New password must be at least 8 characters'}));
+        return Response(
+          400,
+          body: jsonEncode({
+            'message': 'New password must be at least 8 characters',
+          }),
+        );
       }
       if (currentPassword == newPassword) {
-        return Response(400, body: jsonEncode({'message': 'New password must be different from current password'}));
+        return Response(
+          400,
+          body: jsonEncode({
+            'message': 'New password must be different from current password',
+          }),
+        );
       }
 
       final user = await userRepository.getUserById(userId);
       final hash = user.passwordHash ?? '';
       if (hash.isEmpty) {
-        return Response(400, body: jsonEncode({
-          'message': 'This account uses social login only. Set a password via a different flow or contact support.',
-        }));
+        return Response(
+          400,
+          body: jsonEncode({
+            'message':
+                'This account uses social login only. Set a password via a different flow or contact support.',
+          }),
+        );
       }
       if (!passwordService.verify(currentPassword, hash)) {
-        return Response(400, body: jsonEncode({'message': 'Current password is incorrect'}));
+        return Response(
+          400,
+          body: jsonEncode({'message': 'Current password is incorrect'}),
+        );
       }
 
       final newHash = passwordService.hash(newPassword);
@@ -386,7 +487,9 @@ class AuthHandler {
       );
     } catch (e, s) {
       print('changePassword: $e\n$s');
-      return Response.internalServerError(body: jsonEncode({'message': 'Failed to change password'}));
+      return Response.internalServerError(
+        body: jsonEncode({'message': 'Failed to change password'}),
+      );
     }
   }
 
@@ -407,19 +510,28 @@ class AuthHandler {
       final user = await userRepository.getUserByEmail(email);
       if (user.emailVerified) {
         return Response.ok(
-          jsonEncode({'message': 'Email is already verified', 'emailVerified': true}),
+          jsonEncode({
+            'message': 'Email is already verified',
+            'emailVerified': true,
+          }),
           headers: {'Content-Type': 'application/json'},
         );
       }
 
       final ok = await authRepository.verifyEmailOtp(email: email, code: code);
       if (!ok) {
-        return Response(400, body: jsonEncode({'message': 'Invalid or expired verification code'}));
+        return Response(
+          400,
+          body: jsonEncode({'message': 'Invalid or expired verification code'}),
+        );
       }
 
       await authRepository.markEmailVerified(email);
       return Response.ok(
-        jsonEncode({'message': 'Email verified successfully', 'emailVerified': true}),
+        jsonEncode({
+          'message': 'Email verified successfully',
+          'emailVerified': true,
+        }),
         headers: {'Content-Type': 'application/json'},
       );
     } on AppException catch (e, stack) {
@@ -441,7 +553,10 @@ class AuthHandler {
       final user = await userRepository.getUserByEmail(email);
       if (user.emailVerified) {
         return Response.ok(
-          jsonEncode({'message': 'Email is already verified', 'emailVerified': true}),
+          jsonEncode({
+            'message': 'Email is already verified',
+            'emailVerified': true,
+          }),
           headers: {'Content-Type': 'application/json'},
         );
       }
@@ -476,7 +591,10 @@ class AuthHandler {
         final user = await userRepository.getUserByEmail(email);
         final hash = user.passwordHash ?? '';
         if (hash.isNotEmpty) {
-          await _issueAndSendPasswordResetOtp(email: user.email, fullName: user.fullName);
+          await _issueAndSendPasswordResetOtp(
+            email: user.email,
+            fullName: user.fullName,
+          );
         }
       } on NotFoundException {
         // swallow — same response
@@ -513,16 +631,28 @@ class AuthHandler {
         return badRequest('Password must be at least 6 characters');
       }
 
-      final ok = await authRepository.verifyPasswordResetOtp(email: email, code: code);
+      final ok = await authRepository.verifyPasswordResetOtp(
+        email: email,
+        code: code,
+      );
       if (!ok) {
-        return Response(400, body: jsonEncode({'message': 'Invalid or expired reset code'}));
+        return Response(
+          400,
+          body: jsonEncode({'message': 'Invalid or expired reset code'}),
+        );
       }
 
       final newHash = passwordService.hash(newPassword);
-      await authRepository.updatePasswordByEmail(email: email, passwordHash: newHash);
+      await authRepository.updatePasswordByEmail(
+        email: email,
+        passwordHash: newHash,
+      );
 
       return Response.ok(
-        jsonEncode({'message': 'Password reset successfully. You can sign in with your new password.'}),
+        jsonEncode({
+          'message':
+              'Password reset successfully. You can sign in with your new password.',
+        }),
         headers: {'Content-Type': 'application/json'},
       );
     } on AppException catch (e, stack) {
@@ -532,18 +662,39 @@ class AuthHandler {
     }
   }
 
-  Future<void> _issueAndSendOtp({required String email, required String fullName}) async {
+  Future<void> _issueAndSendOtp({
+    required String email,
+    required String fullName,
+  }) async {
     final code = AuthRepositoryImpl.generateOtp();
     final expiresAt = DateTime.now().add(const Duration(minutes: 15));
-    await authRepository.saveEmailOtp(email: email, code: code, expiresAt: expiresAt);
-    await emailService.sendVerificationOtp(to: email, fullName: fullName, code: code);
+    await authRepository.saveEmailOtp(
+      email: email,
+      code: code,
+      expiresAt: expiresAt,
+    );
+    await emailService.sendVerificationOtp(
+      to: email,
+      fullName: fullName,
+      code: code,
+    );
   }
 
   Future<void> _issueAndSendPasswordResetOtp({
-required String email, required String fullName}) async {
+    required String email,
+    required String fullName,
+  }) async {
     final code = AuthRepositoryImpl.generateOtp();
     final expiresAt = DateTime.now().add(const Duration(minutes: 15));
-    await authRepository.savePasswordResetOtp(email: email, code: code, expiresAt: expiresAt);
-    await emailService.sendPasswordResetOtp(to: email, fullName: fullName, code: code);
+    await authRepository.savePasswordResetOtp(
+      email: email,
+      code: code,
+      expiresAt: expiresAt,
+    );
+    await emailService.sendPasswordResetOtp(
+      to: email,
+      fullName: fullName,
+      code: code,
+    );
   }
 }

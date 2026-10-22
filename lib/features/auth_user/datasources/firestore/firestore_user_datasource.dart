@@ -83,10 +83,10 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
   @override
   Future<UserStatsModel> getUserStats(String userId, String role) async {
     try {
-      final cacheKey = 'user_stats_$userId';
+      // final cacheKey = 'user_stats_$userId';
 
-      final cached = AppCache().get<UserStatsModel>(cacheKey);
-      if (cached != null) return cached;
+      // final cached = AppCache().get<UserStatsModel>(cacheKey);
+      // if (cached != null) return cached;
 
       int totalProperties = 0;
       double totalRevenue = 0.0;
