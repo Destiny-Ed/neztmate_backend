@@ -271,7 +271,7 @@ class FirestoreUserDataSource implements UserRemoteDataSource {
         totalCommissionEarned: totalCommissionEarned,
       );
 
-      AppCache().set(cacheKey, stats, ttl: const Duration(minutes: 2));
+      // AppCache().set(cacheKey, stats, ttl: const Duration(minutes: 2));
 
       return stats;
     } catch (e, stack) {
