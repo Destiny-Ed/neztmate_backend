@@ -7,14 +7,14 @@
   const grid = document.getElementById('listings-grid');
   const empty = document.getElementById('listings-empty');
   const statusEl = document.getElementById('listings-status');
-  const modal = document.getElementById('app-download-modal');
+  const downloadModal = document.getElementById('app-download-modal');
+  const detailsModal = document.getElementById('unit-details-modal');
   const searchInput = document.getElementById('listings-search');
   const cityInput = document.getElementById('listings-city');
   const stateInput = document.getElementById('listings-state');
   const minBedInput = document.getElementById('listings-beds');
   const maxRentInput = document.getElementById('listings-max-rent');
 
-  /** Same partner resolution as landing branding: ?partner= / ?slug= → localStorage → default */
   const urlParams = new URLSearchParams(window.location.search);
   const partnerParam = (urlParams.get('partner') || urlParams.get('slug') || '').toLowerCase().trim();
   const slug = (
@@ -29,6 +29,12 @@
   /** @type {{ id: string, name?: string, slug?: string, playStoreUrl?: string, appStoreUrl?: string } | null} */
   let partnerConfig = null;
 
+  /** @type {{ unit: any, property: any } | null} */
+  let currentListing = null;
+  /** @type {{ type: string, url: string }[]} */
+  let mediaItems = [];
+  let mediaIndex = 0;
+
   function money(n) {
     if (typeof n !== 'number' || Number.isNaN(n)) return '—';
     return '₦' + n.toLocaleString('en-NG', { maximumFractionDigits: 0 });
@@ -36,10 +42,10 @@
 
   function esc(s) {
     return String(s ?? '')
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
+      .replace(/&/g, '&')
+      .replace(/</g, '<')
+      .replace(/>/g, '>')
+      .replace(/"/g, '"');
   }
 
   function photo(unit, property) {
@@ -48,6 +54,20 @@
     const urls = u.photoUrls || u.images || p.photoUrls || p.images || [];
     if (Array.isArray(urls) && urls.length && typeof urls[0] === 'string') return urls[0];
     return 'assets/logo_bg.png';
+  }
+
+  function buildMedia(unit, property) {
+    const items = [];
+    const u = unit || {};
+    const p = property || {};
+    const video = u.videoUrl || u.video_url || '';
+    if (video) items.push({ type: 'video', url: video });
+    const photos = [].concat(u.photoUrls || u.images || [], p.photoUrls || p.images || []);
+    photos.forEach(function (url) {
+      if (typeof url === 'string' && url) items.push({ type: 'image', url: url });
+    });
+    if (!items.length) items.push({ type: 'image', url: 'assets/logo_bg.png' });
+    return items;
   }
 
   function normalizePartner(raw) {
@@ -84,9 +104,7 @@
     if (iosA) iosA.href = partner.appStoreUrl || appStoreDefault;
   }
 
-  /** Load partner config used for site branding; partnerId is required for listings. */
   async function resolvePartner() {
-    // Prefer cached config from landing (same branding session)
     try {
       const cached = JSON.parse(localStorage.getItem('neztmate_partner_cache') || 'null');
       if (cached && cached.id && (!cached.slug || cached.slug === slug)) {
@@ -120,7 +138,6 @@
       applyBranding(partnerConfig);
       return partnerConfig;
     } catch (e) {
-      // Sample fallback only if it has a real id (dev samples)
       const samples = CFG.samplePartners || {};
       const fb = normalizePartner(samples[slug] || samples.neztmate || {});
       if (fb.id && fb.id !== slug) {
@@ -128,7 +145,6 @@
         applyBranding(partnerConfig);
         return partnerConfig;
       }
-      // Last resort: some deployments use slug as partnerId
       partnerConfig = normalizePartner({ id: slug, slug: slug, name: (samples[slug] || {}).name });
       if (!partnerConfig.id) {
         throw e;
@@ -138,7 +154,163 @@
     }
   }
 
-  function openModal(unit, property) {
+  function renderMediaStage() {
+    const stage = document.getElementById('unit-details-media-stage');
+    const dots = document.getElementById('unit-media-dots');
+    if (!stage) return;
+
+    // Pause any playing video
+    stage.querySelectorAll('video').forEach(function (v) {
+      try {
+        v.pause();
+      } catch (_) {}
+    });
+
+    const item = mediaItems[mediaIndex] || mediaItems[0];
+    if (!item) {
+      stage.innerHTML = '';
+      return;
+    }
+
+    if (item.type === 'video') {
+      stage.innerHTML =
+        '<video src="' +
+        esc(item.url) +
+        '" controls playsinline preload="metadata" poster="' +
+        esc((mediaItems.find(function (m) {
+          return m.type === 'image';
+        }) || {}).url || '') +
+        '"></video>';
+    } else {
+      stage.innerHTML = '<img src="' + esc(item.url) + '" alt="Unit photo" />';
+    }
+
+    if (dots) {
+      dots.innerHTML = mediaItems
+        .map(function (_, i) {
+          return '<span class="media-dot' + (i === mediaIndex ? ' active' : '') + '"></span>';
+        })
+        .join('');
+    }
+  }
+
+  function openDetails(unit, property) {
+    currentListing = { unit: unit || {}, property: property || {} };
+    mediaItems = buildMedia(unit, property);
+    mediaIndex = 0;
+
+    const titleEl = document.getElementById('unit-details-title');
+    const rentEl = document.getElementById('unit-details-rent');
+    const locEl = document.getElementById('unit-details-loc');
+    const chipsEl = document.getElementById('unit-details-chips');
+    const aboutEl = document.getElementById('unit-details-about');
+    const amenitiesEl = document.getElementById('unit-details-amenities');
+    const amenitiesWrap = document.getElementById('unit-details-amenities-wrap');
+    const feesEl = document.getElementById('unit-details-fees');
+    const feesWrap = document.getElementById('unit-details-fees-wrap');
+
+    const title =
+      (unit && (unit.title || unit.unitNumber || unit.name)) ||
+      (property && property.name) ||
+      'Unit';
+    if (titleEl) titleEl.textContent = title;
+
+    const rent = typeof unit.monthlyRent === 'number' ? unit.monthlyRent : Number(unit.monthlyRent);
+    if (rentEl) {
+      rentEl.innerHTML = money(rent) + '<small>/mo</small>';
+    }
+
+    const loc = [property.address, property.city, property.state].filter(Boolean).join(', ');
+    if (locEl) locEl.textContent = loc || 'Nigeria';
+
+    const chips = [];
+    if (unit.bedrooms != null) chips.push(unit.bedrooms + ' bed');
+    if (unit.bathrooms != null) chips.push(unit.bathrooms + ' bath');
+    if (unit.squareFeet != null) chips.push(unit.squareFeet + ' sqft');
+    if (unit.status) chips.push(String(unit.status));
+    if (chipsEl) {
+      chipsEl.innerHTML = chips.map(function (c) {
+        return '<span class="unit-chip">' + esc(c) + '</span>';
+      }).join('');
+    }
+
+    const about =
+      unit.description ||
+      property.description ||
+      (property.name
+        ? 'Unit at ' + property.name + (loc ? ' · ' + loc : '') + '.'
+        : 'Browse this home’s photos and video, then apply in the app.');
+    if (aboutEl) aboutEl.textContent = about;
+
+    // Amenities from unit features / amenities arrays or map
+    let amenities = [];
+    if (Array.isArray(unit.amenities)) amenities = unit.amenities;
+    else if (Array.isArray(unit.features)) amenities = unit.features;
+    else if (unit.customFeatures && typeof unit.customFeatures === 'object') {
+      amenities = Object.keys(unit.customFeatures).filter(function (k) {
+        return unit.customFeatures[k];
+      });
+    }
+    if (unit.balcony) amenities.push('Balcony');
+    if (unit.furnished) amenities.push('Furnished');
+    if (unit.petFriendly) amenities.push('Pet friendly');
+    if (unit.airConditioning) amenities.push('Air conditioning');
+    amenities = amenities.filter(Boolean);
+    if (amenitiesEl && amenitiesWrap) {
+      if (amenities.length) {
+        amenitiesWrap.style.display = '';
+        amenitiesEl.innerHTML = amenities
+          .map(function (a) {
+            return '<span class="unit-chip">' + esc(a) + '</span>';
+          })
+          .join('');
+      } else {
+        amenitiesWrap.style.display = 'none';
+        amenitiesEl.innerHTML = '';
+      }
+    }
+
+    // Fees if present
+    const fees = unit.fees || unit.unitFees || [];
+    if (feesEl && feesWrap) {
+      if (Array.isArray(fees) && fees.length) {
+        feesWrap.style.display = '';
+        feesEl.innerHTML = fees
+          .map(function (f) {
+            const name = f.name || f.label || 'Fee';
+            const amt = typeof f.amount === 'number' ? money(f.amount) : f.amount || '';
+            const tag = f.isOneTime ? 'one-time' : 'recurring';
+            return esc(name) + ': ' + esc(String(amt)) + ' (' + tag + ')';
+          })
+          .join('<br/>');
+      } else {
+        feesWrap.style.display = 'none';
+        feesEl.innerHTML = '';
+      }
+    }
+
+    renderMediaStage();
+
+    if (detailsModal) detailsModal.classList.remove('hidden');
+    document.body.style.overflow = 'hidden';
+  }
+
+  function closeDetails() {
+    const stage = document.getElementById('unit-details-media-stage');
+    if (stage) {
+      stage.querySelectorAll('video').forEach(function (v) {
+        try {
+          v.pause();
+        } catch (_) {}
+      });
+    }
+    if (detailsModal) detailsModal.classList.add('hidden');
+    if (!downloadModal || downloadModal.classList.contains('hidden')) {
+      document.body.style.overflow = '';
+    }
+  }
+
+  function openDownloadModal(unit, property) {
     const title = document.getElementById('modal-unit-title');
     const sub = document.getElementById('modal-unit-sub');
     const brand = (partnerConfig && partnerConfig.name) || 'NeztMate';
@@ -151,16 +323,18 @@
     if (sub) {
       const loc = [property && property.city, property && property.state].filter(Boolean).join(', ');
       sub.textContent = loc
-        ? 'Available on ' + brand + ' in ' + loc + '. Download the app to view full details and apply.'
-        : 'Download the ' + brand + ' app to view full details, chat, and apply for this home.';
+        ? 'Finish applying for this home on ' + brand + ' in ' + loc + '. Download the app to submit your application.'
+        : 'Download the ' + brand + ' app to complete your application, chat with the landlord, and manage your lease.';
     }
-    if (modal) modal.classList.remove('hidden');
+    if (downloadModal) downloadModal.classList.remove('hidden');
     document.body.style.overflow = 'hidden';
   }
 
-  function closeModal() {
-    if (modal) modal.classList.add('hidden');
-    document.body.style.overflow = '';
+  function closeDownloadModal() {
+    if (downloadModal) downloadModal.classList.add('hidden');
+    if (!detailsModal || detailsModal.classList.contains('hidden')) {
+      document.body.style.overflow = '';
+    }
   }
 
   function card(item) {
@@ -175,6 +349,7 @@
     const meta = [beds, baths].filter(Boolean).join(' · ');
     const rent = money(typeof unit.monthlyRent === 'number' ? unit.monthlyRent : Number(unit.monthlyRent));
     const img = esc(photo(unit, property));
+    const hasVideo = !!(unit.videoUrl || unit.video_url);
 
     return (
       '<article class="listing-card" data-unit-id="' +
@@ -182,7 +357,11 @@
       '">' +
       '<div class="listing-card-img" style="background-image:url(\'' +
       img +
-      '\')"></div>' +
+      '\')">' +
+      (hasVideo
+        ? '<span style="position:absolute;right:10px;bottom:10px;background:rgba(0,0,0,.55);color:#fff;font-size:11px;font-weight:700;padding:4px 8px;border-radius:999px">▶ Video</span>'
+        : '') +
+      '</div>' +
       '<div class="listing-card-body">' +
       '<div class="listing-card-top"><strong>' +
       title +
@@ -193,7 +372,7 @@
       loc +
       '</p>' +
       (meta ? '<p class="listing-meta muted">' + esc(meta) + '</p>' : '') +
-      '<button type="button" class="btn btn-primary btn-sm listing-cta">View & apply</button>' +
+      '<button type="button" class="btn btn-primary btn-sm listing-cta">View details</button>' +
       '</div></article>'
     );
   }
@@ -265,10 +444,14 @@
       }
 
       grid.innerHTML = list.map(card).join('');
+      // Position relative for video badge
+      grid.querySelectorAll('.listing-card-img').forEach(function (el) {
+        el.style.position = 'relative';
+      });
       grid.querySelectorAll('.listing-card').forEach(function (el, i) {
         el.addEventListener('click', function () {
           const item = list[i];
-          openModal(item.unit || item, item.property || {});
+          openDetails(item.unit || item, item.property || {});
         });
       });
     } catch (e) {
@@ -281,20 +464,52 @@
     }
   }
 
-  document.querySelectorAll('[data-close-modal]').forEach(function (btn) {
-    btn.addEventListener('click', closeModal);
+  // Details modal controls
+  document.querySelectorAll('[data-close-details]').forEach(function (btn) {
+    btn.addEventListener('click', closeDetails);
   });
-  if (modal) {
-    modal.addEventListener('click', function (e) {
-      if (e.target === modal) closeModal();
+  if (detailsModal) {
+    detailsModal.addEventListener('click', function (e) {
+      if (e.target === detailsModal) closeDetails();
     });
   }
+  document.getElementById('unit-media-prev') &&
+    document.getElementById('unit-media-prev').addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (!mediaItems.length) return;
+      mediaIndex = (mediaIndex - 1 + mediaItems.length) % mediaItems.length;
+      renderMediaStage();
+    });
+  document.getElementById('unit-media-next') &&
+    document.getElementById('unit-media-next').addEventListener('click', function (e) {
+      e.stopPropagation();
+      if (!mediaItems.length) return;
+      mediaIndex = (mediaIndex + 1) % mediaItems.length;
+      renderMediaStage();
+    });
+
+  // Apply → open download modal (after viewing details)
+  document.getElementById('unit-details-apply') &&
+    document.getElementById('unit-details-apply').addEventListener('click', function () {
+      const unit = (currentListing && currentListing.unit) || {};
+      const property = (currentListing && currentListing.property) || {};
+      openDownloadModal(unit, property);
+    });
+
+  document.querySelectorAll('[data-close-modal]').forEach(function (btn) {
+    btn.addEventListener('click', closeDownloadModal);
+  });
+  if (downloadModal) {
+    downloadModal.addEventListener('click', function (e) {
+      if (e.target === downloadModal) closeDownloadModal();
+    });
+  }
+
   document.getElementById('listings-refresh') &&
     document.getElementById('listings-refresh').addEventListener('click', load);
   document.getElementById('listings-filter-btn') &&
     document.getElementById('listings-filter-btn').addEventListener('click', load);
 
-  // Preserve partner query on internal links
   if (partnerParam) {
     document.querySelectorAll('a[href]').forEach(function (a) {
       try {
