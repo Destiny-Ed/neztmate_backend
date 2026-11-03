@@ -8,7 +8,7 @@
   <link rel="icon" type="image/png" href="/assets/logo_bg.png" sizes="32x32" />
   <link rel="icon" type="image/png" href="/assets/logo_bg.png" sizes="192x192" />
   <link rel="apple-touch-icon" href="/assets/logo_bg.png" />
-  <meta name="description" content="Browse homes and units on NeztMate. Download the app to apply." />
+  <meta name="description" content="Browse homes and units on NeztMate. View full details, then apply in the app." />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:opsz,wght@9..40,400;9..40,500;9..40,600;9..40,700;9..40,800&display=swap" rel="stylesheet" />
   <link rel="stylesheet" href="css/styles.css" />
   <style>
@@ -47,11 +47,95 @@
     .listing-loc, .listing-meta { margin: .35rem 0 0; font-size: .9rem; }
     .listing-cta { margin-top: .85rem; width: 100%; }
     #listings-empty { display: none; text-align: center; padding: 2.5rem 1rem; color: var(--muted, #64748b); }
+
+    /* Shared modal shell */
     .modal-backdrop {
-      position: fixed; inset: 0; background: rgba(15,23,42,.45); display: flex;
+      position: fixed; inset: 0; background: rgba(15,23,42,.5); display: flex;
       align-items: center; justify-content: center; z-index: 80; padding: 1rem;
     }
     .modal-backdrop.hidden { display: none; }
+
+    /* Unit details modal */
+    .unit-details-modal {
+      background: var(--white, #fff);
+      border-radius: 18px;
+      max-width: 720px;
+      width: 100%;
+      max-height: min(92vh, 900px);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+      box-shadow: 0 24px 60px rgba(15,23,42,.25);
+    }
+    .unit-details-media {
+      position: relative;
+      background: #0b1220;
+      min-height: 220px;
+      max-height: 320px;
+    }
+    .unit-details-media video,
+    .unit-details-media img {
+      width: 100%;
+      height: 260px;
+      object-fit: cover;
+      display: block;
+      background: #0b1220;
+    }
+    .unit-details-media .media-nav {
+      position: absolute; bottom: 12px; left: 0; right: 0;
+      display: flex; justify-content: center; gap: 6px; pointer-events: none;
+    }
+    .unit-details-media .media-dot {
+      width: 8px; height: 8px; border-radius: 50%;
+      background: rgba(255,255,255,.45);
+    }
+    .unit-details-media .media-dot.active { background: #fff; }
+    .unit-details-media .media-arrows {
+      position: absolute; inset: 0; display: flex; align-items: center; justify-content: space-between;
+      padding: 0 .5rem; pointer-events: none;
+    }
+    .unit-details-media .media-arrows button {
+      pointer-events: auto;
+      width: 36px; height: 36px; border-radius: 50%;
+      border: none; background: rgba(0,0,0,.45); color: #fff;
+      cursor: pointer; font-size: 1.1rem;
+    }
+    .unit-details-body {
+      padding: 1.25rem 1.35rem 1.5rem;
+      overflow-y: auto;
+      flex: 1;
+    }
+    .unit-details-body h2 { margin: 0 0 .25rem; font-size: 1.35rem; letter-spacing: -.02em; }
+    .unit-details-rent {
+      color: var(--teal, #0d9488); font-weight: 800; font-size: 1.25rem; margin: .35rem 0 .75rem;
+    }
+    .unit-details-rent small { font-weight: 500; opacity: .8; font-size: .9rem; }
+    .unit-chip-row { display: flex; flex-wrap: wrap; gap: .4rem; margin: .75rem 0; }
+    .unit-chip {
+      background: var(--teal-soft, rgba(13,148,136,.12));
+      color: var(--teal-dark, #0f766e);
+      font-size: .78rem; font-weight: 700;
+      padding: .3rem .65rem; border-radius: 999px;
+    }
+    .unit-section { margin-top: 1rem; }
+    .unit-section h4 {
+      margin: 0 0 .4rem; font-size: .78rem; text-transform: uppercase;
+      letter-spacing: .04em; color: var(--muted, #64748b);
+    }
+    .unit-section p { margin: 0; color: var(--muted, #64748b); font-size: .95rem; }
+    .unit-details-actions {
+      display: flex; gap: .6rem; flex-wrap: wrap; margin-top: 1.25rem;
+      position: sticky; bottom: 0; background: var(--white, #fff); padding-top: .5rem;
+    }
+    .unit-details-actions .btn { flex: 1; min-width: 120px; }
+    .unit-details-close {
+      position: absolute; top: 10px; right: 10px; z-index: 2;
+      width: 36px; height: 36px; border-radius: 50%;
+      border: none; background: rgba(0,0,0,.5); color: #fff;
+      cursor: pointer; font-size: 1.2rem; line-height: 1;
+    }
+
+    /* App download modal */
     .app-modal {
       background: var(--white, #fff); border-radius: 16px; padding: 1.5rem; max-width: 360px; width: 100%;
       box-shadow: 0 20px 50px rgba(15,23,42,.2);
@@ -84,12 +168,12 @@
 
   <main class="container listings-hero">
     <h1>Browse homes</h1>
-    <p class="muted">Listed units from partners on NeztMate. Download the app to apply.</p>
+    <p class="muted">View full unit details and video. Apply from the app when you’re ready.</p>
 
     <div class="listings-filters">
       <div>
         <label class="muted" style="font-size:12px">Search</label>
-        <input id="listings-q" placeholder="Name, area…" />
+        <input id="listings-search" placeholder="Name, area…" />
       </div>
       <div>
         <label class="muted" style="font-size:12px">City</label>
@@ -118,10 +202,48 @@
     <div id="listings-empty">No listed homes match your filters yet. Check back soon or download the app for more options.</div>
   </main>
 
+  <!-- Unit details: open first -->
+  <div id="unit-details-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="unit-details-title">
+    <div class="unit-details-modal">
+      <div class="unit-details-media" id="unit-details-media">
+        <button type="button" class="unit-details-close" data-close-details aria-label="Close">×</button>
+        <div id="unit-details-media-stage"></div>
+        <div class="media-arrows">
+          <button type="button" id="unit-media-prev" aria-label="Previous">‹</button>
+          <button type="button" id="unit-media-next" aria-label="Next">›</button>
+        </div>
+        <div class="media-nav" id="unit-media-dots"></div>
+      </div>
+      <div class="unit-details-body">
+        <h2 id="unit-details-title">Unit</h2>
+        <div class="unit-details-rent" id="unit-details-rent">—</div>
+        <p class="muted" id="unit-details-loc" style="margin:0"></p>
+        <div class="unit-chip-row" id="unit-details-chips"></div>
+        <div class="unit-section">
+          <h4>About this home</h4>
+          <p id="unit-details-about">—</p>
+        </div>
+        <div class="unit-section" id="unit-details-amenities-wrap">
+          <h4>Amenities</h4>
+          <div class="unit-chip-row" id="unit-details-amenities"></div>
+        </div>
+        <div class="unit-section" id="unit-details-fees-wrap" style="display:none">
+          <h4>Fees</h4>
+          <p id="unit-details-fees"></p>
+        </div>
+        <div class="unit-details-actions">
+          <button type="button" class="btn btn-ghost" data-close-details>Close</button>
+          <button type="button" class="btn btn-primary" id="unit-details-apply">Apply to rent</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- App download: only after Apply -->
   <div id="app-download-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true">
     <div class="app-modal">
       <h3 id="modal-unit-title">Continue in the app</h3>
-      <p id="modal-unit-sub">Download the app to view full details and apply for this home.</p>
+      <p id="modal-unit-sub">Download the app to complete your application for this home.</p>
       <div class="app-modal-actions">
         <a class="btn btn-primary" id="modal-play-link" href="#" target="_blank" rel="noopener">Get on Google Play</a>
         <a class="btn btn-ghost" id="modal-ios-link" href="#" target="_blank" rel="noopener">Get on the App Store</a>
